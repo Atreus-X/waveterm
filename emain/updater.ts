@@ -16,6 +16,24 @@ import { ElectronWshClient } from "./emain-wsh";
 
 export let updater: Updater;
 
+// autoupdate:source -> generic feed url. "atreus" is this fork's release server, "official" is upstream Wave.
+const UpdateFeeds: Record<string, string> = {
+    atreus: "https://www.atreusproject.com/updater/waveterm",
+    official: "https://dl.waveterm.dev/releases-w2",
+};
+const DefaultUpdateSource = "atreus";
+
+function getUpdateFeedUrl(settings: SettingsType): string {
+    const source = settings["autoupdate:source"] ?? DefaultUpdateSource;
+    const url = UpdateFeeds[source];
+    if (url == null) {
+        console.log(`Unknown autoupdate:source ${JSON.stringify(source)}, using ${DefaultUpdateSource}`);
+        return UpdateFeeds[DefaultUpdateSource];
+    }
+    console.log("Update source:", source, url);
+    return url;
+}
+
 function getUpdateChannel(settings: SettingsType): string {
     const updaterConfigPath = path.join(process.resourcesPath!, "app-update.yml");
     const updaterConfig = YAML.parse(readFileSync(updaterConfigPath, { encoding: "utf8" }).toString());
@@ -59,6 +77,7 @@ export class Updater {
         console.log("Install update on quit:", settings["autoupdate:installonquit"]);
 
         // Only update the release channel if it's specified, otherwise use the one configured in the updater.
+        autoUpdater.setFeedURL({ provider: "generic", url: getUpdateFeedUrl(settings) });
         autoUpdater.channel = getUpdateChannel(settings);
         autoUpdater.allowDowngrade = false;
 

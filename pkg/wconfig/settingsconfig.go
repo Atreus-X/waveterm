@@ -129,6 +129,7 @@ type SettingsType struct {
 	AutoUpdateIntervalMs    float64 `json:"autoupdate:intervalms,omitempty"`
 	AutoUpdateInstallOnQuit bool    `json:"autoupdate:installonquit,omitempty"`
 	AutoUpdateChannel       string  `json:"autoupdate:channel,omitempty"`
+	AutoUpdateSource        string  `json:"autoupdate:source,omitempty" jsonschema:"enum=atreus,enum=official"`
 
 	MarkdownFontSize      float64 `json:"markdown:fontsize,omitempty"`
 	MarkdownFixedFontSize float64 `json:"markdown:fixedfontsize,omitempty"`

@@ -1440,6 +1440,7 @@ declare global {
         "autoupdate:intervalms"?: number;
         "autoupdate:installonquit"?: boolean;
         "autoupdate:channel"?: string;
+        "autoupdate:source"?: string;
         "markdown:fontsize"?: number;
         "markdown:fixedfontsize"?: number;
         "preview:showhiddenfiles"?: boolean;
@@ -1589,6 +1590,7 @@ declare global {
         "debug:panictype"?: string;
         "block:view"?: string;
         "block:controller"?: string;
+        "block:subblock"?: boolean;
         "ai:backendtype"?: string;
         "ai:local"?: boolean;
         "wsh:cmd"?: string;

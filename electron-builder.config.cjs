@@ -79,7 +79,10 @@ const config = {
         artifactName: "${name}-${platform}-${arch}-${version}.${ext}",
         category: "TerminalEmulator",
         executableName: pkg.name,
-        target: ["zip", "deb", "rpm", "snap", "AppImage", "pacman"],
+        // WAVE_LINUX_TARGETS (comma separated) lets the fork release workflow build only the auto-updatable formats
+        target: process.env.WAVE_LINUX_TARGETS
+            ? process.env.WAVE_LINUX_TARGETS.split(",")
+            : ["zip", "deb", "rpm", "snap", "AppImage", "pacman"],
         synopsis: pkg.description,
         description: null,
         desktop: {
@@ -96,7 +99,8 @@ const config = {
         afterInstall: "build/deb-postinstall.tpl",
     },
     win: {
-        target: ["nsis", "msi", "zip"],
+        // WAVE_WIN_TARGETS (comma separated), same idea as WAVE_LINUX_TARGETS
+        target: process.env.WAVE_WIN_TARGETS ? process.env.WAVE_WIN_TARGETS.split(",") : ["nsis", "msi", "zip"],
         signtoolOptions: windowsShouldSign && {
             signingHashAlgorithms: ["sha256"],
             publisherName: "Command Line Inc",
@@ -117,9 +121,10 @@ const config = {
         // this should remove /usr/lib/.build-id/ links which can conflict with other electron apps like slack
         fpm: ["--rpm-rpmbuild-define", "_build_id_links none"],
     },
+    // default update feed baked into app-update.yml; the app switches feeds at runtime via autoupdate:source
     publish: {
         provider: "generic",
-        url: "https://dl.waveterm.dev/releases-w2",
+        url: "https://www.atreusproject.com/updater/waveterm",
     },
     afterPack: (context) => {
         // This is a workaround to restore file permissions to the wavesrv binaries on macOS after packaging the universal binary.
