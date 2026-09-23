@@ -119,6 +119,7 @@ const (
 	ConfigKey_ConnClear                      = "conn:*"
 	ConfigKey_ConnAskBeforeWshInstall        = "conn:askbeforewshinstall"
 	ConfigKey_ConnWshEnabled                 = "conn:wshenabled"
+	ConfigKey_ConnSyncSshConfig              = "conn:syncsshconfig"
 	ConfigKey_ConnLocalHostnameDisplay       = "conn:localhostdisplayname"
 
 	ConfigKey_DebugClear                     = "debug:*"
