@@ -1,0 +1,171 @@
+# Atreus fork release: build Linux (AppImage + deb) and Windows (NSIS) packages, publish a GitHub
+# release on the fork, and SFTP-upload the installers + electron-updater feed files (latest.yml,
+# latest-linux.yml, blockmaps) to update-server.example, which serves them at
+# https://www.atreusproject.com/updater/waveterm/ (the "atreus" autoupdate:source feed).
+# Builds are unsigned.
+#
+# Trigger: gh workflow run atreus-release.yml [-f version=X.Y.Z]
+# Needs repo secret SFTP_PRIVATE_KEY (the upload-user key).
+
+name: Atreus Release
+run-name: Atreus Release ${{ inputs.version || '(auto version)' }}
+on:
+    workflow_dispatch:
+        inputs:
+            version:
+                description: "Version to release (X.Y.Z). Empty = bump patch of package.json (minimum 0.15.0)."
+                required: false
+                type: string
+env:
+    GO_VERSION: "1.25.6"
+    NODE_VERSION: 22
+    NODE_OPTIONS: --max-old-space-size=4096
+    SFTP_HOST: update-server.example
+    SFTP_PORT: "22"
+    SFTP_USER: upload-user
+    SFTP_REMOTE_PATH: /path/to/feed
+    # captured via `ssh-keyscan -p 22 update-server.example`
+    SFTP_KNOWN_HOST: "[update-server.example]:22ssh-ed25519 REDACTED"
+jobs:
+    version:
+        runs-on: ubuntu-latest
+        outputs:
+            version: ${{ steps.pick.outputs.version }}
+        steps:
+            - uses: actions/checkout@v6
+            - name: Pick version
+              id: pick
+              env:
+                  INPUT_VERSION: ${{ inputs.version }}
+              run: |
+                  node -e '
+                  const cur = require("./package.json").version.split("-")[0].split(".").map(Number);
+                  let v = process.env.INPUT_VERSION;
+                  if (!v) {
+                      let [ma, mi, pa] = cur;
+                      if (ma === 0 && mi < 15) { mi = 15; pa = 0; } else { pa += 1; }
+                      v = `${ma}.${mi}.${pa}`;
+                  }
+                  if (!/^\d+\.\d+\.\d+$/.test(v)) { console.error("bad version " + v); process.exit(1); }
+                  console.log("version=" + v);
+                  ' >> "$GITHUB_OUTPUT"
+                  cat "$GITHUB_OUTPUT"
+
+    build:
+        needs: version
+        strategy:
+            matrix:
+                include:
+                    - platform: linux
+                      runner: ubuntu-latest
+                    - platform: windows
+                      runner: windows-latest
+        runs-on: ${{ matrix.runner }}
+        steps:
+            - uses: actions/checkout@v6
+            - name: Install Linux build dependencies
+              if: matrix.platform == 'linux'
+              run: |
+                  sudo apt-get update
+                  sudo apt-get install --no-install-recommends -y libarchive-tools libopenjp2-tools squashfs-tools
+                  sudo gem install fpm
+            - name: Install FPM (Windows)
+              if: matrix.platform == 'windows'
+              run: gem install fpm
+            - uses: mlugg/setup-zig@v2
+            - uses: actions/setup-go@v6
+              with:
+                  go-version: ${{ env.GO_VERSION }}
+                  cache-dependency-path: go.sum
+            - uses: actions/setup-node@v6
+              with:
+                  node-version: ${{ env.NODE_VERSION }}
+                  cache: npm
+                  cache-dependency-path: package-lock.json
+            - name: Force git deps to HTTPS
+              run: |
+                  git config --global url.https://github.com/.insteadof ssh://git@github.com/
+                  git config --global url.https://github.com/.insteadof git@github.com:
+            - uses: nick-fields/retry@v4
+              name: npm ci
+              with:
+                  command: npm ci --no-audit --no-fund
+                  retry_on: error
+                  max_attempts: 3
+                  timeout_minutes: 5
+            - uses: arduino/setup-task@v2
+              with:
+                  version: 3.x
+                  repo-token: ${{ secrets.GITHUB_TOKEN }}
+            - name: Set version
+              run: npm version ${{ needs.version.outputs.version }} --no-git-tag-version --allow-same-version
+              shell: bash
+            - name: Build
+              run: task package
+              env:
+                  USE_SYSTEM_FPM: true
+                  WAVE_LINUX_TARGETS: AppImage,deb
+                  WAVE_WIN_TARGETS: nsis
+              shell: bash
+            - uses: actions/upload-artifact@v5
+              with:
+                  name: make-${{ matrix.platform }}
+                  path: |
+                      make/*.AppImage
+                      make/*.deb
+                      make/*.exe
+                      make/*.blockmap
+                      make/latest*.yml
+                  if-no-files-found: error
+
+    publish:
+        needs: [version, build]
+        runs-on: ubuntu-latest
+        permissions:
+            contents: write
+        env:
+            VERSION: ${{ needs.version.outputs.version }}
+        steps:
+            - uses: actions/checkout@v6
+            - uses: actions/download-artifact@v4
+              with:
+                  path: make
+                  merge-multiple: true
+            - name: List artifacts
+              run: ls -la make
+            - name: Upload to update server (SFTP)
+              env:
+                  SFTP_PRIVATE_KEY: ${{ secrets.SFTP_PRIVATE_KEY }}
+              run: |
+                  set -euo pipefail
+                  install -m 700 -d ~/.ssh
+                  printf '%s\n' "$SFTP_PRIVATE_KEY" > ~/.ssh/uploader_key
+                  chmod 600 ~/.ssh/uploader_key
+                  printf '%s\n' "$SFTP_KNOWN_HOST" > ~/.ssh/known_hosts
+                  {
+                      echo "-mkdir $SFTP_REMOTE_PATH"
+                      # installers first, feed files last, so clients never see a feed pointing at a missing file
+                      for f in make/*.AppImage make/*.deb make/*.exe make/*.blockmap; do
+                          echo "put \"$f\" \"$SFTP_REMOTE_PATH/$(basename "$f")\""
+                      done
+                      for f in make/latest*.yml; do
+                          echo "put \"$f\" \"$SFTP_REMOTE_PATH/$(basename "$f")\""
+                      done
+                  } > sftp_batch.txt
+                  cat sftp_batch.txt
+                  sftp -P "$SFTP_PORT" -i ~/.ssh/uploader_key -o UserKnownHostsFile=~/.ssh/known_hosts -o StrictHostKeyChecking=yes -b sftp_batch.txt "$SFTP_USER@$SFTP_HOST"
+            - name: GitHub release
+              env:
+                  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+              run: |
+                  gh release create "atreus-v$VERSION" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+                      --title "Wave Terminal (Atreus) v$VERSION" --generate-notes \
+                      make/*.AppImage make/*.deb make/*.exe
+            - name: Commit version bump
+              run: |
+                  git config user.name "github-actions[bot]"
+                  git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+                  npm version "$VERSION" --no-git-tag-version --allow-same-version
+                  git add package.json package-lock.json
+                  git commit -m "chore: release v$VERSION" || echo "version unchanged"
+                  git push origin "HEAD:${GITHUB_REF_NAME}"

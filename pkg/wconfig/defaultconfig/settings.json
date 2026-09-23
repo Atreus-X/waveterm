@@ -13,6 +13,7 @@
     "app:focusfollowscursor": "off",
     "autoupdate:enabled": true,
     "autoupdate:installonquit": true,
+    "autoupdate:source": "atreus",
     "autoupdate:intervalms": 3600000,
     "conn:askbeforewshinstall": true,
     "conn:wshenabled": true,

@@ -80,6 +80,7 @@ const (
 	ConfigKey_AutoUpdateIntervalMs           = "autoupdate:intervalms"
 	ConfigKey_AutoUpdateInstallOnQuit        = "autoupdate:installonquit"
 	ConfigKey_AutoUpdateChannel              = "autoupdate:channel"
+	ConfigKey_AutoUpdateSource               = "autoupdate:source"
 
 	ConfigKey_MarkdownFontSize               = "markdown:fontsize"
 	ConfigKey_MarkdownFixedFontSize          = "markdown:fixedfontsize"

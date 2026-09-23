@@ -1446,6 +1446,7 @@ declare global {
         "autoupdate:intervalms"?: number;
         "autoupdate:installonquit"?: boolean;
         "autoupdate:channel"?: string;
+        "autoupdate:source"?: string;
         "markdown:fontsize"?: number;
         "markdown:fixedfontsize"?: number;
         "preview:showhiddenfiles"?: boolean;

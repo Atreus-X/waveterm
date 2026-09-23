@@ -222,6 +222,13 @@
         "autoupdate:channel": {
           "type": "string"
         },
+        "autoupdate:source": {
+          "type": "string",
+          "enum": [
+            "atreus",
+            "official"
+          ]
+        },
         "markdown:fontsize": {
           "type": "number"
         },
