@@ -1,7 +1,7 @@
 #!/bin/bash
-# Build (and optionally publish) an Atreus fork release locally on Linux — the local counterpart of
-# .github/workflows/atreus-release.yml. Produces the same artifacts: Linux AppImage + deb and a
-# cross-built Windows x64 NSIS installer, plus the electron-updater feed files.
+# Build (and optionally publish) an Atreus fork release locally on Linux. This is the only release
+# path — the fork doesn't build on GitHub Actions. Produces Linux AppImage + deb and a cross-built
+# Windows x64 NSIS installer, plus the electron-updater feed files.
 #
 # Usage:
 #   scripts/atreus-release-local.sh              # build only, artifacts in make/
@@ -132,7 +132,12 @@ echo "== GitHub release $TAG"
 notes=$(mktemp)
 awk -v hdr="### v$VERSION " 'index($0, hdr) == 1 {f=1; next} f && /^### v/ {exit} f' docs/docs/releasenotes.mdx > "$notes"
 if [ -s "$notes" ]; then notes_args=(--notes-file "$notes"); else notes_args=(--generate-notes); fi
-gh release create "$TAG" --repo "$GH_REPO" --target "$SHA" \
+# push the tag with git first: the releases API can 404 when asked to create a tag on an older
+# commit by SHA (seen right after pushing rewritten history), while a git-pushed tag always works
+if ! git ls-remote --exit-code --tags "git@github.com:$GH_REPO.git" "refs/tags/$TAG" >/dev/null; then
+    git push "git@github.com:$GH_REPO.git" "$SHA:refs/tags/$TAG"
+fi
+gh release create "$TAG" --repo "$GH_REPO" --verify-tag \
     --title "Wave Terminal (Atreus) v$VERSION" "${notes_args[@]}" "${INSTALLERS[@]}"
 rm -f "$notes"
 echo "== released $TAG"
