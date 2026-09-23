@@ -821,6 +821,7 @@ declare global {
     type ConnKeywords = {
         "conn:wshenabled"?: boolean;
         "conn:askbeforewshinstall"?: boolean;
+        "conn:autoconnect"?: boolean;
         "conn:wshpath"?: string;
         "conn:shellpath"?: string;
         "conn:ignoresshconfig"?: boolean;
@@ -1474,6 +1475,7 @@ declare global {
         "conn:*"?: boolean;
         "conn:askbeforewshinstall"?: boolean;
         "conn:wshenabled"?: boolean;
+        "conn:autoconnect"?: boolean;
         "conn:localhostdisplayname"?: string;
         "debug:*"?: boolean;
         "debug:pprofport"?: number;
@@ -1589,6 +1591,7 @@ declare global {
         "debug:panictype"?: string;
         "block:view"?: string;
         "block:controller"?: string;
+        "block:subblock"?: boolean;
         "ai:backendtype"?: string;
         "ai:local"?: boolean;
         "wsh:cmd"?: string;

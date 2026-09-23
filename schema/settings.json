@@ -322,6 +322,9 @@
         "conn:wshenabled": {
           "type": "boolean"
         },
+        "conn:autoconnect": {
+          "type": "boolean"
+        },
         "conn:localhostdisplayname": {
           "type": "string"
         },

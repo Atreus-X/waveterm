@@ -16,6 +16,7 @@
     "autoupdate:intervalms": 3600000,
     "conn:askbeforewshinstall": true,
     "conn:wshenabled": true,
+    "conn:autoconnect": true,
     "editor:minimapenabled": true,
     "web:defaulturl": "https://github.com/wavetermdev/waveterm",
     "web:defaultsearch": "https://www.google.com/search?q={query}",
