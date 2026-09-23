@@ -18,6 +18,7 @@ import (
 	"github.com/wavetermdev/waveterm/pkg/blocklogger"
 	"github.com/wavetermdev/waveterm/pkg/filestore"
 	"github.com/wavetermdev/waveterm/pkg/panichandler"
+	"github.com/wavetermdev/waveterm/pkg/remote"
 	"github.com/wavetermdev/waveterm/pkg/remote/conncontroller"
 	"github.com/wavetermdev/waveterm/pkg/streamclient"
 	"github.com/wavetermdev/waveterm/pkg/telemetry"
@@ -1355,13 +1356,21 @@ func IsBlockTermDurable(block *waveobj.Block) bool {
 		return false
 	}
 
+	connName := block.Meta.GetString(waveobj.MetaKey_Connection, "")
+
+	// durable sessions run inside wsh's job manager, so they can't exist on a connection with
+	// wsh disabled; checked before JobId so a block left with a stale job falls back to a normal
+	// shell instead of never starting (term:tmux is the wsh-free alternative)
+	if !conncontroller.IsLocalConnName(connName) && !conncontroller.IsWslConnName(connName) && !isConnWshConfigEnabled(connName) {
+		return false
+	}
+
 	// 1. Check if block has a JobId
 	if block.JobId != "" {
 		return true
 	}
 
 	// 2. Check if connection is local or WSL (not durable)
-	connName := block.Meta.GetString(waveobj.MetaKey_Connection, "")
 	if conncontroller.IsLocalConnName(connName) || conncontroller.IsWslConnName(connName) {
 		return false
 	}
@@ -1388,6 +1397,21 @@ func IsBlockTermDurable(block *waveobj.Block) bool {
 	}
 	// Default to true for non-local connections
 	return true
+}
+
+// isConnWshConfigEnabled resolves conn:wshenabled (connection config -> global settings), and
+// also reports false for a live connection that came up without wsh (install declined/failed)
+func isConnWshConfigEnabled(connName string) bool {
+	if opts, err := remote.ParseOpts(connName); err == nil {
+		if conn := conncontroller.MaybeGetConn(opts); conn != nil && conn.DeriveConnStatus().Status == conncontroller.Status_Connected && !conn.WshEnabled.Load() {
+			return false
+		}
+	}
+	fullConfig := wconfig.GetWatcher().GetFullConfig()
+	if connConfig, ok := fullConfig.Connections[connName]; ok && connConfig.ConnWshEnabled != nil {
+		return *connConfig.ConnWshEnabled
+	}
+	return fullConfig.Settings.ConnWshEnabled
 }
 
 func IsBlockIdTermDurable(blockId string) bool {

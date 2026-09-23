@@ -46,6 +46,10 @@ func MakeConnMonitor(conn *SSHConn, client *ssh.Client) *ConnMonitor {
 		cancelFunc:    cancelFunc,
 		inputNotifyCh: make(chan int64, 1),
 	}
+	// without this, a connection with no wsh output never records activity: checkConnection bails
+	// on a zero LastActivityTime, so no keepalive is ever sent and the first keystroke leaves the
+	// connection stuck at "degraded"
+	cm.LastActivityTime.Store(time.Now().UnixMilli())
 	go cm.keepAliveMonitor()
 	return cm
 }
