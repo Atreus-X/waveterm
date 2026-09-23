@@ -49,6 +49,9 @@ func Read(ctx context.Context, data wshrpc.FileData) (*wshrpc.FileData, error) {
 	if err != nil {
 		return nil, err
 	}
+	if alt := getAltFs(ctx, conn.Host); alt != nil {
+		return altRead(ctx, alt, conn, data)
+	}
 	broker := RpcClient.StreamBroker
 	if broker == nil {
 		return nil, fmt.Errorf("stream broker not available")
@@ -108,6 +111,9 @@ func FileStream(ctx context.Context, data wshrpc.CommandFileStreamData) (*wshrpc
 	if err != nil {
 		return nil, err
 	}
+	if getAltFs(ctx, conn.Host) != nil {
+		return nil, fmt.Errorf("stream-to-route is not supported for connection %q (use OpenAltStream)", conn.Host)
+	}
 	remoteData := wshrpc.CommandRemoteFileStreamData{
 		Path:       conn.Path,
 		ByteRange:  data.ByteRange,
@@ -123,7 +129,7 @@ func ListEntries(ctx context.Context, path string, opts *wshrpc.FileListOpts) ([
 		return nil, err
 	}
 	var entries []*wshrpc.FileInfo
-	rtnCh := listEntriesStream(conn, opts)
+	rtnCh := listEntriesStream(ctx, conn, opts)
 	for respUnion := range rtnCh {
 		if respUnion.Error != nil {
 			return nil, respUnion.Error
@@ -140,10 +146,13 @@ func ListEntriesStream(ctx context.Context, path string, opts *wshrpc.FileListOp
 	if err != nil {
 		return wshutil.SendErrCh[wshrpc.CommandRemoteListEntriesRtnData](err)
 	}
-	return listEntriesStream(conn, opts)
+	return listEntriesStream(ctx, conn, opts)
 }
 
-func listEntriesStream(conn *connparse.Connection, opts *wshrpc.FileListOpts) <-chan wshrpc.RespOrErrorUnion[wshrpc.CommandRemoteListEntriesRtnData] {
+func listEntriesStream(ctx context.Context, conn *connparse.Connection, opts *wshrpc.FileListOpts) <-chan wshrpc.RespOrErrorUnion[wshrpc.CommandRemoteListEntriesRtnData] {
+	if alt := getAltFs(ctx, conn.Host); alt != nil {
+		return alt.ListEntries(ctx, conn.Path, opts)
+	}
 	return wshclient.RemoteListEntriesCommand(RpcClient, wshrpc.CommandRemoteListEntriesData{Path: conn.Path, Opts: opts}, &wshrpc.RpcOpts{Route: wshutil.MakeConnectionRouteId(conn.Host)})
 }
 
@@ -153,10 +162,13 @@ func Stat(ctx context.Context, path string) (*wshrpc.FileInfo, error) {
 	if err != nil {
 		return nil, err
 	}
-	return stat(conn)
+	return stat(ctx, conn)
 }
 
-func stat(conn *connparse.Connection) (*wshrpc.FileInfo, error) {
+func stat(ctx context.Context, conn *connparse.Connection) (*wshrpc.FileInfo, error) {
+	if alt := getAltFs(ctx, conn.Host); alt != nil {
+		return alt.Stat(ctx, conn.Path)
+	}
 	return wshclient.RemoteFileInfoCommand(RpcClient, conn.Path, &wshrpc.RpcOpts{Route: wshutil.MakeConnectionRouteId(conn.Host)})
 }
 
@@ -179,6 +191,9 @@ func PutFile(ctx context.Context, data wshrpc.FileData) error {
 	info.Path = conn.Path
 	info.Opts.Truncate = true
 	data.Info = info
+	if alt := getAltFs(ctx, conn.Host); alt != nil {
+		return alt.Write(ctx, data)
+	}
 	return wshclient.RemoteWriteFileCommand(RpcClient, data, &wshrpc.RpcOpts{Route: wshutil.MakeConnectionRouteId(conn.Host)})
 }
 
@@ -201,6 +216,9 @@ func Append(ctx context.Context, data wshrpc.FileData) error {
 	info.Path = conn.Path
 	info.Opts.Append = true
 	data.Info = info
+	if alt := getAltFs(ctx, conn.Host); alt != nil {
+		return alt.Write(ctx, data)
+	}
 	return wshclient.RemoteWriteFileCommand(RpcClient, data, &wshrpc.RpcOpts{Route: wshutil.MakeConnectionRouteId(conn.Host)})
 }
 
@@ -209,6 +227,9 @@ func Mkdir(ctx context.Context, path string) error {
 	conn, err := parseConnection(ctx, path)
 	if err != nil {
 		return err
+	}
+	if alt := getAltFs(ctx, conn.Host); alt != nil {
+		return alt.Mkdir(ctx, conn.Path)
 	}
 	return wshclient.RemoteMkdirCommand(RpcClient, conn.Path, &wshrpc.RpcOpts{Route: wshutil.MakeConnectionRouteId(conn.Host)})
 }
@@ -227,12 +248,22 @@ func Move(ctx context.Context, data wshrpc.CommandFileCopyData) error {
 	if err != nil {
 		return fmt.Errorf("error parsing destination connection: %w", err)
 	}
+	srcAlt, destAlt := getAltFs(ctx, srcConn.Host), getAltFs(ctx, destConn.Host)
+	if srcConn.Host == destConn.Host && srcAlt != nil {
+		return srcAlt.Move(ctx, srcConn.Path, destConn.Path)
+	}
+	if srcAlt != nil || destAlt != nil {
+		if err := copyViaServer(ctx, data.SrcUri, data.DestUri, opts); err != nil {
+			return fmt.Errorf("cannot copy %q to %q: %w", data.SrcUri, data.DestUri, err)
+		}
+		return delete_(ctx, srcConn, false)
+	}
 	if srcConn.Host != destConn.Host {
 		isDir, err := copyInternal(srcConn, destConn, opts)
 		if err != nil {
 			return fmt.Errorf("cannot copy %q to %q: %w", data.SrcUri, data.DestUri, err)
 		}
-		return delete_(srcConn, opts.Recursive && isDir)
+		return delete_(ctx, srcConn, opts.Recursive && isDir)
 	}
 	return moveInternal(srcConn, destConn, opts)
 }
@@ -251,6 +282,9 @@ func Copy(ctx context.Context, data wshrpc.CommandFileCopyData) error {
 	if err != nil {
 		return fmt.Errorf("error parsing destination connection: %w", err)
 	}
+	if getAltFs(ctx, srcConn.Host) != nil || getAltFs(ctx, destConn.Host) != nil {
+		return copyViaServer(ctx, data.SrcUri, data.DestUri, opts)
+	}
 	_, err = copyInternal(srcConn, destConn, opts)
 	return err
 }
@@ -261,10 +295,13 @@ func Delete(ctx context.Context, data wshrpc.CommandDeleteFileData) error {
 	if err != nil {
 		return err
 	}
-	return delete_(conn, data.Recursive)
+	return delete_(ctx, conn, data.Recursive)
 }
 
-func delete_(conn *connparse.Connection, recursive bool) error {
+func delete_(ctx context.Context, conn *connparse.Connection, recursive bool) error {
+	if alt := getAltFs(ctx, conn.Host); alt != nil {
+		return alt.Delete(ctx, conn.Path, recursive)
+	}
 	return wshclient.RemoteFileDeleteCommand(RpcClient, wshrpc.CommandDeleteFileData{Path: conn.Path, Recursive: recursive}, &wshrpc.RpcOpts{Route: wshutil.MakeConnectionRouteId(conn.Host)})
 }
 
@@ -273,6 +310,9 @@ func Join(ctx context.Context, path string, parts ...string) (*wshrpc.FileInfo, 
 	conn, err := parseConnection(ctx, path)
 	if err != nil {
 		return nil, err
+	}
+	if alt := getAltFs(ctx, conn.Host); alt != nil {
+		return alt.Join(ctx, append([]string{conn.Path}, parts...))
 	}
 	return wshclient.RemoteFileJoinCommand(RpcClient, append([]string{conn.Path}, parts...), &wshrpc.RpcOpts{Route: wshutil.MakeConnectionRouteId(conn.Host)})
 }
