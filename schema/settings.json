@@ -168,6 +168,12 @@
         "term:durable": {
           "type": "boolean"
         },
+        "term:tmux": {
+          "type": "boolean"
+        },
+        "term:reconnectcmd": {
+          "type": "string"
+        },
         "term:showsplitbuttons": {
           "type": "boolean"
         },

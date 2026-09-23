@@ -59,6 +59,8 @@ const (
 	ConfigKey_TermBellIndicator              = "term:bellindicator"
 	ConfigKey_TermOsc52                      = "term:osc52"
 	ConfigKey_TermDurable                    = "term:durable"
+	ConfigKey_TermTmux                       = "term:tmux"
+	ConfigKey_TermReconnectCmd               = "term:reconnectcmd"
 	ConfigKey_TermShowSplitButtons           = "term:showsplitbuttons"
 	ConfigKey_TermTrimTrailingWhitespace     = "term:trimtrailingwhitespace"
 

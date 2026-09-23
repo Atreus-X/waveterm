@@ -291,7 +291,8 @@ func StartWslShellProc(ctx context.Context, termSize waveobj.TermSize, cmdStr st
 	return &ShellProc{Cmd: cmdWrap, ConnName: conn.GetName(), CloseOnce: &sync.Once{}, DoneCh: make(chan any)}, nil
 }
 
-func StartRemoteShellProcNoWsh(ctx context.Context, termSize waveobj.TermSize, cmdStr string, cmdOpts CommandOptsType, conn *conncontroller.SSHConn) (*ShellProc, error) {
+// sessionCmd, if non-empty, is run on the remote host (with a pty) instead of the login shell
+func StartRemoteShellProcNoWsh(ctx context.Context, termSize waveobj.TermSize, cmdStr string, cmdOpts CommandOptsType, conn *conncontroller.SSHConn, sessionCmd string) (*ShellProc, error) {
 	client := conn.GetClient()
 	conn.Infof(ctx, "SSH-NEWSESSION (StartRemoteShellProcNoWsh)")
 	session, err := client.NewSession()
@@ -326,7 +327,11 @@ func StartRemoteShellProcNoWsh(ctx context.Context, termSize waveobj.TermSize, c
 
 	session.RequestPty("xterm-256color", termSize.Rows, termSize.Cols, nil)
 	sessionWrap := MakeSessionWrap(session, "", pipePty)
-	err = session.Shell()
+	if sessionCmd != "" {
+		err = session.Start(sessionCmd)
+	} else {
+		err = session.Shell()
+	}
 	if err != nil {
 		pipePty.Close()
 		return nil, err

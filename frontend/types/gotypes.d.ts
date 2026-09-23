@@ -831,6 +831,8 @@ declare global {
         "term:fontfamily"?: string;
         "term:theme"?: string;
         "term:durable"?: boolean;
+        "term:tmux"?: boolean;
+        "term:reconnectcmd"?: string;
         "cmd:env"?: {[key: string]: string};
         "cmd:initscript"?: string;
         "cmd:initscript.sh"?: string;
@@ -1190,6 +1192,8 @@ declare global {
         "term:bellindicator"?: boolean;
         "term:osc52"?: string;
         "term:durable"?: boolean;
+        "term:tmux"?: boolean;
+        "term:reconnectcmd"?: string;
         "web:zoom"?: number;
         "web:hidenav"?: boolean;
         "web:partition"?: string;
@@ -1424,6 +1428,8 @@ declare global {
         "term:bellindicator"?: boolean;
         "term:osc52"?: string;
         "term:durable"?: boolean;
+        "term:tmux"?: boolean;
+        "term:reconnectcmd"?: string;
         "term:showsplitbuttons"?: boolean;
         "term:trimtrailingwhitespace"?: boolean;
         "editor:minimapenabled"?: boolean;
@@ -1589,6 +1595,7 @@ declare global {
         "debug:panictype"?: string;
         "block:view"?: string;
         "block:controller"?: string;
+        "block:subblock"?: boolean;
         "ai:backendtype"?: string;
         "ai:local"?: boolean;
         "wsh:cmd"?: string;

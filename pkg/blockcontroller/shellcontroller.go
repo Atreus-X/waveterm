@@ -65,6 +65,10 @@ type ShellController struct {
 	// for shell/cmd
 	ShellProc    *shellexec.ShellProc
 	ShellInputCh chan *BlockInputUnion
+
+	// set when the remote shell runs inside a tmux session (term:tmux), so it can be killed on block close
+	TmuxSession string
+	TmuxConn    *conncontroller.SSHConn
 }
 
 // Constructor that returns the Controller interface
@@ -460,7 +464,7 @@ func (bc *ShellController) setupAndStartShellProcess(logCtx context.Context, rc 
 	} else if connUnion.ConnType == ConnType_Ssh {
 		conn := connUnion.SshConn
 		if !connUnion.WshEnabled {
-			shellProc, err = shellexec.StartRemoteShellProcNoWsh(ctx, rc.TermSize, cmdStr, cmdOpts, conn)
+			shellProc, err = bc.startSshShellProcNoWsh(ctx, rc, cmdStr, cmdOpts, conn, blockMeta, remoteName)
 			if err != nil {
 				return nil, err
 			}
@@ -484,7 +488,7 @@ func (bc *ShellController) setupAndStartShellProcess(logCtx context.Context, rc 
 				conn.WshEnabled.Store(false)
 				blocklogger.Infof(logCtx, "[conndebug] error starting remote shell proc with wsh: %v\n", err)
 				blocklogger.Infof(logCtx, "[conndebug] attempting install without wsh\n")
-				shellProc, err = shellexec.StartRemoteShellProcNoWsh(ctx, rc.TermSize, cmdStr, cmdOpts, conn)
+				shellProc, err = bc.startSshShellProcNoWsh(ctx, rc, cmdStr, cmdOpts, conn, blockMeta, remoteName)
 				if err != nil {
 					return nil, err
 				}
@@ -519,6 +523,36 @@ func (bc *ShellController) setupAndStartShellProcess(logCtx context.Context, rc 
 		bc.ProcStatus = Status_Running
 		return true
 	})
+	return shellProc, nil
+}
+
+// starts a no-wsh ssh shell, applying term:tmux and term:reconnectcmd.
+// with tmux, the reconnect command runs when the tmux session is (re)created;
+// without tmux, it is typed into every new shell.
+func (bc *ShellController) startSshShellProcNoWsh(ctx context.Context, rc *RunShellOpts, cmdStr string, cmdOpts shellexec.CommandOptsType, conn *conncontroller.SSHConn, blockMeta waveobj.MetaMapType, connName string) (*shellexec.ShellProc, error) {
+	var sessionCmd, initialInput, tmuxName string
+	if bc.ControllerType == BlockController_Shell {
+		reconnectCmd := getTermReconnectCmd(blockMeta, connName)
+		if getTermTmux(blockMeta, connName) {
+			tmuxName = tmuxSessionName(bc.BlockId)
+			sessionCmd = makeTmuxAttachCmd(tmuxName, reconnectCmd, rc.TermSize)
+		} else {
+			initialInput = reconnectCmd
+		}
+	}
+	shellProc, err := shellexec.StartRemoteShellProcNoWsh(ctx, rc.TermSize, cmdStr, cmdOpts, conn, sessionCmd)
+	if err != nil {
+		return nil, err
+	}
+	bc.WithLock(func() {
+		bc.TmuxSession = tmuxName
+		bc.TmuxConn = conn
+	})
+	if initialInput != "" {
+		if _, err := shellProc.Cmd.Write([]byte(initialInput + "\r")); err != nil {
+			log.Printf("error writing reconnect cmd for block %s: %v\n", bc.BlockId, err)
+		}
+	}
 	return shellProc, nil
 }
 
