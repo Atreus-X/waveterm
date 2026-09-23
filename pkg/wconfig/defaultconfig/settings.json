@@ -32,7 +32,7 @@
     "window:magnifiedblockblursecondarypx": 2,
     "window:confirmclose": true,
     "window:savelastwindow": true,
-    "telemetry:enabled": true,
+    "telemetry:enabled": false,
     "term:bellsound": false,
     "term:bellindicator": true,
     "term:osc52": "always",
@@ -41,7 +41,7 @@
     "term:copyonselect": true,
     "term:trimtrailingwhitespace": true,
     "term:durable": false,
-    "waveai:showcloudmodes": true,
+    "waveai:showcloudmodes": false,
     "waveai:defaultmode": "waveai@balanced",
     "preview:defaultsort": "name"
 }

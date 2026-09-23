@@ -1,1 +1,8 @@
 Copyright 2025, Command Line Inc.
+
+This product is a modified version of Wave Terminal (https://github.com/wavetermdev/waveterm),
+maintained by Atreus-X at https://github.com/Atreus-X/waveterm. It is not an official release
+of, and is not endorsed by, Command Line Inc.
+
+Modifications Copyright 2026, Atreus-X. Files changed from upstream are identified by the
+repository's git history; files added by the fork carry an Atreus-X copyright header.

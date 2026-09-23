@@ -1,16 +1,16 @@
 {
     "name": "waveterm",
     "author": {
-        "name": "Command Line Inc",
-        "email": "info@commandline.dev"
+        "name": "Atreus-X",
+        "email": "atreus@atreusproject.com"
     },
     "productName": "Wave",
     "description": "Open-Source AI-Native Terminal Built for Seamless Workflows",
     "license": "Apache-2.0",
     "version": "0.15.0",
-    "homepage": "https://waveterm.dev",
+    "homepage": "https://github.com/Atreus-X/waveterm",
     "build": {
-        "appId": "dev.commandline.waveterm"
+        "appId": "com.atreusproject.waveterm"
     },
     "private": true,
     "main": "./dist/main/index.js",

@@ -36,6 +36,9 @@ const config = {
             from: "dist/tsunamiscaffold",
             to: "tsunamiscaffold",
         },
+        // Apache-2.0 §4(a)/(d): redistributed binaries must carry the license and NOTICE
+        { from: "LICENSE", to: "LICENSE" },
+        { from: "NOTICE", to: "NOTICE" },
     ],
     directories: {
         output: "make",

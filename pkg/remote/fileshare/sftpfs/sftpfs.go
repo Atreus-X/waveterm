@@ -1,4 +1,4 @@
-// Copyright 2026, Command Line Inc.
+// Copyright 2026, Atreus-X (fork of Wave Terminal by Command Line Inc.)
 // SPDX-License-Identifier: Apache-2.0
 
 // Package sftpfs serves the file browser (preview view) for SSH connections that run without

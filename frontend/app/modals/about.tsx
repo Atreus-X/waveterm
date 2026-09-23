@@ -76,6 +76,17 @@ const AboutModalV = ({ versionString, updaterChannel, onClose }: AboutModalVProp
                 </div>
                 <div className="items-center gap-4 self-stretch w-full text-center">
                     &copy; {currentDate.getFullYear()} Command Line Inc.
+                    <br />
+                    Unofficial build by{" "}
+                    <a
+                        href="https://github.com/Atreus-X/waveterm"
+                        target="_blank"
+                        rel="noopener"
+                        className="underline cursor-pointer"
+                    >
+                        Atreus-X
+                    </a>
+                    , not endorsed by Command Line Inc.
                 </div>
             </div>
         </Modal>
