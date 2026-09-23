@@ -6,6 +6,21 @@ sidebar_position: 200
 
 # Release Notes
 
+### v0.15.0 (Atreus fork) &mdash; Sep 23, 2026
+
+First release of the [Atreus-X fork](https://github.com/Atreus-X/waveterm), based on upstream v0.14.5 plus later upstream fixes. Focused on using SSH hosts from `~/.ssh/config` **without installing `wsh`** on them.
+
+- **tmux-backed Remote Sessions** - New `term:tmux` setting (global, per connection, or per block) runs each remote terminal inside its own tmux session on the host, so restarting Wave or losing the network re-attaches to the same session instead of starting over. Closing the block ends the session
+- **Reconnect Command** - New `term:reconnectcmd` setting types a command into each fresh session (e.g. `cd ~/repos && clear && claude agents`); with tmux it runs only when the session is first created
+- **Auto-connect on Launch** - New `conn:autoconnect` setting (default on) connects and starts remote terminals in _all_ tabs at startup, not just the visible one, and retries unreachable hosts with backoff
+- **SFTP File Browser** - The file browser, previews, and file operations now work on connections without `wsh`, using SFTP over the existing SSH connection (nothing to install on the remote)
+- **SSH Config Sync** - Hosts from `~/.ssh/config` (now including `Include`d files) are added to `connections.json` automatically (`conn:syncsshconfig`, default on) so per-host settings have a place to live; existing entries are never modified
+- **Update Source** - New `autoupdate:source` setting chooses between this fork's builds (`atreus`, default) and upstream Wave (`official`)
+- [bugfix] System SSH config is read from `/etc/ssh/ssh_config` (was `/etc/ssh/config`)
+- [bugfix] Connections from `connections.json` are listed in a stable order in the connection picker
+- [docs] Fixed the documented key for disabling `wsh` (`conn:wshenabled`)
+- Package updates (`golang.org/x/crypto`, `github.com/pkg/sftp`)
+
 ### v0.14.5 &mdash; Apr 16, 2026
 
 Wave v0.14.5 introduces a new Process Viewer widget, Quake Mode for global hotkey, and several quality-of-life improvements.

@@ -158,8 +158,11 @@ jobs:
               env:
                   GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
               run: |
+                  # use the "### vX.Y.Z" section of docs/docs/releasenotes.mdx as the release body, if present
+                  awk -v hdr="### v$VERSION " 'index($0, hdr) == 1 {f=1; next} f && /^### v/ {exit} f' docs/docs/releasenotes.mdx > release-notes.md
+                  if [ -s release-notes.md ]; then notes_args=(--notes-file release-notes.md); else notes_args=(--generate-notes); fi
                   gh release create "atreus-v$VERSION" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
-                      --title "Wave Terminal (Atreus) v$VERSION" --generate-notes \
+                      --title "Wave Terminal (Atreus) v$VERSION" "${notes_args[@]}" \
                       make/*.AppImage make/*.deb make/*.exe
             - name: Commit version bump
               run: |
