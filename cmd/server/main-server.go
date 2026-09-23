@@ -156,6 +156,10 @@ func diagnosticLoop() {
 }
 
 func sendDiagnosticPing() bool {
+	// fork builds shouldn't report to Command Line Inc's servers unless the user opted into telemetry
+	if !telemetry.IsTelemetryEnabled() {
+		return false
+	}
 	ctx, cancelFn := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancelFn()
 
