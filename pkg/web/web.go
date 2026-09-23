@@ -239,6 +239,7 @@ func handleLocalStreamFile(w http.ResponseWriter, r *http.Request, path string, 
 		path, err := wavebase.ExpandHomeDir(path)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
 		}
 		http.ServeFile(w, r, path)
 	}
@@ -408,6 +409,8 @@ func WebFnWrap(opts WebFnOpts, fn WebFnType) WebFnType {
 			if recErr == nil {
 				return
 			}
+			// panic details (already logged by PanicHandler) stay server-side
+			recErr = fmt.Errorf("internal server error (%s)", r.URL.Path)
 			if opts.JsonErrors {
 				jsonRtn := marshalReturnValue(nil, recErr)
 				w.Header().Set(ContentTypeHeaderKey, ContentTypeJson)
