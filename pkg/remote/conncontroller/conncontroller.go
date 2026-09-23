@@ -8,11 +8,11 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/fs"
 	"log"
 	"net"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -1146,44 +1146,99 @@ func DisconnectClient(opts *remote.SSHOpts) error {
 	return err
 }
 
+// max nesting of Include directives (matches OpenSSH / ssh_config library limit)
+const maxSshConfigIncludeDepth = 5
+
+// expandSshConfigInclude turns the arguments of an Include directive into file paths.
+// Relative paths are resolved against baseDir (~/.ssh for user configs, /etc/ssh for the
+// system config), "~" is expanded, and globs are supported, as in OpenSSH.
+func expandSshConfigInclude(includeLine string, baseDir string) []string {
+	fields := strings.Fields(includeLine)
+	if len(fields) == 0 {
+		return nil
+	}
+	// String() renders "Include a b" or "Include=a b"
+	first := strings.TrimPrefix(strings.TrimPrefix(fields[0], "Include"), "=")
+	args := fields[1:]
+	if first != "" {
+		args = append([]string{first}, args...)
+	}
+	var rtn []string
+	for _, arg := range args {
+		if strings.HasPrefix(arg, "#") {
+			break
+		}
+		if strings.HasPrefix(arg, "~/") {
+			arg = filepath.Join(wavebase.GetHomeDir(), arg[2:])
+		} else if !filepath.IsAbs(arg) {
+			arg = filepath.Join(baseDir, arg)
+		}
+		matches, err := filepath.Glob(arg)
+		if err != nil {
+			continue
+		}
+		rtn = append(rtn, matches...)
+	}
+	return rtn
+}
+
+// collectSshConfigPatterns appends the first usable alias of every Host block in configFile
+// (following Include directives) to discoveredPatterns.
+func collectSshConfigPatterns(configFile string, baseDir string, depth int, alreadyUsed map[string]bool, discoveredPatterns *[]string) error {
+	if depth > maxSshConfigIncludeDepth {
+		return fmt.Errorf("ssh config include depth exceeded at %s", configFile)
+	}
+	fd, err := os.Open(configFile)
+	if err != nil {
+		return err
+	}
+	defer fd.Close()
+	cfg, _ := ssh_config.Decode(fd, true)
+	if cfg == nil {
+		return nil
+	}
+	for _, host := range cfg.Hosts {
+		// for each host, find the first good alias
+		for _, hostPattern := range host.Patterns {
+			hostPatternStr := hostPattern.String()
+			if hostPatternStr == "" || strings.Contains(hostPatternStr, "*") || strings.Contains(hostPatternStr, "?") || strings.Contains(hostPatternStr, "!") {
+				continue
+			}
+			normalized := remote.NormalizeConfigPattern(hostPatternStr)
+			if !alreadyUsed[normalized] {
+				*discoveredPatterns = append(*discoveredPatterns, normalized)
+				alreadyUsed[normalized] = true
+				break
+			}
+		}
+		// Include can appear at top level (inside the implicit "Host *") or inside a Host block
+		for _, node := range host.Nodes {
+			inc, ok := node.(*ssh_config.Include)
+			if !ok {
+				continue
+			}
+			for _, incFile := range expandSshConfigInclude(inc.String(), baseDir) {
+				if err := collectSshConfigPatterns(incFile, baseDir, depth+1, alreadyUsed, discoveredPatterns); err != nil {
+					log.Printf("warning: ssh config include %s: %v", incFile, err)
+				}
+			}
+		}
+	}
+	return nil
+}
+
 func resolveSshConfigPatterns(configFiles []string) ([]string, error) {
 	// using two separate containers to track order and have O(1) lookups
 	// since go does not have an ordered map primitive
 	var discoveredPatterns []string
 	alreadyUsed := make(map[string]bool)
 	alreadyUsed[""] = true // this excludes the empty string from potential alias
-	var openedFiles []fs.File
-
-	defer func() {
-		for _, openedFile := range openedFiles {
-			openedFile.Close()
-		}
-	}()
 
 	var errs []error
 	for _, configFile := range configFiles {
-		fd, openErr := os.Open(configFile)
-		openedFiles = append(openedFiles, fd)
-		if fd == nil {
-			errs = append(errs, openErr)
-			continue
-		}
-
-		cfg, _ := ssh_config.Decode(fd, true)
-		for _, host := range cfg.Hosts {
-			// for each host, find the first good alias
-			for _, hostPattern := range host.Patterns {
-				hostPatternStr := hostPattern.String()
-				if hostPatternStr == "" || strings.Contains(hostPatternStr, "*") || strings.Contains(hostPatternStr, "?") || strings.Contains(hostPatternStr, "!") {
-					continue
-				}
-				normalized := remote.NormalizeConfigPattern(hostPatternStr)
-				if !alreadyUsed[normalized] {
-					discoveredPatterns = append(discoveredPatterns, normalized)
-					alreadyUsed[normalized] = true
-					break
-				}
-			}
+		err := collectSshConfigPatterns(configFile, filepath.Dir(configFile), 0, alreadyUsed, &discoveredPatterns)
+		if err != nil {
+			errs = append(errs, err)
 		}
 	}
 	if len(errs) == len(configFiles) {
@@ -1213,6 +1268,8 @@ func GetConnectionsList() ([]string, error) {
 		}
 	}
 
+	// pick up hosts added to ssh config since startup (next list call will show them as internal entries)
+	SyncSshConfigToConnectionsAsync()
 	fromInternal := GetConnectionsFromInternalConfig()
 
 	fromConfig, err := GetConnectionsFromConfig()
@@ -1247,13 +1304,21 @@ func GetConnectionsFromInternalConfig() []string {
 		}
 		internalNames = append(internalNames, internalName)
 	}
+	// map iteration order is random; keep the dropdown stable (display:order, then name)
+	sort.SliceStable(internalNames, func(i, j int) bool {
+		oi, oj := config.Connections[internalNames[i]].DisplayOrder, config.Connections[internalNames[j]].DisplayOrder
+		if oi != oj {
+			return oi < oj
+		}
+		return internalNames[i] < internalNames[j]
+	})
 	return internalNames
 }
 
 func GetConnectionsFromConfig() ([]string, error) {
 	home := wavebase.GetHomeDir()
 	localConfig := filepath.Join(home, ".ssh", "config")
-	systemConfig := filepath.Join("/etc", "ssh", "config")
+	systemConfig := filepath.Join("/etc", "ssh", "ssh_config")
 	sshConfigFiles := []string{localConfig, systemConfig}
 	remote.WaveSshConfigUserSettings().ReloadConfigs()
 

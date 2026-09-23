@@ -171,6 +171,7 @@ type SettingsType struct {
 	ConnAskBeforeWshInstall  *bool   `json:"conn:askbeforewshinstall,omitempty"`
 	ConnWshEnabled           bool    `json:"conn:wshenabled,omitempty"`
 	ConnAutoConnect          *bool   `json:"conn:autoconnect,omitempty"`
+	ConnSyncSshConfig        *bool   `json:"conn:syncsshconfig,omitempty"`
 	ConnLocalHostnameDisplay *string `json:"conn:localhostdisplayname,omitempty"`
 
 	DebugClear               bool `json:"debug:*,omitempty"`

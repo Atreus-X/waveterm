@@ -325,6 +325,9 @@
         "conn:autoconnect": {
           "type": "boolean"
         },
+        "conn:syncsshconfig": {
+          "type": "boolean"
+        },
         "conn:localhostdisplayname": {
           "type": "string"
         },

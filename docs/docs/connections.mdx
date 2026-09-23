@@ -78,6 +78,7 @@ Wave provides you with options for running initialization scripts on your remote
 The SSH values that are loaded into the dropdown by default are obtained by parsing the internal `config/connections.json` file in addition to your `~/.ssh/config` and `/etc/ssh/ssh_config` files. Adding a new connection can be added in a couple ways:
 
 - adding a new `Host` to one of your ssh config files, typically the `~/.ssh/config` file
+- automatically: with `conn:syncsshconfig` (on by default), Wave adds an entry to `connections.json` for each ssh config `Host` (including hosts pulled in via `Include`). Entries are stubs, so `HostName`, `User`, keys etc. are still read from ssh config; existing entries are never modified
 - adding a new entry in the internal `config/connections.json` file
 - manually typing your connection into the connection box (if this successfully connects, the connection will be added to the internal `config/connections.json` file)
 - use `wsh ssh [user]@[host]` in your terminal (if this successfully connects, the connection will be added to the internal `config/connections.json` file)

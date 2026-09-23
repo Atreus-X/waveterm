@@ -1476,6 +1476,7 @@ declare global {
         "conn:askbeforewshinstall"?: boolean;
         "conn:wshenabled"?: boolean;
         "conn:autoconnect"?: boolean;
+        "conn:syncsshconfig"?: boolean;
         "conn:localhostdisplayname"?: string;
         "debug:*"?: boolean;
         "debug:pprofport"?: number;
