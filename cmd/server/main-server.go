@@ -575,6 +575,7 @@ func main() {
 	blocklogger.InitBlockLogger()
 	jobcontroller.InitJobController()
 	blockcontroller.InitBlockController()
+	blockcontroller.StartupAutoConnect()
 	conncontroller.SyncSshConfigToConnectionsAsync() // must be after startConfigWatcher()
 	err = wcore.InitBadgeStore()
 	if err != nil {

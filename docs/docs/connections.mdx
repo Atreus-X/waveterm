@@ -127,6 +127,7 @@ In addition to the regular ssh config file, wave also has its own config file to
 | Keyword | Description |
 |---------|-------------|
 | conn:wshenabled | This boolean allows `wsh` to be used for your connection, if it is set to `false`, `wsh` will never be used for that connection. It defaults to `true`.|
+| conn:autoconnect | This boolean controls whether terminals using this connection are connected and started automatically when Wave launches (see the global `conn:autoconnect` setting). Unreachable hosts are retried with backoff; authentication or host-key failures are not retried. Defaults to true. |
 | conn:askbeforewshinstall | This boolean is used to prompt the user before installing wsh. If it is set to false, `wsh` will automatically be installed instead without prompting. It defaults to `true`.|
 | conn:wshpath | A string indicating the path to the `wsh` executable on the connection. It defaults to `"~/.waveterm/bin/wsh"`.|
 | conn:shellpath | A string indicating the path to the shell executable on the connection. If not set, the output of `$SHELL` on the connection will be used.|

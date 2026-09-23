@@ -9,6 +9,9 @@
         "conn:askbeforewshinstall": {
           "type": "boolean"
         },
+        "conn:autoconnect": {
+          "type": "boolean"
+        },
         "conn:wshpath": {
           "type": "string"
         },
