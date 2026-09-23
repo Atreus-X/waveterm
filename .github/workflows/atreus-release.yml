@@ -1,11 +1,13 @@
 # Atreus fork release: build Linux (AppImage + deb) and Windows (NSIS) packages, publish a GitHub
 # release on the fork, and SFTP-upload the installers + electron-updater feed files (latest.yml,
-# latest-linux.yml, blockmaps) to update-server.example, which serves them at
+# latest-linux.yml, blockmaps) to the update server that serves
 # https://www.atreusproject.com/updater/waveterm/ (the "atreus" autoupdate:source feed).
 # Builds are unsigned.
 #
 # Trigger: gh workflow run atreus-release.yml [-f version=X.Y.Z]
-# Needs repo secret SFTP_PRIVATE_KEY (the upload-user key).
+# Needs repo secrets: SFTP_PRIVATE_KEY, SFTP_HOST, SFTP_PORT, SFTP_USER, SFTP_REMOTE_PATH and
+# SFTP_KNOWN_HOST (a known_hosts line for the server). Server details are secrets so they stay
+# out of this public file and are masked in run logs.
 
 name: Atreus Release
 run-name: Atreus Release ${{ inputs.version || '(auto version)' }}
@@ -20,12 +22,6 @@ env:
     GO_VERSION: "1.25.6"
     NODE_VERSION: 22
     NODE_OPTIONS: --max-old-space-size=4096
-    SFTP_HOST: update-server.example
-    SFTP_PORT: "22"
-    SFTP_USER: upload-user
-    SFTP_REMOTE_PATH: /path/to/feed
-    # captured via `ssh-keyscan -p 22 update-server.example`
-    SFTP_KNOWN_HOST: "[update-server.example]:22ssh-ed25519 REDACTED"
 jobs:
     version:
         runs-on: ubuntu-latest
@@ -136,6 +132,11 @@ jobs:
             - name: Upload to update server (SFTP)
               env:
                   SFTP_PRIVATE_KEY: ${{ secrets.SFTP_PRIVATE_KEY }}
+                  SFTP_HOST: ${{ secrets.SFTP_HOST }}
+                  SFTP_PORT: ${{ secrets.SFTP_PORT }}
+                  SFTP_USER: ${{ secrets.SFTP_USER }}
+                  SFTP_REMOTE_PATH: ${{ secrets.SFTP_REMOTE_PATH }}
+                  SFTP_KNOWN_HOST: ${{ secrets.SFTP_KNOWN_HOST }}
               run: |
                   set -euo pipefail
                   install -m 700 -d ~/.ssh
@@ -152,7 +153,6 @@ jobs:
                           echo "put \"$f\" \"$SFTP_REMOTE_PATH/$(basename "$f")\""
                       done
                   } > sftp_batch.txt
-                  cat sftp_batch.txt
                   sftp -P "$SFTP_PORT" -i ~/.ssh/uploader_key -o UserKnownHostsFile=~/.ssh/known_hosts -o StrictHostKeyChecking=yes -b sftp_batch.txt "$SFTP_USER@$SFTP_HOST"
             - name: GitHub release
               env:

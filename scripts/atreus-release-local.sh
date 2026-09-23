@@ -12,17 +12,22 @@
 #
 # Toolchain (user-local is fine): Go 1.25+, Node 22 (nvm), Zig, Task, zip, mksquashfs, and wine
 # (electron-builder calls `wine`; a `wine` -> wine64 symlink works) for the Windows installer.
-# Publishing copies straight into FEED_DIR when it exists (e.g. on the update server), otherwise uploads over SFTP
-# with SFTP_KEY; the GitHub release is created with `gh`.
+#
+# Publishing settings live in a private env file outside the repo (default
+# ~/.config/atreus-release.env, override with ATREUS_RELEASE_CONFIG), so server details never
+# land in this public repo:
+#   FEED_DIR=/path/to/feed/dir        # used when it exists and is writable (building on the server)
+#   SFTP_HOST=... SFTP_PORT=... SFTP_USER=... SFTP_REMOTE_PATH=... SFTP_KEY=...   # otherwise
+# The GitHub release is created with `gh`.
 
 set -euo pipefail
 
-FEED_DIR=${FEED_DIR:-/path/to/feed}
+CONFIG=${ATREUS_RELEASE_CONFIG:-$HOME/.config/atreus-release.env}
+if [ -f "$CONFIG" ]; then
+    # shellcheck disable=SC1090
+    . "$CONFIG"
+fi
 FEED_URL=${FEED_URL:-https://www.atreusproject.com/updater/waveterm}
-SFTP_HOST=${SFTP_HOST:-update-server.example}
-SFTP_PORT=${SFTP_PORT:-22}
-SFTP_USER=${SFTP_USER:-upload-user}
-SFTP_KEY=${SFTP_KEY:-$HOME/.ssh/upload_key}
 GH_REPO=${GH_REPO:-Atreus-X/waveterm}
 
 PUBLISH=0
@@ -60,6 +65,11 @@ fi
 
 VERSION=$(node -p 'require("./package.json").version')
 TAG="atreus-v$VERSION"
+if [ "$PUBLISH" = 1 ] && [ ! -w "${FEED_DIR:-/nonexistent}" ]; then
+    for v in SFTP_HOST SFTP_PORT SFTP_USER SFTP_REMOTE_PATH SFTP_KEY; do
+        [ -n "${!v:-}" ] || { echo "publishing needs FEED_DIR or $v (set it in $CONFIG)" >&2; exit 1; }
+    done
+fi
 if [ "$PUBLISH" = 1 ] && gh release view "$TAG" --repo "$GH_REPO" >/dev/null 2>&1; then
     echo "release $TAG already exists on $GH_REPO; bump the version or delete it first" >&2
     exit 1
@@ -102,16 +112,16 @@ fi
 
 # installers first, feed files last, so clients never see a feed pointing at a missing file
 echo "== publishing to update feed"
-if [ -d "$FEED_DIR" ] && [ -w "$FEED_DIR" ]; then
-    cp -v "${INSTALLERS[@]}" "${BLOCKMAPS[@]}" "$FEED_DIR/"
-    cp -v "${FEEDFILES[@]}" "$FEED_DIR/"
+if [ -n "${FEED_DIR:-}" ] && [ -d "$FEED_DIR" ] && [ -w "$FEED_DIR" ]; then
+    cp "${INSTALLERS[@]}" "${BLOCKMAPS[@]}" "$FEED_DIR/"
+    cp "${FEEDFILES[@]}" "$FEED_DIR/"
 else
     batch=$(mktemp)
     trap 'rm -f "$batch"' EXIT
     {
-        echo "-mkdir $FEED_DIR"
+        echo "-mkdir $SFTP_REMOTE_PATH"
         for f in "${INSTALLERS[@]}" "${BLOCKMAPS[@]}" "${FEEDFILES[@]}"; do
-            echo "put \"$f\" \"$FEED_DIR/$(basename "$f")\""
+            echo "put \"$f\" \"$SFTP_REMOTE_PATH/$(basename "$f")\""
         done
     } > "$batch"
     sftp -P "$SFTP_PORT" -i "$SFTP_KEY" -b "$batch" "$SFTP_USER@$SFTP_HOST"
