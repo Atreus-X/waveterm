@@ -248,13 +248,19 @@ While Wave provides an option disable `wsh` when first connecting to a remote, t
 {
     <... other connections go here ...>,
     "root@wshless" : {
-        "conn:enablewsh": false,
+        "conn:wshenabled": false,
     },
     <... other connections go here ...>
 }
 ```
 
 Note that this same line gets added to your `connections.json` file automatically when you choose to disable `wsh` in gui when initially connecting.
+
+To disable `wsh` for every connection, set `"conn:wshenabled": false` in `settings.json` instead (a per-connection value still overrides it).
+
+#### Browsing files without wsh (SFTP)
+
+On connections that run without `wsh`, the file browser (preview view) and file operations (open, save, rename, delete, new file/folder, copy between hosts) use SFTP over the same SSH connection instead, so nothing needs to be installed on the remote host. The remote `sshd` must have the `sftp` subsystem enabled (the OpenSSH default). As with `wsh`, copies are single-file only and limited to 32MB; copies between two different hosts are relayed through Wave.
 
 ## Managing Connections with the CLI
 

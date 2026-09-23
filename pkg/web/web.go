@@ -249,11 +249,6 @@ func handleStreamFileFromReader(w http.ResponseWriter, r *http.Request, path str
 	rangeHeader := r.Header.Get("Range")
 	log.Printf("stream-file path=%q range=%q\n", path, rangeHeader)
 
-	writerRouteId, err := wshfs.GetConnectionRouteId(r.Context(), path)
-	if err != nil {
-		return err
-	}
-
 	byteRange := ""
 	if rangeHeader != "" {
 		stripped := strings.TrimPrefix(rangeHeader, "bytes=")
@@ -263,6 +258,27 @@ func handleStreamFileFromReader(w http.ResponseWriter, r *http.Request, path str
 			return nil
 		}
 		byteRange = stripped
+	}
+
+	// connections without wsh (e.g. SFTP-backed ssh) are read directly by wavesrv
+	altInfo, altReader, handled, err := wshfs.OpenAltStream(r.Context(), path, byteRange)
+	if handled {
+		if altReader != nil {
+			defer altReader.Close()
+		}
+		if err != nil {
+			if no404 {
+				serveTransparentGIF(w)
+				return nil
+			}
+			return err
+		}
+		return writeStreamResponse(w, r, path, altInfo, altReader, byteRange, no404, startTime)
+	}
+
+	writerRouteId, err := wshfs.GetConnectionRouteId(r.Context(), path)
+	if err != nil {
+		return err
 	}
 
 	bareRpc := wshclient.GetBareRpcClient()
@@ -287,6 +303,11 @@ func handleStreamFileFromReader(w http.ResponseWriter, r *http.Request, path str
 		}
 		return err
 	}
+	return writeStreamResponse(w, r, path, fileInfo, reader, byteRange, no404, startTime)
+}
+
+// writeStreamResponse writes headers (incl. range handling) and copies reader to the response.
+func writeStreamResponse(w http.ResponseWriter, r *http.Request, path string, fileInfo *wshrpc.FileInfo, reader io.Reader, byteRange string, no404 bool, startTime time.Time) error {
 	if fileInfo.NotFound {
 		if no404 {
 			serveTransparentGIF(w)
