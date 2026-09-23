@@ -99,6 +99,8 @@ const config = {
         afterInstall: "build/deb-postinstall.tpl",
     },
     win: {
+        // ${platform} is the *build host* when cross-building on Linux ("Wave-linux-x64-….exe"), so pin it
+        artifactName: "${productName}-win32-${arch}-${version}.${ext}",
         // WAVE_WIN_TARGETS (comma separated), same idea as WAVE_LINUX_TARGETS
         target: process.env.WAVE_WIN_TARGETS ? process.env.WAVE_WIN_TARGETS.split(",") : ["nsis", "msi", "zip"],
         signtoolOptions: windowsShouldSign && {
