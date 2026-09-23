@@ -6,6 +6,14 @@ sidebar_position: 200
 
 # Release Notes
 
+### v0.15.1 (Atreus fork) &mdash; Sep 23, 2026
+
+Fixes for SSH connections that run without `wsh`.
+
+- [bugfix] **Connection Degraded** - Connections without `wsh` no longer get stuck showing "Connection Degraded" after the first keystroke; connecting and terminal output now count as activity, so keepalives run and the status recovers
+- [bugfix] **Durable Sessions** - Terminals on connections without `wsh` (disabled in config, or declined/failed at connect) now start a normal shell instead of a durable session that could never start (durable sessions need `wsh`'s job manager; use `term:tmux` for sessions that survive restarts)
+- [bugfix] **File Browser** - SSH connections without `wsh` now appear in the file browser's connection picker (they are browsed over SFTP)
+
 ### v0.15.0 (Atreus fork) &mdash; Sep 23, 2026
 
 First release of the [Atreus-X fork](https://github.com/Atreus-X/waveterm), based on upstream v0.14.5 plus later upstream fixes. Focused on using SSH hosts from `~/.ssh/config` **without installing `wsh`** on them.
