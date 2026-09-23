@@ -39,6 +39,12 @@
         "term:durable": {
           "type": "boolean"
         },
+        "term:tmux": {
+          "type": "boolean"
+        },
+        "term:reconnectcmd": {
+          "type": "string"
+        },
         "cmd:env": {
           "additionalProperties": {
             "type": "string"
