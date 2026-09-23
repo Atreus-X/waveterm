@@ -556,6 +556,17 @@ func (bc *ShellController) startSshShellProcNoWsh(ctx context.Context, rc *RunSh
 	return shellProc, nil
 }
 
+func getSshConnForActivity(connName string) *conncontroller.SSHConn {
+	if conncontroller.IsLocalConnName(connName) || conncontroller.IsWslConnName(connName) {
+		return nil
+	}
+	opts, err := remote.ParseOpts(connName)
+	if err != nil {
+		return nil
+	}
+	return conncontroller.MaybeGetConn(opts)
+}
+
 func (bc *ShellController) manageRunningShellProcess(shellProc *shellexec.ShellProc, rc *RunShellOpts, blockMeta waveobj.MetaMapType) error {
 	shellInputCh := make(chan *BlockInputUnion, 32)
 	bc.ShellInputCh = shellInputCh
@@ -583,10 +594,18 @@ func (bc *ShellController) manageRunningShellProcess(shellProc *shellexec.ShellP
 			time.Sleep(100 * time.Millisecond)
 			close(shellInputCh) // don't use bc.ShellInputCh (it's nil)
 		}()
+		// shell output over ssh proves the connection is alive; without wsh it's the only regular
+		// traffic, so the conn monitor would otherwise flag every keystroke as "degraded"
+		sshConn := getSshConnForActivity(shellProc.ConnName)
 		buf := make([]byte, 4096)
 		for {
 			nr, err := shellProc.Cmd.Read(buf)
 			if nr > 0 {
+				if sshConn != nil {
+					if monitor := sshConn.GetMonitor(); monitor != nil {
+						monitor.UpdateLastActivityTime()
+					}
+				}
 				err := HandleAppendBlockFile(bc.BlockId, wavebase.BlockFile_Term, buf[:nr])
 				if err != nil {
 					log.Printf("error appending to blockfile: %v\n", err)

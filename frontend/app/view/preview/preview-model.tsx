@@ -188,7 +188,8 @@ export class PreviewModel implements ViewModel {
         this.manageConnection = atom(true);
         this.blockAtom = this.env.wos.getWaveObjectAtom<Block>(`block:${blockId}`);
         this.markdownShowToc = atom(false);
-        this.filterOutNowsh = atom(true);
+        // no-wsh ssh connections are browsable over SFTP (pkg/remote/fileshare/sftpfs)
+        this.filterOutNowsh = atom(false);
         this.monacoRef = createRef();
         this.connectionError = atom("");
         this.errorMsgAtom = atom(null) as PrimitiveAtom<ErrorMsg | null>;
