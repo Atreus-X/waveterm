@@ -87,6 +87,8 @@ const (
 
 	ConfigKey_PreviewShowHiddenFiles         = "preview:showhiddenfiles"
 	ConfigKey_PreviewDefaultSort             = "preview:defaultsort"
+	ConfigKey_PreviewDoubleClickOpen         = "preview:doubleclickopen"
+	ConfigKey_PreviewExternalEditor          = "preview:externaleditor"
 
 	ConfigKey_TabPreset                      = "tab:preset"
 	ConfigKey_TabConfirmClose                = "tab:confirmclose"

@@ -1,7 +1,40 @@
-import { createBlock, getApi } from "@/app/store/global";
-import { makeNativeLabel } from "./platformutil";
+import { createBlock, getApi, getSettingsKeyAtom } from "@/app/store/global";
+import { globalStore } from "@/app/store/jotaiStore";
+import { isWindows, makeNativeLabel } from "./platformutil";
 import { fireAndForget } from "./util";
 import { formatRemoteUri } from "./waveutil";
+
+function getConfiguredEditorPath(): string {
+    return globalStore.get(getSettingsKeyAtom("preview:externaleditor")) ?? "";
+}
+
+// Opens a file in a native app. Remote files are edited locally and synced back on save (see emain-openexternal.ts).
+export function openFileExternally(path: string, conn: string, mode: OpenExternalMode) {
+    fireAndForget(() =>
+        getApi().openFileExternal({ path, connection: conn ?? "", mode, editorPath: getConfiguredEditorPath() })
+    );
+}
+
+function addExternalOpenItems(menu: ContextMenuItem[], conn: string, finfo: FileInfo) {
+    const remoteSuffix = conn ? " (edit locally)" : "";
+    menu.push({
+        label: conn ? "Open in Default Application" + remoteSuffix : makeNativeLabel(false),
+        click: () => openFileExternally(finfo.path, conn, "default"),
+    });
+    const editor = getApi().getExternalEditor(getConfiguredEditorPath());
+    if (editor != null) {
+        menu.push({
+            label: `Open in ${editor.name}${remoteSuffix}`,
+            click: () => openFileExternally(finfo.path, conn, "editor"),
+        });
+    }
+    if (isWindows()) {
+        menu.push({
+            label: "Open With…" + remoteSuffix,
+            click: () => openFileExternally(finfo.path, conn, "openwith"),
+        });
+    }
+}
 
 export function addOpenMenuItems(menu: ContextMenuItem[], conn: string, finfo: FileInfo): ContextMenuItem[] {
     if (!finfo) {
@@ -19,16 +52,13 @@ export function addOpenMenuItems(menu: ContextMenuItem[], conn: string, finfo: F
                 getApi().openNativePath(finfo.isdir ? finfo.path : finfo.dir);
             },
         });
-        // if the entry is a file, open it in the default application
         if (!finfo.isdir) {
-            menu.push({
-                label: makeNativeLabel(false),
-                click: () => {
-                    getApi().openNativePath(finfo.path);
-                },
-            });
+            addExternalOpenItems(menu, conn, finfo);
         }
     } else {
+        if (!finfo.isdir) {
+            addExternalOpenItems(menu, conn, finfo);
+        }
         menu.push({
             label: "Download File",
             click: () => {

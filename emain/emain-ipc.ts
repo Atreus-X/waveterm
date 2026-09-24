@@ -20,6 +20,7 @@ import {
     setWasActive,
 } from "./emain-activity";
 import { createBuilderWindow, getAllBuilderWindows, getBuilderWindowByWebContentsId } from "./emain-builder";
+import { findExternalEditor, openFileExternal } from "./emain-openexternal";
 import { callWithOriginalXdgCurrentDesktopAsync, unamePlatform } from "./emain-platform";
 import { getWaveTabViewByWebContentsId } from "./emain-tabview";
 import { handleCtrlShiftState } from "./emain-util";
@@ -390,6 +391,17 @@ export function initIpcHandlers() {
         } catch (e) {
             console.error("Failed to clear cookies and storage:", e);
             throw e;
+        }
+    });
+
+    electron.ipcMain.handle("open-file-external", (_event, opts: OpenFileExternalOpts) => openFileExternal(opts));
+
+    electron.ipcMain.on("get-external-editor", (event, configuredPath: string) => {
+        try {
+            event.returnValue = findExternalEditor(configuredPath);
+        } catch (e) {
+            console.error("get-external-editor failed", e);
+            event.returnValue = null;
         }
     });
 
