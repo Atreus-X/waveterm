@@ -6,6 +6,14 @@ sidebar_position: 200
 
 # Release Notes
 
+### v0.15.2 (Atreus fork) &mdash; Sep 24, 2026
+
+Open files from the file browser in your own apps.
+
+- **Double-click Opens in Default App** - Double-clicking a file in the file browser now opens it in the OS default application; on Windows, the "Open with" picker appears when no app is associated. Folders still open in the file browser. Set `preview:doubleclickopen` to `"preview"` to keep the old in-Wave preview
+- **Edit Remote Files Locally** - Files on SSH/WSL connections are downloaded to a temp folder, opened locally, and uploaded back to the host every time you save. If the remote file changed since you opened it, you're asked before it's overwritten
+- **Open in Notepad++** - New file menu items: "Open in Default Application", "Open in Notepad++" (auto-detected; set `preview:externaleditor` to use another editor), and "Open With…" on Windows
+
 ### v0.15.1 (Atreus fork) &mdash; Sep 23, 2026
 
 Fixes for SSH connections that run without `wsh`.
