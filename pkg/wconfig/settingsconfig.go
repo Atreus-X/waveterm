@@ -139,6 +139,7 @@ type SettingsType struct {
 
 	PreviewShowHiddenFiles *bool  `json:"preview:showhiddenfiles,omitempty"`
 	PreviewDefaultSort     string `json:"preview:defaultsort,omitempty" jsonschema:"enum=name,enum=modtime"`
+	PreviewDirsFirst       *bool  `json:"preview:dirsfirst,omitempty"`
 	PreviewDoubleClickOpen string `json:"preview:doubleclickopen,omitempty" jsonschema:"enum=external,enum=preview"`
 	PreviewExternalEditor  string `json:"preview:externaleditor,omitempty"`
 

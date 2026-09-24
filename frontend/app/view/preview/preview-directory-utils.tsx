@@ -155,6 +155,7 @@ export function handleFileDelete(
 export function makeDirectoryDefaultMenuItems(model: PreviewModel): ContextMenuItem[] {
     const defaultSort = globalStore.get(model.env.getSettingsKeyAtom("preview:defaultsort")) ?? "name";
     const showHiddenFiles = globalStore.get(model.showHiddenFiles) ?? true;
+    const dirsFirst = globalStore.get(model.env.getSettingsKeyAtom("preview:dirsfirst")) ?? true;
     return [
         {
             label: "Directory Sort Order",
@@ -203,6 +204,29 @@ export function makeDirectoryDefaultMenuItems(model: PreviewModel): ContextMenuI
                             model.env.rpc.SetConfigCommand(TabRpcClient, { "preview:showhiddenfiles": false })
                         );
                     },
+                },
+            ],
+        },
+        {
+            label: "Folders First",
+            submenu: [
+                {
+                    label: "On",
+                    type: "checkbox",
+                    checked: dirsFirst,
+                    click: () =>
+                        fireAndForget(() =>
+                            model.env.rpc.SetConfigCommand(TabRpcClient, { "preview:dirsfirst": true })
+                        ),
+                },
+                {
+                    label: "Off",
+                    type: "checkbox",
+                    checked: !dirsFirst,
+                    click: () =>
+                        fireAndForget(() =>
+                            model.env.rpc.SetConfigCommand(TabRpcClient, { "preview:dirsfirst": false })
+                        ),
                 },
             ],
         },

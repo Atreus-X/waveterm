@@ -6,6 +6,7 @@ import { SettingsKeyAtomFnType, WaveEnv, WaveEnvSubset } from "@/app/waveenv/wav
 export type PreviewEnv = WaveEnvSubset<{
     electron: {
         onQuicklook: WaveEnv["electron"]["onQuicklook"];
+        getPathForFile: WaveEnv["electron"]["getPathForFile"];
     };
     rpc: {
         ConnEnsureCommand: WaveEnv["rpc"]["ConnEnsureCommand"];
@@ -31,7 +32,11 @@ export type PreviewEnv = WaveEnvSubset<{
     };
     wos: WaveEnv["wos"];
     getSettingsKeyAtom: SettingsKeyAtomFnType<
-        "preview:showhiddenfiles" | "editor:fontsize" | "preview:defaultsort" | "preview:doubleclickopen"
+        | "preview:showhiddenfiles"
+        | "editor:fontsize"
+        | "preview:defaultsort"
+        | "preview:dirsfirst"
+        | "preview:doubleclickopen"
     >;
     getConnStatusAtom: WaveEnv["getConnStatusAtom"];
 }>;
