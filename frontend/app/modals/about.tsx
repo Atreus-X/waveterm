@@ -3,23 +3,38 @@
 
 import Logo from "@/app/asset/logo.svg";
 import { OnboardingGradientBg } from "@/app/onboarding/onboarding-common";
-import { atoms } from "@/app/store/global";
+import { atoms, getApi } from "@/app/store/global";
 import { modalsModel } from "@/app/store/modalmodel";
 import { RpcApi } from "@/app/store/wshclientapi";
 import { TabRpcClient } from "@/app/store/wshrpcutil";
 import { isDev } from "@/util/isdev";
-import { fireAndForget } from "@/util/util";
+import { cn, fireAndForget } from "@/util/util";
 import { useAtomValue } from "jotai";
 import { useEffect } from "react";
 import { Modal } from "./modal";
 
+const ForkRepoUrl = "https://github.com/Atreus-X/waveterm";
+
+const UpdateSourceOptions: { value: string; label: string }[] = [
+    { value: "atreus", label: "Atreus fork" },
+    { value: "official", label: "Official Wave" },
+];
+
 interface AboutModalVProps {
     versionString: string;
     updaterChannel: string;
+    updateSource: string;
+    onUpdateSourceChange?: (source: string) => void;
     onClose: () => void;
 }
 
-const AboutModalV = ({ versionString, updaterChannel, onClose }: AboutModalVProps) => {
+const AboutModalV = ({
+    versionString,
+    updaterChannel,
+    updateSource,
+    onUpdateSourceChange,
+    onClose,
+}: AboutModalVProps) => {
     const currentDate = new Date();
 
     return (
@@ -39,6 +54,37 @@ const AboutModalV = ({ versionString, updaterChannel, onClose }: AboutModalVProp
                     Client Version {versionString}
                     <br />
                     Update Channel: {updaterChannel}
+                    <br />
+                    Fork:{" "}
+                    <a href={ForkRepoUrl} target="_blank" rel="noopener" className="underline cursor-pointer">
+                        Atreus-X/waveterm
+                    </a>
+                </div>
+                <div className="flex flex-col items-center gap-2 self-stretch w-full text-center">
+                    <div className="flex items-center gap-2">
+                        <span>Updates from:</span>
+                        <div className="inline-flex rounded border border-border overflow-hidden">
+                            {UpdateSourceOptions.map((opt) => (
+                                <button
+                                    key={opt.value}
+                                    className={cn(
+                                        "px-3 py-1 cursor-pointer transition-colors",
+                                        updateSource === opt.value
+                                            ? "bg-accent/80 text-primary hover:bg-accent"
+                                            : "hover:bg-hoverbg"
+                                    )}
+                                    onClick={() => onUpdateSourceChange?.(opt.value)}
+                                >
+                                    {opt.label}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                    {updateSource === "official" && (
+                        <div className="text-xs text-warning">
+                            Official Wave builds don't include this fork's changes — installing one replaces them.
+                        </div>
+                    )}
                 </div>
                 <div className="grid grid-cols-2 gap-[10px] self-stretch w-full">
                     <a
@@ -99,6 +145,17 @@ const AboutModal = () => {
     const fullConfig = useAtomValue(atoms.fullConfigAtom);
     const versionString = `${fullConfig?.version ?? ""} (${isDev() ? "dev-" : ""}${fullConfig?.buildtime ?? ""})`;
     const updaterChannel = fullConfig?.settings?.["autoupdate:channel"] ?? "latest";
+    const updateSource = fullConfig?.settings?.["autoupdate:source"] ?? "atreus";
+
+    const handleUpdateSourceChange = (source: string) => {
+        if (source === updateSource) {
+            return;
+        }
+        fireAndForget(async () => {
+            await RpcApi.SetConfigCommand(TabRpcClient, { "autoupdate:source": source });
+            getApi().setUpdateSource(source);
+        });
+    };
 
     useEffect(() => {
         fireAndForget(async () => {
@@ -114,6 +171,8 @@ const AboutModal = () => {
         <AboutModalV
             versionString={versionString}
             updaterChannel={updaterChannel}
+            updateSource={updateSource}
+            onUpdateSourceChange={handleUpdateSourceChange}
             onClose={() => modalsModel.popModal()}
         />
     );

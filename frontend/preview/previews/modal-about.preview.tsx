@@ -8,6 +8,7 @@ export function AboutModalPreview() {
         <AboutModalV
             versionString="0.11.0 (1740000000)"
             updaterChannel="stable"
+            updateSource="atreus"
             onClose={() => console.log("close")}
         />
     );

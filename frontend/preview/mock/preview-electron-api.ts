@@ -49,6 +49,7 @@ const previewElectronApi: ElectronApi = {
     openNativePath: (_filePath: string) => {},
     openFileExternal: (_opts: OpenFileExternalOpts) => Promise.resolve(""),
     getExternalEditor: (_configuredPath: string) => null,
+    setUpdateSource: (_source: string) => {},
     captureScreenshot: (_rect: Electron.Rectangle) => Promise.resolve(""),
     setKeyboardChordMode: () => {},
     clearWebviewStorage: (_webContentsId: number) => Promise.resolve(),
