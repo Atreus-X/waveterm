@@ -174,23 +174,6 @@ func sendDiagnosticPing() bool {
 	return true
 }
 
-func setupTelemetryConfigHandler() {
-	watcher := wconfig.GetWatcher()
-	if watcher == nil {
-		return
-	}
-	currentConfig := watcher.GetFullConfig()
-	currentTelemetryEnabled := currentConfig.Settings.TelemetryEnabled
-
-	watcher.RegisterUpdateHandler(func(newConfig wconfig.FullConfigType) {
-		newTelemetryEnabled := newConfig.Settings.TelemetryEnabled
-		if newTelemetryEnabled != currentTelemetryEnabled {
-			currentTelemetryEnabled = newTelemetryEnabled
-			wcore.GoSendNoTelemetryUpdate(newTelemetryEnabled)
-		}
-	})
-}
-
 func backupCleanupLoop() {
 	defer func() {
 		panichandler.PanicHandler("backupCleanupLoop", recover())
@@ -574,7 +557,6 @@ func main() {
 	go stdinReadWatch()
 	go telemetryLoop()
 	go diagnosticLoop()
-	setupTelemetryConfigHandler()
 	go updateTelemetryCountsLoop()
 	go backupCleanupLoop()
 	go startupActivityUpdate(firstLaunch) // must be after startConfigWatcher()
