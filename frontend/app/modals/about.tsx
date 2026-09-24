@@ -15,16 +15,57 @@ import { Modal } from "./modal";
 
 const ForkRepoUrl = "https://github.com/Atreus-X/waveterm";
 
-const UpdateSourceOptions: { value: string; label: string }[] = [
+type ToggleOption = { value: string; label: string };
+
+const UpdateSourceOptions: ToggleOption[] = [
     { value: "atreus", label: "Atreus fork" },
     { value: "official", label: "Official Wave" },
 ];
+
+const WaveAIOptions: ToggleOption[] = [
+    { value: "enabled", label: "Enabled" },
+    { value: "disabled", label: "Disabled" },
+];
+
+const SegmentedToggle = ({
+    label,
+    options,
+    value,
+    onChange,
+}: {
+    label: string;
+    options: ToggleOption[];
+    value: string;
+    onChange?: (value: string) => void;
+}) => {
+    return (
+        <div className="flex items-center gap-2">
+            <span>{label}</span>
+            <div className="inline-flex rounded border border-border overflow-hidden">
+                {options.map((opt) => (
+                    <button
+                        key={opt.value}
+                        className={cn(
+                            "px-3 py-1 cursor-pointer transition-colors",
+                            value === opt.value ? "bg-accent/80 text-primary hover:bg-accent" : "hover:bg-hoverbg"
+                        )}
+                        onClick={() => onChange?.(opt.value)}
+                    >
+                        {opt.label}
+                    </button>
+                ))}
+            </div>
+        </div>
+    );
+};
 
 interface AboutModalVProps {
     versionString: string;
     updaterChannel: string;
     updateSource: string;
     onUpdateSourceChange?: (source: string) => void;
+    waveAIDisabled: boolean;
+    onWaveAIDisabledChange?: (disabled: boolean) => void;
     onClose: () => void;
 }
 
@@ -33,6 +74,8 @@ const AboutModalV = ({
     updaterChannel,
     updateSource,
     onUpdateSourceChange,
+    waveAIDisabled,
+    onWaveAIDisabledChange,
     onClose,
 }: AboutModalVProps) => {
     const currentDate = new Date();
@@ -61,30 +104,23 @@ const AboutModalV = ({
                     </a>
                 </div>
                 <div className="flex flex-col items-center gap-2 self-stretch w-full text-center">
-                    <div className="flex items-center gap-2">
-                        <span>Updates from:</span>
-                        <div className="inline-flex rounded border border-border overflow-hidden">
-                            {UpdateSourceOptions.map((opt) => (
-                                <button
-                                    key={opt.value}
-                                    className={cn(
-                                        "px-3 py-1 cursor-pointer transition-colors",
-                                        updateSource === opt.value
-                                            ? "bg-accent/80 text-primary hover:bg-accent"
-                                            : "hover:bg-hoverbg"
-                                    )}
-                                    onClick={() => onUpdateSourceChange?.(opt.value)}
-                                >
-                                    {opt.label}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
+                    <SegmentedToggle
+                        label="Updates from:"
+                        options={UpdateSourceOptions}
+                        value={updateSource}
+                        onChange={onUpdateSourceChange}
+                    />
                     {updateSource === "official" && (
                         <div className="text-xs text-warning">
                             Official Wave builds don't include this fork's changes — installing one replaces them.
                         </div>
                     )}
+                    <SegmentedToggle
+                        label="Wave AI:"
+                        options={WaveAIOptions}
+                        value={waveAIDisabled ? "disabled" : "enabled"}
+                        onChange={(v) => onWaveAIDisabledChange?.(v === "disabled")}
+                    />
                 </div>
                 <div className="grid grid-cols-2 gap-[10px] self-stretch w-full">
                     <a
@@ -146,6 +182,14 @@ const AboutModal = () => {
     const versionString = `${fullConfig?.version ?? ""} (${isDev() ? "dev-" : ""}${fullConfig?.buildtime ?? ""})`;
     const updaterChannel = fullConfig?.settings?.["autoupdate:channel"] ?? "latest";
     const updateSource = fullConfig?.settings?.["autoupdate:source"] ?? "atreus";
+    const waveAIDisabled = fullConfig?.settings?.["waveai:disabled"] ?? false;
+
+    const handleWaveAIDisabledChange = (disabled: boolean) => {
+        if (disabled === waveAIDisabled) {
+            return;
+        }
+        fireAndForget(() => RpcApi.SetConfigCommand(TabRpcClient, { "waveai:disabled": disabled }));
+    };
 
     const handleUpdateSourceChange = (source: string) => {
         if (source === updateSource) {
@@ -173,6 +217,8 @@ const AboutModal = () => {
             updaterChannel={updaterChannel}
             updateSource={updateSource}
             onUpdateSourceChange={handleUpdateSourceChange}
+            waveAIDisabled={waveAIDisabled}
+            onWaveAIDisabledChange={handleWaveAIDisabledChange}
             onClose={() => modalsModel.popModal()}
         />
     );
