@@ -237,6 +237,20 @@ ipcMain.on("install-app-update", () => fireAndForget(updater?.promptToInstallUpd
 ipcMain.on("get-app-update-status", (event) => {
     event.returnValue = updater?.status;
 });
+// switch feeds immediately when the user changes autoupdate:source (the About dialog also persists it)
+ipcMain.on("set-update-source", (_event, source: string) => {
+    const url = UpdateFeeds[source];
+    if (url == null) {
+        console.log(`ignoring unknown update source ${JSON.stringify(source)}`);
+        return;
+    }
+    if (isDev()) {
+        return;
+    }
+    autoUpdater.setFeedURL({ provider: "generic", url });
+    console.log("Update source changed:", source, url);
+});
+
 ipcMain.on("get-updater-channel", (event) => {
     event.returnValue = getResolvedUpdateChannel();
 });

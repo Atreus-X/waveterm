@@ -61,6 +61,7 @@ contextBridge.exposeInMainWorld("api", {
     openNativePath: (filePath: string) => ipcRenderer.send("open-native-path", filePath),
     openFileExternal: (opts: OpenFileExternalOpts) => ipcRenderer.invoke("open-file-external", opts),
     getExternalEditor: (configuredPath: string) => ipcRenderer.sendSync("get-external-editor", configuredPath),
+    setUpdateSource: (source: string) => ipcRenderer.send("set-update-source", source),
     captureScreenshot: (rect: Rectangle) => ipcRenderer.invoke("capture-screenshot", rect),
     setKeyboardChordMode: () => ipcRenderer.send("set-keyboard-chord-mode"),
     clearWebviewStorage: (webContentsId: number) => ipcRenderer.invoke("clear-webview-storage", webContentsId),

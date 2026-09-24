@@ -141,6 +141,7 @@ declare global {
         openNativePath(filePath: string): void; // open-native-path
         openFileExternal: (opts: OpenFileExternalOpts) => Promise<string>; // open-file-external (resolves to "" or an error message)
         getExternalEditor: (configuredPath: string) => ExternalEditorInfo | null; // get-external-editor
+        setUpdateSource: (source: string) => void; // set-update-source
         captureScreenshot(rect: Electron.Rectangle): Promise<string>; // capture-screenshot
         setKeyboardChordMode: () => void; // set-keyboard-chord-mode
         clearWebviewStorage: (webContentsId: number) => Promise<void>; // clear-webview-storage
