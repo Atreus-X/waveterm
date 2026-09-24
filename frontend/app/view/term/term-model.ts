@@ -840,21 +840,23 @@ export class TermViewModel implements ViewModel {
                     }
                 },
             });
-            menu.push({ type: "separator" });
-            menu.push({
-                label: "Send to Wave AI",
-                click: () => {
-                    if (selection) {
-                        const aiModel = WaveAIModel.getInstance();
-                        aiModel.appendText(selection, true, { scrollToBottom: true });
-                        const layoutModel = WorkspaceLayoutModel.getInstance();
-                        if (!layoutModel.getAIPanelVisible()) {
-                            layoutModel.setAIPanelVisible(true);
+            if (!globalStore.get(getSettingsKeyAtom("waveai:disabled"))) {
+                menu.push({ type: "separator" });
+                menu.push({
+                    label: "Send to Wave AI",
+                    click: () => {
+                        if (selection) {
+                            const aiModel = WaveAIModel.getInstance();
+                            aiModel.appendText(selection, true, { scrollToBottom: true });
+                            const layoutModel = WorkspaceLayoutModel.getInstance();
+                            if (!layoutModel.getAIPanelVisible()) {
+                                layoutModel.setAIPanelVisible(true);
+                            }
+                            aiModel.focusInput();
                         }
-                        aiModel.focusInput();
-                    }
-                },
-            });
+                    },
+                });
+            }
 
             menu.push({ type: "separator" });
         }

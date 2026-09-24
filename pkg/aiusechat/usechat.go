@@ -30,6 +30,7 @@ import (
 	"github.com/wavetermdev/waveterm/pkg/waveappstore"
 	"github.com/wavetermdev/waveterm/pkg/wavebase"
 	"github.com/wavetermdev/waveterm/pkg/waveobj"
+	"github.com/wavetermdev/waveterm/pkg/wconfig"
 	"github.com/wavetermdev/waveterm/pkg/web/sse"
 	"github.com/wavetermdev/waveterm/pkg/wps"
 	"github.com/wavetermdev/waveterm/pkg/wstore"
@@ -633,6 +634,11 @@ type PostMessageRequest struct {
 }
 
 func WaveAIPostMessageHandler(w http.ResponseWriter, r *http.Request) {
+	// enforced here too (not just by hiding the UI) so nothing can reach an AI provider when disabled
+	if wconfig.GetWatcher().GetFullConfig().Settings.WaveAiDisabled {
+		http.Error(w, "Wave AI is disabled (waveai:disabled)", http.StatusForbidden)
+		return
+	}
 	// Only allow POST method
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)

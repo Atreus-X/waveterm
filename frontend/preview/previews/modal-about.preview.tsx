@@ -9,6 +9,7 @@ export function AboutModalPreview() {
             versionString="0.11.0 (1740000000)"
             updaterChannel="stable"
             updateSource="atreus"
+            waveAIDisabled={false}
             onClose={() => console.log("close")}
         />
     );

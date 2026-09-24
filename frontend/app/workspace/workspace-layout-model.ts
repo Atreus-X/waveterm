@@ -10,6 +10,11 @@ import { TabRpcClient } from "@/app/store/wshrpcutil";
 import { getLayoutModelForStaticTab } from "@/layout/lib/layoutModelHooks";
 import { atoms, getApi, getOrefMetaKeyAtom, getSettingsKeyAtom, recordTEvent, refocusNode } from "@/store/global";
 import debug from "debug";
+
+// waveai:disabled turns the AI panel off everywhere; every way of opening it goes through setAIPanelVisible
+function isWaveAIDisabled(): boolean {
+    return globalStore.get(getSettingsKeyAtom("waveai:disabled")) ?? false;
+}
 import * as jotai from "jotai";
 import { debounce } from "lodash-es";
 import { ImperativePanelGroupHandle, ImperativePanelHandle } from "react-resizable-panels";
@@ -72,6 +77,11 @@ class WorkspaceLayoutModel {
         this.vtabWidth = VTabBar_DefaultWidth;
         this.vtabVisible = false;
         this.panelVisibleAtom = jotai.atom(false);
+        globalStore.sub(getSettingsKeyAtom("waveai:disabled"), () => {
+            if (isWaveAIDisabled() && this.aiPanelVisible) {
+                this.setAIPanelVisible(false);
+            }
+        });
         this.widgetsSidebarVisibleAtom = jotai.atom(
             (get) =>
                 get(getOrefMetaKeyAtom(WOS.makeORef("workspace", this.getWorkspaceId()), "layout:widgetsvisible")) ??
@@ -147,8 +157,9 @@ class WorkspaceLayoutModel {
             const savedAIWidth = globalStore.get(this.getPanelWidthAtom());
             const savedVTabWidth = globalStore.get(this.getVTabBarWidthAtom());
             if (savedVisible != null) {
-                this.aiPanelVisible = savedVisible;
-                globalStore.set(this.panelVisibleAtom, savedVisible);
+                const visible = savedVisible && !isWaveAIDisabled();
+                this.aiPanelVisible = visible;
+                globalStore.set(this.panelVisibleAtom, visible);
             }
             if (savedAIWidth != null) {
                 this.aiPanelWidth = savedAIWidth;
@@ -386,6 +397,9 @@ class WorkspaceLayoutModel {
     // ---- Toggle visibility ----
 
     setAIPanelVisible(visible: boolean, opts?: { nofocus?: boolean }): void {
+        if (visible && isWaveAIDisabled()) {
+            return;
+        }
         if (this.focusTimeoutRef != null) {
             clearTimeout(this.focusTimeoutRef);
             this.focusTimeoutRef = null;
