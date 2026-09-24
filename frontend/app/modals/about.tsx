@@ -88,7 +88,7 @@ const AboutModalV = ({
                 </div>
                 <div className="grid grid-cols-2 gap-[10px] self-stretch w-full">
                     <a
-                        href="https://github.com/wavetermdev/waveterm?ref=about"
+                        href="https://github.com/wavetermdev/waveterm"
                         target="_blank"
                         rel="noopener"
                         className="inline-flex items-center justify-center px-4 py-2 rounded border border-border hover:bg-hoverbg transition-colors duration-200"
@@ -96,7 +96,7 @@ const AboutModalV = ({
                         <i className="fa-brands fa-github mr-2"></i>GitHub
                     </a>
                     <a
-                        href="https://www.waveterm.dev/?ref=about"
+                        href="https://www.waveterm.dev/"
                         target="_blank"
                         rel="noopener"
                         className="inline-flex items-center justify-center px-4 py-2 rounded border border-border hover:bg-hoverbg transition-colors duration-200"
