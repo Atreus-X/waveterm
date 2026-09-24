@@ -22,7 +22,9 @@ export type { VTabItem } from "./vtab";
 const VTabBarAIButton = memo(() => {
     const env = useWaveEnv<VTabBarEnv>();
     const aiPanelOpen = useAtomValue(WorkspaceLayoutModel.getInstance().panelVisibleAtom);
-    const hideAiButton = useAtomValue(env.getSettingsKeyAtom("app:hideaibutton"));
+    const hideAiButtonSetting = useAtomValue(env.getSettingsKeyAtom("app:hideaibutton"));
+    const waveAIDisabled = useAtomValue(env.getSettingsKeyAtom("waveai:disabled"));
+    const hideAiButton = hideAiButtonSetting || waveAIDisabled;
 
     const onClick = () => {
         const currentVisible = WorkspaceLayoutModel.getInstance().getAIPanelVisible();

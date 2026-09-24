@@ -48,7 +48,9 @@ interface TabBarProps {
 const WaveAIButton = memo(({ divRef }: { divRef?: React.RefObject<HTMLDivElement> }) => {
     const env = useWaveEnv<TabBarEnv>();
     const aiPanelOpen = useAtomValue(WorkspaceLayoutModel.getInstance().panelVisibleAtom);
-    const hideAiButton = useAtomValue(env.getSettingsKeyAtom("app:hideaibutton"));
+    const hideAiButtonSetting = useAtomValue(env.getSettingsKeyAtom("app:hideaibutton"));
+    const waveAIDisabled = useAtomValue(env.getSettingsKeyAtom("waveai:disabled"));
+    const hideAiButton = hideAiButtonSetting || waveAIDisabled;
 
     const onClick = () => {
         const currentVisible = WorkspaceLayoutModel.getInstance().getAIPanelVisible();
@@ -132,7 +134,9 @@ const TabBar = memo(({ workspace, noTabs }: TabBarProps) => {
     const zoomFactor = useAtomValue(env.atoms.zoomFactorAtom);
     const showMenuBar = useAtomValue(env.getSettingsKeyAtom("window:showmenubar"));
     const confirmClose = useAtomValue(env.getSettingsKeyAtom("tab:confirmclose")) ?? false;
-    const hideAiButton = useAtomValue(env.getSettingsKeyAtom("app:hideaibutton"));
+    const hideAiButtonSetting = useAtomValue(env.getSettingsKeyAtom("app:hideaibutton"));
+    const waveAIDisabled = useAtomValue(env.getSettingsKeyAtom("waveai:disabled"));
+    const hideAiButton = hideAiButtonSetting || waveAIDisabled;
     const appUpdateStatus = useAtomValue(env.atoms.updaterStatusAtom);
 
     let prevDelta: number;

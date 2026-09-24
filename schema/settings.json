@@ -101,6 +101,9 @@
         "waveai:defaultmode": {
           "type": "string"
         },
+        "waveai:disabled": {
+          "type": "boolean"
+        },
         "term:*": {
           "type": "boolean"
         },
