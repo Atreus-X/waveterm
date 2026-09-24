@@ -7,6 +7,22 @@ import type * as jotai from "jotai";
 import type * as rxjs from "rxjs";
 
 declare global {
+    // "default" = OS default app (Windows falls back to the "Open with" picker when nothing is associated),
+    // "editor" = the external editor (preview:externaleditor / Notepad++), "openwith" = always show the picker
+    type OpenExternalMode = "default" | "editor" | "openwith";
+
+    type OpenFileExternalOpts = {
+        path: string;
+        connection: string;
+        mode: OpenExternalMode;
+        editorPath: string;
+    };
+
+    type ExternalEditorInfo = {
+        name: string;
+        path: string;
+    };
+
     type GlobalAtomsType = {
         builderId: jotai.Atom<string>; // readonly (for builder mode)
         builderAppId: jotai.PrimitiveAtom<string>; // app being edited in builder mode
@@ -123,6 +139,8 @@ declare global {
         sendLog: (log: string) => void; // fe-log
         onQuicklook: (filePath: string) => void; // quicklook
         openNativePath(filePath: string): void; // open-native-path
+        openFileExternal: (opts: OpenFileExternalOpts) => Promise<string>; // open-file-external (resolves to "" or an error message)
+        getExternalEditor: (configuredPath: string) => ExternalEditorInfo | null; // get-external-editor
         captureScreenshot(rect: Electron.Rectangle): Promise<string>; // capture-screenshot
         setKeyboardChordMode: () => void; // set-keyboard-chord-mode
         clearWebviewStorage: (webContentsId: number) => Promise<void>; // clear-webview-storage

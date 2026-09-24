@@ -245,6 +245,16 @@
             "modtime"
           ]
         },
+        "preview:doubleclickopen": {
+          "type": "string",
+          "enum": [
+            "external",
+            "preview"
+          ]
+        },
+        "preview:externaleditor": {
+          "type": "string"
+        },
         "tab:preset": {
           "type": "string"
         },
