@@ -248,6 +248,9 @@
             "modtime"
           ]
         },
+        "preview:dirsfirst": {
+          "type": "boolean"
+        },
         "preview:doubleclickopen": {
           "type": "string",
           "enum": [

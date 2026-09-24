@@ -27,6 +27,7 @@ import { PrimitiveAtom, atom, useAtom, useAtomValue, useSetAtom } from "jotai";
 import { OverlayScrollbarsComponent, OverlayScrollbarsComponentRef } from "overlayscrollbars-react";
 import React, { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useDrag, useDrop } from "react-dnd";
+import { NativeTypes } from "react-dnd-html5-backend";
 import { quote as shellQuote } from "shell-quote";
 import { debounce } from "throttle-debounce";
 import "./directorypreview.scss";
@@ -98,6 +99,21 @@ interface DirectoryTableProps {
 
 const columnHelper = createColumnHelper<FileInfo>();
 
+// Rendering and keyboard selection must agree on row order, so both go through this.
+// Folders are partitioned after sorting (not via sortingFn) so they stay on top in either sort direction.
+function getDisplayRows(table: Table<FileInfo>, dirsFirst: boolean): Row<FileInfo>[] {
+    const allRows = table.getRowModel().flatRows;
+    const dotdotRow = allRows.find((row) => row.original.name === "..");
+    let otherRows = allRows.filter((row) => row.original.name !== "..");
+    if (dirsFirst) {
+        otherRows = [
+            ...otherRows.filter((row) => row.original.isdir),
+            ...otherRows.filter((row) => !row.original.isdir),
+        ];
+    }
+    return dotdotRow ? [dotdotRow, ...otherRows] : otherRows;
+}
+
 function DirectoryTable({
     model,
     data,
@@ -114,6 +130,7 @@ function DirectoryTable({
     const env = useWaveEnv<PreviewEnv>();
     const fullConfig = useAtomValue(env.atoms.fullConfigAtom);
     const defaultSort = useAtomValue(env.getSettingsKeyAtom("preview:defaultsort")) ?? "name";
+    const dirsFirst = useAtomValue(env.getSettingsKeyAtom("preview:dirsfirst")) ?? true;
     const setErrorMsg = useSetAtom(model.errorMsgAtom);
     const getIconFromMimeType = useCallback(
         (mimeType: string): string => {
@@ -234,9 +251,9 @@ function DirectoryTable({
     });
     const sortingState = table.getState().sorting;
     useEffect(() => {
-        const allRows = table.getRowModel()?.flatRows || [];
-        setSelectedPath((allRows[focusIndex]?.getValue("path") as string) ?? null);
-    }, [focusIndex, data, setSelectedPath, sortingState]);
+        const rows = getDisplayRows(table, dirsFirst);
+        setSelectedPath((rows[focusIndex]?.getValue("path") as string) ?? null);
+    }, [focusIndex, data, setSelectedPath, sortingState, dirsFirst]);
 
     const columnSizeVars = useMemo(() => {
         const headers = table.getFlatHeaders();
@@ -292,6 +309,7 @@ function DirectoryTable({
                 setSelectedPath={setSelectedPath}
                 setRefreshVersion={setRefreshVersion}
                 osRef={osRef.current}
+                dirsFirst={dirsFirst}
             />
         </OverlayScrollbarsComponent>
     );
@@ -309,6 +327,7 @@ interface TableBodyProps {
     setSelectedPath: (_: string) => void;
     setRefreshVersion: React.Dispatch<React.SetStateAction<number>>;
     osRef: OverlayScrollbarsComponentRef;
+    dirsFirst: boolean;
 }
 
 function TableBody({
@@ -321,6 +340,7 @@ function TableBody({
     setSearch,
     setRefreshVersion,
     osRef,
+    dirsFirst,
 }: TableBodyProps) {
     const searchActive = useAtomValue(model.directorySearchActive);
     const dummyLineRef = useRef<HTMLDivElement>(null);
@@ -429,9 +449,7 @@ function TableBody({
         [setRefreshVersion, conn]
     );
 
-    const allRows = table.getRowModel().flatRows;
-    const dotdotRow = allRows.find((row) => row.getValue("name") === "..");
-    const otherRows = allRows.filter((row) => row.getValue("name") !== "..");
+    const displayRows = getDisplayRows(table, dirsFirst);
 
     return (
         <div className="dir-table-body" ref={bodyRef}>
@@ -459,28 +477,16 @@ function TableBody({
                 <div className="dummy dir-table-body-row" ref={dummyLineRef}>
                     <div className="dir-table-body-cell">dummy-data</div>
                 </div>
-                {dotdotRow && (
-                    <TableRow
-                        model={model}
-                        row={dotdotRow}
-                        focusIndex={focusIndex}
-                        setFocusIndex={setFocusIndex}
-                        setSearch={setSearch}
-                        idx={0}
-                        handleFileContextMenu={handleFileContextMenu}
-                        key="dotdot"
-                    />
-                )}
-                {otherRows.map((row, idx) => (
+                {displayRows.map((row, idx) => (
                     <TableRow
                         model={model}
                         row={row}
                         focusIndex={focusIndex}
                         setFocusIndex={setFocusIndex}
                         setSearch={setSearch}
-                        idx={dotdotRow ? idx + 1 : idx}
+                        idx={idx}
                         handleFileContextMenu={handleFileContextMenu}
-                        key={idx}
+                        key={row.original.name === ".." ? "dotdot" : idx}
                     />
                 ))}
             </div>
@@ -762,10 +768,84 @@ function DirectoryPreview({ model }: DirectoryPreviewProps) {
         [model.refreshCallback]
     );
 
-    const [, drop] = useDrop(
+    const uploadLocalFiles = useCallback(
+        async (files: File[]) => {
+            const localPaths = files.map((file) => env.electron.getPathForFile(file)).filter((p) => !!p);
+            if (localPaths.length == 0) {
+                return;
+            }
+            const desturi = await model.formatRemoteUri(dirPath, globalStore.get);
+            const conflicts: CommandFileCopyData[] = [];
+            const failures: string[] = [];
+            const copyAll = async (items: CommandFileCopyData[]) => {
+                for (const data of items) {
+                    try {
+                        await env.rpc.FileCopyCommand(TabRpcClient, data, { timeout: data.opts.timeout });
+                    } catch (e) {
+                        const copyError = `${e}`;
+                        const name = data.srcuri.split("/").at(-1);
+                        if (copyError.includes(overwriteError) || copyError.includes(mergeError)) {
+                            conflicts.push(data);
+                        } else {
+                            failures.push(`${name}: ${copyError}`);
+                        }
+                    }
+                }
+            };
+            const timeoutYear = 31536000000;
+            // Backslashes break the remote side's "/"-based basename when copying into a directory;
+            // Windows accepts forward slashes, so normalize.
+            await copyAll(
+                localPaths.map((p) => ({
+                    srcuri: formatRemoteUri(p.replace(/\\/g, "/"), "local"),
+                    desturi,
+                    opts: { timeout: timeoutYear, recursive: true },
+                }))
+            );
+            model.refreshCallback();
+            if (failures.length > 0) {
+                setErrorMsg({
+                    status: failures.length == 1 ? "Upload Failed" : `${failures.length} Uploads Failed`,
+                    text: failures.join("\n"),
+                    level: "error",
+                });
+                return;
+            }
+            if (conflicts.length == 0) {
+                return;
+            }
+            const names = conflicts.map((d) => d.srcuri.split("/").at(-1));
+            setErrorMsg({
+                status: "Confirm Overwrite",
+                text: `${names.length == 1 ? `"${names[0]}" already exists` : `${names.length} items already exist`} in this folder: ${names.join(", ")}. Overwrite?`,
+                level: "warning",
+                buttons: [
+                    {
+                        text: "Overwrite",
+                        onClick: () =>
+                            fireAndForget(async () => {
+                                const retry = conflicts.map((d) => ({ ...d, opts: { ...d.opts, overwrite: true } }));
+                                conflicts.length = 0;
+                                await copyAll(retry);
+                                model.refreshCallback();
+                                if (failures.length > 0) {
+                                    setErrorMsg({ status: "Upload Failed", text: failures.join("\n"), level: "error" });
+                                }
+                            }),
+                    },
+                ],
+            });
+        },
+        [dirPath, model.formatRemoteUri, model.refreshCallback]
+    );
+
+    const [{ isNativeFileOver }, drop] = useDrop(
         () => ({
-            accept: "FILE_ITEM", //a name of file drop type
+            accept: ["FILE_ITEM", NativeTypes.FILE],
             canDrop: (_, monitor) => {
+                if (monitor.getItemType() === NativeTypes.FILE) {
+                    return monitor.isOver({ shallow: false });
+                }
                 const dragItem = monitor.getItem<DraggedFile>();
                 // drop if not current dir is the parent directory of the dragged item
                 // requires absolute path
@@ -774,7 +854,15 @@ function DirectoryPreview({ model }: DirectoryPreviewProps) {
                 }
                 return false;
             },
-            drop: async (draggedFile: DraggedFile, monitor) => {
+            collect: (monitor) => ({
+                isNativeFileOver: monitor.isOver({ shallow: false }) && monitor.getItemType() === NativeTypes.FILE,
+            }),
+            drop: async (item: DraggedFile | { files: File[] }, monitor) => {
+                if (monitor.getItemType() === NativeTypes.FILE) {
+                    await uploadLocalFiles((item as { files: File[] }).files ?? []);
+                    return;
+                }
+                const draggedFile = item as DraggedFile;
                 if (!monitor.didDrop()) {
                     const timeoutYear = 31536000000; // one year
                     const opts: FileCopyOpts = {
@@ -791,7 +879,7 @@ function DirectoryPreview({ model }: DirectoryPreviewProps) {
             },
             // TODO: mabe add a hover option?
         }),
-        [dirPath, model.formatRemoteUri, model.refreshCallback]
+        [dirPath, model.formatRemoteUri, model.refreshCallback, uploadLocalFiles]
     );
 
     useEffect(() => {
@@ -872,7 +960,7 @@ function DirectoryPreview({ model }: DirectoryPreviewProps) {
         <Fragment>
             <div
                 ref={refs.setReference}
-                className="dir-table-container"
+                className="dir-table-container relative"
                 onChangeCapture={(e) => {
                     const event = e as React.ChangeEvent<HTMLInputElement>;
                     if (!entryManagerProps) {
@@ -896,6 +984,14 @@ function DirectoryPreview({ model }: DirectoryPreviewProps) {
                     newFile={newFile}
                     newDirectory={newDirectory}
                 />
+                {isNativeFileOver && (
+                    <div className="absolute inset-1 z-10 flex items-center justify-center rounded-md border-2 border-dashed border-accent bg-accent/10 pointer-events-none">
+                        <div className="rounded bg-panel px-3 py-2 text-primary">
+                            <i className="fa-solid fa-upload mr-2" />
+                            Drop to upload to {dirPath}
+                        </div>
+                    </div>
+                )}
             </div>
             {entryManagerProps && (
                 <EntryManagerOverlay

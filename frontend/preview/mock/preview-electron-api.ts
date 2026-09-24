@@ -46,6 +46,7 @@ const previewElectronApi: ElectronApi = {
     onBuilderInit: (_callback: (initOpts: BuilderInitOpts) => void) => {},
     sendLog: (_log: string) => {},
     onQuicklook: (_filePath: string) => {},
+    getPathForFile: (_file: File) => "",
     openNativePath: (_filePath: string) => {},
     openFileExternal: (_opts: OpenFileExternalOpts) => Promise.resolve(""),
     getExternalEditor: (_configuredPath: string) => null,

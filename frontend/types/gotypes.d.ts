@@ -1453,6 +1453,7 @@ declare global {
         "markdown:fixedfontsize"?: number;
         "preview:showhiddenfiles"?: boolean;
         "preview:defaultsort"?: string;
+        "preview:dirsfirst"?: boolean;
         "preview:doubleclickopen"?: string;
         "preview:externaleditor"?: string;
         "tab:preset"?: string;
