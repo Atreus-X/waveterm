@@ -418,6 +418,21 @@ declare global {
         chatid: string;
     };
 
+    // wshrpc.CommandHostActionData
+    type CommandHostActionData = {
+        conn: string;
+        kind: string;
+        target: string;
+        action: string;
+    };
+
+    // wshrpc.CommandHostInfoData
+    type CommandHostInfoData = {
+        conn: string;
+        sections: string[];
+        dockerstats?: boolean;
+    };
+
     // wshrpc.CommandJobCmdExitedData
     type CommandJobCmdExitedData = {
         jobid: string;
@@ -1025,6 +1040,153 @@ declare global {
         configerrors: ConfigError[];
         version: string;
         buildtime: string;
+    };
+
+    // wshrpc.HostActionRtnData
+    type HostActionRtnData = {
+        output?: string;
+        needsauth?: boolean;
+        command?: string;
+    };
+
+    // wshrpc.HostContainerInfo
+    type HostContainerInfo = {
+        id: string;
+        name: string;
+        image: string;
+        state: string;
+        status: string;
+        ports?: string;
+        project?: string;
+        runningfor?: string;
+        mounts?: string;
+        cpupct?: string;
+        memusage?: string;
+        mempct?: string;
+        netio?: string;
+    };
+
+    // wshrpc.HostDiskInfo
+    type HostDiskInfo = {
+        mount: string;
+        device: string;
+        fstype?: string;
+        total: number;
+        used: number;
+        avail: number;
+    };
+
+    // wshrpc.HostDockerInfo
+    type HostDockerInfo = {
+        available: boolean;
+        error?: string;
+        containers: HostContainerInfo[];
+    };
+
+    // wshrpc.HostIfaceInfo
+    type HostIfaceInfo = {
+        name: string;
+        addrs?: string[];
+        rxbytes: number;
+        txbytes: number;
+        rxrate: number;
+        txrate: number;
+    };
+
+    // wshrpc.HostInfoData
+    type HostInfoData = {
+        conn: string;
+        ts: number;
+        uid: number;
+        user?: string;
+        system?: HostSystemInfo;
+        network?: HostNetworkInfo;
+        ports?: HostPortsInfo;
+        processes?: HostProcessesInfo;
+        services?: HostServicesInfo;
+        docker?: HostDockerInfo;
+        errors?: {[key: string]: string};
+    };
+
+    // wshrpc.HostNetworkInfo
+    type HostNetworkInfo = {
+        interfaces: HostIfaceInfo[];
+        defaultroute?: string;
+        dns?: string[];
+    };
+
+    // wshrpc.HostPortInfo
+    type HostPortInfo = {
+        proto: string;
+        addr: string;
+        port: number;
+        process?: string;
+        pid?: number;
+    };
+
+    // wshrpc.HostPortsInfo
+    type HostPortsInfo = {
+        tool?: string;
+        ports: HostPortInfo[];
+        needsroot?: boolean;
+    };
+
+    // wshrpc.HostProcessInfo
+    type HostProcessInfo = {
+        pid: number;
+        ppid: number;
+        user: string;
+        cpupct: number;
+        mempct: number;
+        rss: number;
+        elapsedsec: number;
+        state: string;
+        name: string;
+        args: string;
+    };
+
+    // wshrpc.HostProcessesInfo
+    type HostProcessesInfo = {
+        total: number;
+        processes: HostProcessInfo[];
+    };
+
+    // wshrpc.HostServiceInfo
+    type HostServiceInfo = {
+        unit: string;
+        load: string;
+        active: string;
+        sub: string;
+        enabled?: string;
+        description?: string;
+    };
+
+    // wshrpc.HostServicesInfo
+    type HostServicesInfo = {
+        available: boolean;
+        services: HostServiceInfo[];
+        failed: number;
+    };
+
+    // wshrpc.HostSystemInfo
+    type HostSystemInfo = {
+        hostname: string;
+        os?: string;
+        kernel?: string;
+        virt?: string;
+        uptimesec: number;
+        load1: number;
+        load5: number;
+        load15: number;
+        cpumodel?: string;
+        cpucount: number;
+        cpupct: number;
+        memtotal: number;
+        memavail: number;
+        swaptotal: number;
+        swapfree: number;
+        users: number;
+        disks: HostDiskInfo[];
     };
 
     // waveobj.Job
