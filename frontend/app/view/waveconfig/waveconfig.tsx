@@ -247,9 +247,14 @@ const WaveConfigView = memo(({ blockId, model }: ViewComponentProps<WaveConfigVi
                                     >
                                         Visual
                                     </button>
-                                    {/* No guard needed: visual tab saves changes immediately via RPC */}
+                                    {/* No guard needed: visual tab saves changes immediately via RPC; reload so the JSON shows them */}
                                     <button
-                                        onClick={() => setActiveTab("json")}
+                                        onClick={() => {
+                                            if (activeTab !== "json") {
+                                                model.loadFile(selectedFile);
+                                            }
+                                            setActiveTab("json");
+                                        }}
                                         className={cn(
                                             "px-4 pt-1 pb-1.5 cursor-pointer transition-colors text-secondary",
                                             activeTab === "json"
@@ -257,7 +262,7 @@ const WaveConfigView = memo(({ blockId, model }: ViewComponentProps<WaveConfigVi
                                                 : "bg-transparent hover:bg-hover"
                                         )}
                                     >
-                                        Raw JSON
+                                        Advanced Options (JSON)
                                     </button>
                                 </div>
                             )}
