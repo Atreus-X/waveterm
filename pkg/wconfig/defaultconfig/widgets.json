@@ -72,5 +72,16 @@
                 "view": "fleet"
             }
         }
+    },
+    "defwidget@library": {
+        "display:order": 2,
+        "icon": "book-bookmark",
+        "label": "library",
+        "description": "Library: saved command snippets and notes (Cmd+Shift+L / Alt+Shift+L in a terminal to insert one)",
+        "blockdef": {
+            "meta": {
+                "view": "library"
+            }
+        }
     }
 }

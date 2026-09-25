@@ -10,7 +10,7 @@ import * as jotai from "jotai";
 import * as React from "react";
 import DotsSvg from "../asset/dots-anim-4.svg";
 import { BlockEnv } from "./blockenv";
-import { ConnVitalsMeter } from "./connvitals";
+import { ConnNoteBadge, ConnVitalsMeter } from "./connvitals";
 
 interface ConnectionButtonProps {
     connection: string;
@@ -146,6 +146,7 @@ export const ConnectionButton = React.memo(
                         {showVitals && !isLocal && !connection.startsWith("wsl://") && connStatus?.connected && (
                             <ConnVitalsMeter connection={connection} />
                         )}
+                        {!isLocal && <ConnNoteBadge connection={connection} />}
                     </div>
                     {showNoWshButton && (
                         <IconButton

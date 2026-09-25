@@ -3,6 +3,7 @@
 
 import { WaveAIModel } from "@/app/aipanel/waveai-model";
 import { BlockNodeModel } from "@/app/block/blocktypes";
+import { openSnippetPicker } from "@/app/modals/snippetpicker";
 import { buildAppThemeSubmenu } from "@/app/store/apptheme";
 import { appHandleKeyDown } from "@/app/store/keymodel";
 import { modalsModel } from "@/app/store/modalmodel";
@@ -900,6 +901,12 @@ export class TermViewModel implements ViewModel {
             label: "Paste",
             click: () => {
                 getApi().nativePaste();
+            },
+        });
+        menu.push({
+            label: "Insert Snippet…",
+            click: () => {
+                openSnippetPicker(this.blockId);
             },
         });
 
