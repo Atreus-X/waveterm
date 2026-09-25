@@ -6,6 +6,17 @@ sidebar_position: 200
 
 # Release Notes
 
+### v0.15.3 (Atreus fork) &mdash; Sep 24, 2026
+
+Drag-and-drop uploads, an About screen that shows the fork, and more privacy controls.
+
+- **Drag & Drop Upload** - Drop files or folders from your desktop onto a file browser folder to copy them there (local, `wsh` and SFTP connections; SFTP hosts take files up to 32 MB). Existing names are collected into a single "Overwrite?" prompt
+- **Folders First** - The file browser lists folders before files for any sort column or direction. Toggle it under Default Settings &gt; Folders First (`preview:dirsfirst`, on by default)
+- **Fork & Update Source in About** - The About dialog shows which fork you're running and an "Updates from" toggle (Atreus fork / Official Wave) that writes `autoupdate:source` and switches the update feed immediately
+- **Turn Off Wave AI** - New `waveai:disabled` setting (also an Enabled / Disabled toggle in About) hides the AI panel and its buttons and makes the backend refuse chat requests
+- [privacy] Changing `telemetry:enabled` no longer reports the opt-in/opt-out to Wave's servers, links no longer carry `?ref=` tracking tags, and `web:defaulturl` points at the fork's repo
+- [bugfix] In the file browser, Enter could open the wrong entry when the ".." row wasn't first in the sorted order
+
 ### v0.15.2 (Atreus fork) &mdash; Sep 24, 2026
 
 Open files from the file browser in your own apps.
