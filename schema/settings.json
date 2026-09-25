@@ -50,6 +50,9 @@
             "left"
           ]
         },
+        "app:theme": {
+          "type": "string"
+        },
         "feature:waveappbuilder": {
           "type": "boolean"
         },

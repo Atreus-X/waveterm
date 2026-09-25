@@ -1,6 +1,7 @@
 // Copyright 2026, Command Line Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+import { applyAppTheme } from "@/app/store/apptheme";
 import {
     clearBadgesForBlockOnFocus,
     clearBadgesForTabOnFocus,
@@ -140,6 +141,13 @@ async function handleContextMenu(e: React.MouseEvent<HTMLDivElement>) {
 function AppSettingsUpdater() {
     const windowSettingsAtom = getSettingsPrefixAtom("window");
     const windowSettings = useAtomValue(windowSettingsAtom);
+    const fullConfig = useAtomValue(atoms.fullConfigAtom);
+    const appThemeName = fullConfig?.settings?.["app:theme"];
+    const appTheme = appThemeName ? fullConfig?.termthemes?.[appThemeName] : null;
+    useEffect(() => {
+        // runs before the window effect below so window:bgcolor still wins over the theme background
+        applyAppTheme(appTheme ?? null);
+    }, [appTheme]);
     useEffect(() => {
         const isTransparentOrBlur =
             (windowSettings?.["window:transparent"] || windowSettings?.["window:blur"]) ?? false;
@@ -160,10 +168,12 @@ function AppSettingsUpdater() {
         }
         if (baseBgColor != null) {
             document.body.style.setProperty("--main-bg-color", baseBgColor);
+        } else if (appTheme?.background) {
+            document.body.style.setProperty("--main-bg-color", appTheme.background);
         } else {
             document.body.style.removeProperty("--main-bg-color");
         }
-    }, [windowSettings]);
+    }, [windowSettings, appTheme]);
     return null;
 }
 

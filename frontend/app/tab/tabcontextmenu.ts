@@ -1,6 +1,7 @@
 // Copyright 2026, Command Line Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+import { buildAppThemeSubmenu } from "@/app/store/apptheme";
 import { getOrefMetaKeyAtom, globalStore, recordTEvent } from "@/app/store/global";
 import { TabRpcClient } from "@/app/store/wshrpcutil";
 import { fireAndForget } from "@/util/util";
@@ -33,7 +34,13 @@ export function buildTabBarContextMenu(env: TabEnv): ContextMenuItem[] {
             click: () => fireAndForget(() => env.rpc.SetConfigCommand(TabRpcClient, { "app:tabbar": "left" })),
         },
     ];
-    return [{ label: "Tab Bar Position", type: "submenu", submenu: tabBarSubmenu }];
+    const appThemeSubmenu = buildAppThemeSubmenu(globalStore.get(env.atoms.fullConfigAtom), (settings) =>
+        env.rpc.SetConfigCommand(TabRpcClient, settings)
+    );
+    return [
+        { label: "Tab Bar Position", type: "submenu", submenu: tabBarSubmenu },
+        { label: "App Theme (All Windows)", type: "submenu", submenu: appThemeSubmenu },
+    ];
 }
 
 export function buildTabContextMenu(

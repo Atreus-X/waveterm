@@ -3,6 +3,7 @@
 
 import { WaveAIModel } from "@/app/aipanel/waveai-model";
 import { BlockNodeModel } from "@/app/block/blocktypes";
+import { buildAppThemeSubmenu } from "@/app/store/apptheme";
 import { appHandleKeyDown } from "@/app/store/keymodel";
 import { modalsModel } from "@/app/store/modalmodel";
 import type { TabModel } from "@/app/store/tab-model";
@@ -237,7 +238,11 @@ export class TermViewModel implements ViewModel {
         this.termBPMAtom = getOverrideConfigAtom(blockId, "term:allowbracketedpaste");
         this.termThemeNameAtom = useBlockAtom(blockId, "termthemeatom", () => {
             return jotai.atom<string>((get) => {
-                return get(getOverrideConfigAtom(this.blockId, "term:theme")) ?? DefaultTermTheme;
+                return (
+                    get(getOverrideConfigAtom(this.blockId, "term:theme")) ??
+                    get(getSettingsKeyAtom("app:theme")) ??
+                    DefaultTermTheme
+                );
             });
         });
         this.termTransparencyAtom = useBlockAtom(blockId, "termtransparencyatom", () => {
@@ -1024,10 +1029,15 @@ export class TermViewModel implements ViewModel {
             };
         });
         submenu.unshift({
-            label: "Default",
+            label: "Default (App Theme)",
             type: "checkbox",
             checked: curThemeName == null,
             click: () => this.setTerminalTheme(null),
+        });
+        submenu.unshift({ type: "separator" });
+        submenu.unshift({
+            label: "App Theme (All Windows)",
+            submenu: buildAppThemeSubmenu(fullConfig, (settings) => RpcApi.SetConfigCommand(TabRpcClient, settings)),
         });
         const transparencySubMenu: ContextMenuItem[] = [];
         transparencySubMenu.push({
