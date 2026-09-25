@@ -1105,6 +1105,7 @@ declare global {
         processes?: HostProcessesInfo;
         services?: HostServicesInfo;
         docker?: HostDockerInfo;
+        vitals?: HostVitalsInfo;
         errors?: {[key: string]: string};
     };
 
@@ -1187,6 +1188,20 @@ declare global {
         swapfree: number;
         users: number;
         disks: HostDiskInfo[];
+    };
+
+    // wshrpc.HostVitalsInfo
+    type HostVitalsInfo = {
+        cpupct: number;
+        cpucount: number;
+        load1: number;
+        memtotal: number;
+        memavail: number;
+        uptimesec: number;
+        rxrate: number;
+        txrate: number;
+        diskmaxpct: number;
+        diskmaxmount?: string;
     };
 
     // waveobj.Job
@@ -1651,6 +1666,7 @@ declare global {
         "conn:wshenabled"?: boolean;
         "conn:autoconnect"?: boolean;
         "conn:syncsshconfig"?: boolean;
+        "conn:showvitals"?: boolean;
         "conn:localhostdisplayname"?: string;
         "debug:*"?: boolean;
         "debug:pprofport"?: number;

@@ -19,6 +19,7 @@
     "conn:wshenabled": true,
     "conn:autoconnect": true,
     "conn:syncsshconfig": true,
+    "conn:showvitals": true,
     "editor:minimapenabled": true,
     "web:defaulturl": "https://github.com/Atreus-X/waveterm",
     "web:defaultsearch": "https://www.google.com/search?q={query}",

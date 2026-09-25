@@ -129,6 +129,7 @@ const (
 	ConfigKey_ConnWshEnabled                 = "conn:wshenabled"
 	ConfigKey_ConnAutoConnect                = "conn:autoconnect"
 	ConfigKey_ConnSyncSshConfig              = "conn:syncsshconfig"
+	ConfigKey_ConnShowVitals                 = "conn:showvitals"
 	ConfigKey_ConnLocalHostnameDisplay       = "conn:localhostdisplayname"
 
 	ConfigKey_DebugClear                     = "debug:*"

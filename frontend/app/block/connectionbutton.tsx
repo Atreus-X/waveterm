@@ -10,6 +10,7 @@ import * as jotai from "jotai";
 import * as React from "react";
 import DotsSvg from "../asset/dots-anim-4.svg";
 import { BlockEnv } from "./blockenv";
+import { ConnVitalsMeter } from "./connvitals";
 
 interface ConnectionButtonProps {
     connection: string;
@@ -25,6 +26,7 @@ export const ConnectionButton = React.memo(
             const isLocal = util.isLocalConnName(connection);
             const connStatus = jotai.useAtomValue(waveEnv.getConnStatusAtom(connection));
             const localName = jotai.useAtomValue(waveEnv.getLocalHostDisplayNameAtom());
+            const showVitals = jotai.useAtomValue(waveEnv.getSettingsKeyAtom("conn:showvitals")) ?? true;
             let showDisconnectedSlash = false;
             let connIconElem: React.ReactNode = null;
             const connColorNum = computeConnColorNum(connStatus);
@@ -140,6 +142,9 @@ export const ConnectionButton = React.memo(
                             </div>
                         ) : isLocal ? null : (
                             <div className="flex-[1_2_auto] overflow-hidden pr-1 ellipsis">{connection}</div>
+                        )}
+                        {showVitals && !isLocal && !connection.startsWith("wsl://") && connStatus?.connected && (
+                            <ConnVitalsMeter connection={connection} />
                         )}
                     </div>
                     {showNoWshButton && (

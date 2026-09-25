@@ -36,6 +36,10 @@ var allSections = []string{
 	wshrpc.HostSection_Docker,
 }
 
+// sections a caller may request; "vitals" is excluded from the default (all) set because the full
+// sections already cover it
+var knownSections = append([]string{wshrpc.HostSection_Vitals}, allSections...)
+
 type runResult struct {
 	stdout   string
 	stderr   string
@@ -156,7 +160,7 @@ func validSections(requested []string) []string {
 		return allSections
 	}
 	known := make(map[string]bool)
-	for _, s := range allSections {
+	for _, s := range knownSections {
 		known[s] = true
 	}
 	var rtn []string

@@ -114,6 +114,16 @@ fi
 echo "@@hi-end docker"
 `
 
+const scriptVitals = `echo "@@hi-begin vitals"
+grep -E '^(MemTotal|MemAvailable):' /proc/meminfo 2>/dev/null | sed 's/^/mem /'
+echo "loadavg=$(cat /proc/loadavg 2>/dev/null)"
+echo "cpucount=$(grep -c '^processor' /proc/cpuinfo 2>/dev/null)"
+echo "uptime=$(cut -d' ' -f1 /proc/uptime 2>/dev/null)"
+echo "@@hi-sub disks"
+df -PkT 2>/dev/null
+echo "@@hi-end vitals"
+`
+
 const maxProcesses = 400
 
 func buildScript(sections []string, dockerStats bool) string {
@@ -123,7 +133,7 @@ func buildScript(sections []string, dockerStats bool) string {
 	}
 	var sb strings.Builder
 	sb.WriteString(scriptPrelude)
-	if want[wshrpc.HostSection_System] || want[wshrpc.HostSection_Network] {
+	if want[wshrpc.HostSection_System] || want[wshrpc.HostSection_Network] || want[wshrpc.HostSection_Vitals] {
 		sb.WriteString(fmt.Sprintf(scriptSample, fmt.Sprintf("%g", sampleSeconds)))
 	}
 	if want[wshrpc.HostSection_System] {
@@ -131,6 +141,9 @@ func buildScript(sections []string, dockerStats bool) string {
 	}
 	if want[wshrpc.HostSection_Network] {
 		sb.WriteString(scriptNetwork)
+	}
+	if want[wshrpc.HostSection_Vitals] {
+		sb.WriteString(scriptVitals)
 	}
 	if want[wshrpc.HostSection_Ports] {
 		sb.WriteString(scriptPorts)
