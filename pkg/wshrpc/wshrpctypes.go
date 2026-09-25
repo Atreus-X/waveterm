@@ -118,6 +118,14 @@ type WshRpcInterface interface {
 	HostInfoCommand(ctx context.Context, data CommandHostInfoData) (*HostInfoData, error)
 	HostActionCommand(ctx context.Context, data CommandHostActionData) (*HostActionRtnData, error)
 
+	// library: snippets (library.json) and Markdown notes (notes/) in the Wave config directory
+	LibraryReadCommand(ctx context.Context) (*LibraryData, error)
+	LibraryWriteCommand(ctx context.Context, data LibraryData) error
+	LibraryNoteListCommand(ctx context.Context) ([]LibraryNoteInfo, error)
+	LibraryNoteReadCommand(ctx context.Context, data CommandLibraryNoteRefData) (*LibraryNoteData, error)
+	LibraryNoteWriteCommand(ctx context.Context, data CommandLibraryNoteWriteData) (*LibraryNoteData, error)
+	LibraryNoteDeleteCommand(ctx context.Context, data CommandLibraryNoteRefData) error
+
 	// eventrecv is special, it's handled internally by WshRpc with EventListener
 	EventRecvCommand(ctx context.Context, data wps.WaveEvent) error
 

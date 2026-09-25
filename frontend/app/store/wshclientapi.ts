@@ -612,6 +612,42 @@ export class RpcApiType {
         return client.wshRpcCall("jobstartstream", data, opts);
     }
 
+    // command "librarynotedelete" [call]
+    LibraryNoteDeleteCommand(client: WshClient, data: CommandLibraryNoteRefData, opts?: RpcOpts): Promise<void> {
+        if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "librarynotedelete", data, opts);
+        return client.wshRpcCall("librarynotedelete", data, opts);
+    }
+
+    // command "librarynotelist" [call]
+    LibraryNoteListCommand(client: WshClient, opts?: RpcOpts): Promise<LibraryNoteInfo[]> {
+        if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "librarynotelist", null, opts);
+        return client.wshRpcCall("librarynotelist", null, opts);
+    }
+
+    // command "librarynoteread" [call]
+    LibraryNoteReadCommand(client: WshClient, data: CommandLibraryNoteRefData, opts?: RpcOpts): Promise<LibraryNoteData> {
+        if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "librarynoteread", data, opts);
+        return client.wshRpcCall("librarynoteread", data, opts);
+    }
+
+    // command "librarynotewrite" [call]
+    LibraryNoteWriteCommand(client: WshClient, data: CommandLibraryNoteWriteData, opts?: RpcOpts): Promise<LibraryNoteData> {
+        if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "librarynotewrite", data, opts);
+        return client.wshRpcCall("librarynotewrite", data, opts);
+    }
+
+    // command "libraryread" [call]
+    LibraryReadCommand(client: WshClient, opts?: RpcOpts): Promise<LibraryData> {
+        if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "libraryread", null, opts);
+        return client.wshRpcCall("libraryread", null, opts);
+    }
+
+    // command "librarywrite" [call]
+    LibraryWriteCommand(client: WshClient, data: LibraryData, opts?: RpcOpts): Promise<void> {
+        if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "librarywrite", data, opts);
+        return client.wshRpcCall("librarywrite", data, opts);
+    }
+
     // command "listallappfiles" [call]
     ListAllAppFilesCommand(client: WshClient, data: CommandListAllAppFilesData, opts?: RpcOpts): Promise<CommandListAllAppFilesRtnData> {
         if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "listallappfiles", data, opts);

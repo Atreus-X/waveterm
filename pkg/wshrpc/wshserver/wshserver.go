@@ -33,6 +33,7 @@ import (
 	"github.com/wavetermdev/waveterm/pkg/genconn"
 	"github.com/wavetermdev/waveterm/pkg/hostinfo"
 	"github.com/wavetermdev/waveterm/pkg/jobcontroller"
+	"github.com/wavetermdev/waveterm/pkg/library"
 	"github.com/wavetermdev/waveterm/pkg/panichandler"
 	"github.com/wavetermdev/waveterm/pkg/remote"
 	"github.com/wavetermdev/waveterm/pkg/remote/conncontroller"
@@ -612,6 +613,30 @@ func (ws *WshServer) HostInfoCommand(ctx context.Context, data wshrpc.CommandHos
 
 func (ws *WshServer) HostActionCommand(ctx context.Context, data wshrpc.CommandHostActionData) (*wshrpc.HostActionRtnData, error) {
 	return hostinfo.RunAction(ctx, data)
+}
+
+func (ws *WshServer) LibraryReadCommand(ctx context.Context) (*wshrpc.LibraryData, error) {
+	return library.ReadLibrary()
+}
+
+func (ws *WshServer) LibraryWriteCommand(ctx context.Context, data wshrpc.LibraryData) error {
+	return library.WriteLibrary(data)
+}
+
+func (ws *WshServer) LibraryNoteListCommand(ctx context.Context) ([]wshrpc.LibraryNoteInfo, error) {
+	return library.ListNotes()
+}
+
+func (ws *WshServer) LibraryNoteReadCommand(ctx context.Context, data wshrpc.CommandLibraryNoteRefData) (*wshrpc.LibraryNoteData, error) {
+	return library.ReadNote(data)
+}
+
+func (ws *WshServer) LibraryNoteWriteCommand(ctx context.Context, data wshrpc.CommandLibraryNoteWriteData) (*wshrpc.LibraryNoteData, error) {
+	return library.WriteNote(data)
+}
+
+func (ws *WshServer) LibraryNoteDeleteCommand(ctx context.Context, data wshrpc.CommandLibraryNoteRefData) error {
+	return library.DeleteNote(data)
 }
 
 func (ws *WshServer) ConnDisconnectCommand(ctx context.Context, connName string) error {
