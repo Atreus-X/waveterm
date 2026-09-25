@@ -508,6 +508,18 @@ func GetWaveAIRateLimitCommand(w *wshutil.WshRpc, opts *wshrpc.RpcOpts) (*uctype
 	return resp, err
 }
 
+// command "hostaction", wshserver.HostActionCommand
+func HostActionCommand(w *wshutil.WshRpc, data wshrpc.CommandHostActionData, opts *wshrpc.RpcOpts) (*wshrpc.HostActionRtnData, error) {
+	resp, err := sendRpcRequestCallHelper[*wshrpc.HostActionRtnData](w, "hostaction", data, opts)
+	return resp, err
+}
+
+// command "hostinfo", wshserver.HostInfoCommand
+func HostInfoCommand(w *wshutil.WshRpc, data wshrpc.CommandHostInfoData, opts *wshrpc.RpcOpts) (*wshrpc.HostInfoData, error) {
+	resp, err := sendRpcRequestCallHelper[*wshrpc.HostInfoData](w, "hostinfo", data, opts)
+	return resp, err
+}
+
 // command "jobcmdexited", wshserver.JobCmdExitedCommand
 func JobCmdExitedCommand(w *wshutil.WshRpc, data wshrpc.CommandJobCmdExitedData, opts *wshrpc.RpcOpts) error {
 	_, err := sendRpcRequestCallHelper[any](w, "jobcmdexited", data, opts)

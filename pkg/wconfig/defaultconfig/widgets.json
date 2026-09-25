@@ -50,5 +50,16 @@
                 "view": "processviewer"
             }
         }
+    },
+    "defwidget@hostinfo": {
+        "display:order": 0,
+        "icon": "server",
+        "label": "host",
+        "description": "Host Inspector: system, network, ports, processes, services and Docker for a connection",
+        "blockdef": {
+            "meta": {
+                "view": "hostinfo"
+            }
+        }
     }
 }

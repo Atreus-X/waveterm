@@ -114,6 +114,10 @@ type WshRpcInterface interface {
 	ConnServerInitCommand(ctx context.Context, data CommandConnServerInitData) error
 	NotifySystemResumeCommand(ctx context.Context) error
 
+	// host inspector: runs in wavesrv over the connection's own SSH client, so it works without wsh
+	HostInfoCommand(ctx context.Context, data CommandHostInfoData) (*HostInfoData, error)
+	HostActionCommand(ctx context.Context, data CommandHostActionData) (*HostActionRtnData, error)
+
 	// eventrecv is special, it's handled internally by WshRpc with EventListener
 	EventRecvCommand(ctx context.Context, data wps.WaveEvent) error
 
