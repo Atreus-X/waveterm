@@ -1,6 +1,8 @@
 // Copyright 2026, Atreus-X (fork of Wave Terminal by Command Line Inc.)
 // SPDX-License-Identifier: Apache-2.0
 
+import { openLibraryNote } from "@/app/view/library/library";
+import { NoteEditor } from "@/app/view/library/note-editor";
 import { cn } from "@/util/util";
 import { useAtomValue } from "jotai";
 import { memo, useMemo, useState } from "react";
@@ -202,6 +204,7 @@ const KV = memo(({ k, v }: { k: string; v: React.ReactNode }) => (
 KV.displayName = "KV";
 
 export const OverviewSection = memo(({ model, data }: SectionProps) => {
+    const conn = useAtomValue(model.connection);
     const sys = data.system;
     if (sys == null) return <Empty>No system information yet.</Empty>;
     const memUsed = sys.memtotal - sys.memavail;
@@ -300,6 +303,21 @@ export const OverviewSection = memo(({ model, data }: SectionProps) => {
                         );
                     })}
                 </div>
+            </Card>
+            <Card title="Host note">
+                <NoteEditor
+                    key={conn}
+                    noteRef={{ host: conn }}
+                    compact
+                    placeholder={`Anything worth remembering about ${conn}: what runs here, quirks, contacts. Saved as Markdown in your Wave config folder.`}
+                />
+                <button
+                    onClick={() => openLibraryNote(model.env.createBlock, { host: conn })}
+                    className="mt-2 cursor-pointer text-xs text-secondary hover:text-primary"
+                >
+                    <i className="fa-solid fa-book-bookmark mr-1.5" />
+                    Open in Library
+                </button>
             </Card>
         </div>
     );

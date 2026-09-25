@@ -19,6 +19,7 @@ export type BlockEnv = WaveEnvSubset<{
         | "window:magnifiedblockopacity"
     >;
     showContextMenu: WaveEnv["showContextMenu"];
+    createBlock: WaveEnv["createBlock"];
     atoms: {
         modalOpen: WaveEnv["atoms"]["modalOpen"];
         controlShiftDelayAtom: WaveEnv["atoms"]["controlShiftDelayAtom"];

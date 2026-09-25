@@ -2,10 +2,13 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { useHostVitals } from "@/app/store/hostvitals";
+import { LibraryModel } from "@/app/store/library-model";
 import { fmtBytes, fmtRate, usageLevel } from "@/app/view/hostinfo/hostinfo-util";
+import { openLibraryNote } from "@/app/view/library/library";
 import { useWaveEnv } from "@/app/waveenv/waveenv";
 import { cn } from "@/util/util";
-import { memo } from "react";
+import { useAtomValue } from "jotai";
+import { memo, useEffect } from "react";
 import { BlockEnv } from "./blockenv";
 
 const LevelClass = { ok: "bg-success", warn: "bg-warning", crit: "bg-error" };
@@ -49,3 +52,25 @@ export const ConnVitalsMeter = memo(({ connection }: { connection: string }) => 
     );
 });
 ConnVitalsMeter.displayName = "ConnVitalsMeter";
+
+// shown in the connection chip when the host has a note in the Library
+export const ConnNoteBadge = memo(({ connection }: { connection: string }) => {
+    const waveEnv = useWaveEnv<BlockEnv>();
+    const lib = LibraryModel.getInstance();
+    const hostsWithNotes = useAtomValue(lib.hostsWithNotesAtom);
+    useEffect(() => {
+        lib.load();
+    }, []);
+    if (!hostsWithNotes.has(connection)) return null;
+    return (
+        <i
+            className="fa-solid fa-note-sticky shrink-0 pr-1.5 text-[11px] text-muted hover:text-primary"
+            title="Open the note for this host"
+            onClick={(e) => {
+                e.stopPropagation();
+                openLibraryNote(waveEnv.createBlock, { host: connection });
+            }}
+        />
+    );
+});
+ConnNoteBadge.displayName = "ConnNoteBadge";

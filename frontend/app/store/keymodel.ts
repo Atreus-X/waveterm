@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { WaveAIModel } from "@/app/aipanel/waveai-model";
+import { openSnippetPicker } from "@/app/modals/snippetpicker";
 import { FocusManager } from "@/app/store/focusManager";
 import {
     atoms,
@@ -739,6 +740,10 @@ function registerGlobalKeys() {
             return true;
         }
         return false;
+    });
+    globalKeyMap.set("Cmd:Shift:l", () => {
+        openSnippetPicker(getFocusedBlockId());
+        return true;
     });
     globalKeyMap.set("Cmd:Shift:a", () => {
         const currentVisible = WorkspaceLayoutModel.getInstance().getAIPanelVisible();
