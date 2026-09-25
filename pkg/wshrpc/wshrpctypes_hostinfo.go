@@ -10,6 +10,8 @@ const (
 	HostSection_Processes = "processes"
 	HostSection_Services  = "services"
 	HostSection_Docker    = "docker"
+	// lightweight summary for live monitoring (connection-chip meters, Fleet block)
+	HostSection_Vitals = "vitals"
 )
 
 const (
@@ -37,6 +39,7 @@ type HostInfoData struct {
 	Processes *HostProcessesInfo `json:"processes,omitempty"`
 	Services  *HostServicesInfo  `json:"services,omitempty"`
 	Docker    *HostDockerInfo    `json:"docker,omitempty"`
+	Vitals    *HostVitalsInfo    `json:"vitals,omitempty"`
 	// per-section errors (section -> message) for sections that couldn't be collected
 	Errors map[string]string `json:"errors,omitempty"`
 }
@@ -59,6 +62,21 @@ type HostSystemInfo struct {
 	SwapFree  uint64         `json:"swapfree"`
 	Users     int            `json:"users"`
 	Disks     []HostDiskInfo `json:"disks"`
+}
+
+type HostVitalsInfo struct {
+	CpuPct    float64 `json:"cpupct"`
+	CpuCount  int     `json:"cpucount"`
+	Load1     float64 `json:"load1"`
+	MemTotal  uint64  `json:"memtotal"`
+	MemAvail  uint64  `json:"memavail"`
+	UptimeSec float64 `json:"uptimesec"`
+	// summed over physical interfaces (loopback and container/virtual interfaces excluded), bytes/s
+	RxRate float64 `json:"rxrate"`
+	TxRate float64 `json:"txrate"`
+	// the fullest real filesystem
+	DiskMaxPct   float64 `json:"diskmaxpct"`
+	DiskMaxMount string  `json:"diskmaxmount,omitempty"`
 }
 
 type HostDiskInfo struct {

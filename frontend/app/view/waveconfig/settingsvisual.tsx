@@ -286,6 +286,14 @@ const SettingSections: SettingSection[] = [
                 kind: "toggle",
                 defaultValue: true,
             },
+            {
+                key: "conn:showvitals",
+                tooltip:
+                    "Shows small CPU and memory meters in each block's connection chip for connected SSH hosts. They're read every few seconds over the existing connection; nothing is installed on the host.",
+                label: "Live host meters on connection chips",
+                kind: "toggle",
+                defaultValue: true,
+            },
         ],
     },
     {

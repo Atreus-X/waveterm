@@ -616,6 +616,85 @@ func parseDocker(sec *section) *wshrpc.HostDockerInfo {
 	return info
 }
 
+// ---- vitals ----
+
+// loopback and container/virtual interfaces would double-count traffic that also crosses a physical NIC
+var virtualIfacePrefixes = []string{"lo", "veth", "br-", "docker", "virbr", "cni", "flannel", "cali", "vnet", "tun", "tap"}
+
+func isVirtualIface(name string) bool {
+	for _, p := range virtualIfacePrefixes {
+		if strings.HasPrefix(name, p) {
+			return true
+		}
+	}
+	return false
+}
+
+func parseVitals(sec *section, smp *sample) *wshrpc.HostVitalsInfo {
+	v := &wshrpc.HostVitalsInfo{}
+	for _, l := range sec.lines {
+		if strings.HasPrefix(l, "mem ") {
+			fields := strings.Fields(strings.TrimPrefix(l, "mem "))
+			if len(fields) < 2 {
+				continue
+			}
+			kb, err := strconv.ParseUint(fields[1], 10, 64)
+			if err != nil {
+				continue
+			}
+			switch strings.TrimSuffix(fields[0], ":") {
+			case "MemTotal":
+				v.MemTotal = kb * 1024
+			case "MemAvailable":
+				v.MemAvail = kb * 1024
+			}
+			continue
+		}
+		key, val, ok := strings.Cut(l, "=")
+		if !ok {
+			continue
+		}
+		val = strings.TrimSpace(val)
+		switch key {
+		case "loadavg":
+			if fields := strings.Fields(val); len(fields) > 0 {
+				v.Load1, _ = strconv.ParseFloat(fields[0], 64)
+			}
+		case "cpucount":
+			v.CpuCount, _ = strconv.Atoi(val)
+		case "uptime":
+			v.UptimeSec, _ = strconv.ParseFloat(val, 64)
+		}
+	}
+	if smp != nil {
+		v.CpuPct = cpuPercent(smp.cpu1, smp.cpu2)
+		for name, v2 := range smp.net2 {
+			v1, ok := smp.net1[name]
+			if !ok || isVirtualIface(name) {
+				continue
+			}
+			if v2[0] >= v1[0] {
+				v.RxRate += float64(v2[0]-v1[0]) / sampleSeconds
+			}
+			if v2[1] >= v1[1] {
+				v.TxRate += float64(v2[1]-v1[1]) / sampleSeconds
+			}
+		}
+	}
+	for _, d := range parseDf(sec.subs["disks"]) {
+		if d.Used+d.Avail == 0 {
+			continue
+		}
+		// used/(used+avail) matches df's Capacity column (reserved blocks don't count as free)
+		p := float64(d.Used) / float64(d.Used+d.Avail) * 100
+		if p > v.DiskMaxPct {
+			v.DiskMaxPct = p
+			v.DiskMaxMount = d.Mount
+		}
+	}
+	return v
+}
+
 // ---- assemble ----
 
 func parseOutput(out string, sections []string) *wshrpc.HostInfoData {
@@ -647,6 +726,8 @@ func parseOutput(out string, sections []string) *wshrpc.HostInfoData {
 			data.Services = parseServices(sec)
 		case wshrpc.HostSection_Docker:
 			data.Docker = parseDocker(sec)
+		case wshrpc.HostSection_Vitals:
+			data.Vitals = parseVitals(sec, smp)
 		}
 	}
 	return data

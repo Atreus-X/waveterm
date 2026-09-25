@@ -61,5 +61,16 @@
                 "view": "hostinfo"
             }
         }
+    },
+    "defwidget@fleet": {
+        "display:order": 1,
+        "icon": "tower-broadcast",
+        "label": "fleet",
+        "description": "Fleet: live CPU, memory, network and disk for all your SSH hosts",
+        "blockdef": {
+            "meta": {
+                "view": "fleet"
+            }
+        }
     }
 }

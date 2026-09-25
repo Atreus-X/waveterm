@@ -13,6 +13,7 @@ export type BlockEnv = WaveEnvSubset<{
     getSettingsKeyAtom: SettingsKeyAtomFnType<
         | "app:focusfollowscursor"
         | "app:showoverlayblocknums"
+        | "conn:showvitals"
         | "term:showsplitbuttons"
         | "window:magnifiedblockblurprimarypx"
         | "window:magnifiedblockopacity"
@@ -32,6 +33,7 @@ export type BlockEnv = WaveEnvSubset<{
         ConnConnectCommand: WaveEnv["rpc"]["ConnConnectCommand"];
         SetConnectionsConfigCommand: WaveEnv["rpc"]["SetConnectionsConfigCommand"];
         DismissWshFailCommand: WaveEnv["rpc"]["DismissWshFailCommand"];
+        HostInfoCommand: WaveEnv["rpc"]["HostInfoCommand"];
     };
     wos: WaveEnv["wos"];
     getConnStatusAtom: WaveEnv["getConnStatusAtom"];
