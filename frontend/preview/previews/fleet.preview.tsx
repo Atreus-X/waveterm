@@ -73,6 +73,7 @@ function makeModel(): FleetViewModel {
                 } as HostInfoData;
             },
             ConnConnectCommand: async () => {},
+            ConnDisconnectCommand: async () => {},
         },
         atoms: { fullConfigAtom: atom({ connections } as FullConfigType) },
         createBlock: async (blockDef: BlockDef) => {

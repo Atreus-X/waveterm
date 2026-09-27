@@ -6,7 +6,7 @@ import { globalStore } from "@/app/store/jotaiStore";
 import { TabRpcClient } from "@/app/store/wshrpcutil";
 import { fmtDuration, fmtRate, pct, usageLevel } from "@/app/view/hostinfo/hostinfo-util";
 import { WaveEnv, WaveEnvSubset } from "@/app/waveenv/waveenv";
-import { cn } from "@/util/util";
+import { cn, fireAndForget } from "@/util/util";
 import * as jotai from "jotai";
 import { memo, useState } from "react";
 import { Sparkline } from "./sparkline";
@@ -15,6 +15,7 @@ export type FleetEnv = WaveEnvSubset<{
     rpc: {
         HostInfoCommand: WaveEnv["rpc"]["HostInfoCommand"];
         ConnConnectCommand: WaveEnv["rpc"]["ConnConnectCommand"];
+        ConnDisconnectCommand: WaveEnv["rpc"]["ConnDisconnectCommand"];
     };
     atoms: {
         fullConfigAtom: WaveEnv["atoms"]["fullConfigAtom"];
@@ -80,6 +81,31 @@ export class FleetViewModel implements ViewModel {
         this.env.createBlock({ meta: { view: "term", controller: "shell", connection: conn } });
     }
 
+    async disconnect(conn: string) {
+        try {
+            await this.env.rpc.ConnDisconnectCommand(TabRpcClient, conn, { timeout: 5000 });
+        } catch (e) {
+            console.log("error disconnecting", conn, e);
+        }
+    }
+
+    private hostsByConnected(connected: boolean): string[] {
+        return globalStore
+            .get(this.hostsAtom)
+            .filter((h) => !!globalStore.get(this.env.getConnStatusAtom(h))?.connected == connected);
+    }
+
+    async disconnectAll() {
+        await Promise.allSettled(this.hostsByConnected(true).map((h) => this.disconnect(h)));
+    }
+
+    async connectAll() {
+        const down = this.hostsByConnected(false).filter(
+            (h) => globalStore.get(this.env.getConnStatusAtom(h))?.status != "connecting"
+        );
+        await Promise.allSettled(down.map((h) => this.connect(h)));
+    }
+
     async connect(conn: string) {
         globalStore.set(this.connectingAtom, { ...globalStore.get(this.connectingAtom), [conn]: "" });
         try {
@@ -100,7 +126,7 @@ export class FleetViewModel implements ViewModel {
     }
 }
 
-const Cols = "14px minmax(140px,1.4fr) 128px 128px 90px 150px 110px 70px 60px";
+const Cols = "14px minmax(140px,1.4fr) 128px 128px 90px 150px 110px 70px 84px";
 
 const Metric = memo(
     ({
@@ -229,6 +255,14 @@ const HostRow = memo(({ model, conn }: { model: FleetViewModel; conn: string }) 
                         >
                             <i className="fa-solid fa-terminal fa-fw text-xs" />
                         </button>
+                        <button
+                            title="Disconnect (terminals on this host disconnect too; tmux sessions keep running)"
+                            aria-label="Disconnect"
+                            onClick={() => fireAndForget(() => model.disconnect(conn))}
+                            className="cursor-pointer rounded px-1.5 py-0.5 text-muted transition-colors hover:bg-hoverbg hover:text-error"
+                        >
+                            <i className="fa-solid fa-link-slash fa-fw text-xs" />
+                        </button>
                     </>
                 ) : (
                     <button
@@ -266,6 +300,24 @@ export const FleetView = memo(({ model }: ViewComponentProps<FleetViewModel>) =>
                     {connectedCount} of {hosts.length} hosts connected · live every 5 seconds · click a host to inspect
                     it
                 </span>
+                <div className="ml-auto flex items-center gap-1.5">
+                    <button
+                        disabled={connectedCount >= hosts.length}
+                        onClick={() => fireAndForget(() => model.connectAll())}
+                        title="Connect every host that isn't connected"
+                        className="cursor-pointer rounded border border-border px-2 py-0.5 text-[11px] text-secondary transition-colors hover:bg-hoverbg hover:text-primary disabled:opacity-50"
+                    >
+                        Connect all
+                    </button>
+                    <button
+                        disabled={connectedCount == 0}
+                        onClick={() => fireAndForget(() => model.disconnectAll())}
+                        title="Disconnect every connected host (their terminals disconnect too; tmux sessions keep running)"
+                        className="cursor-pointer rounded border border-border px-2 py-0.5 text-[11px] text-secondary transition-colors hover:bg-hoverbg hover:text-error disabled:opacity-50"
+                    >
+                        Disconnect all
+                    </button>
+                </div>
             </div>
             <div className="min-h-0 flex-1 overflow-auto">
                 {hosts.length === 0 ? (
