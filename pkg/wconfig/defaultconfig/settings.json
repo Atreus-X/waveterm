@@ -18,6 +18,8 @@
     "conn:askbeforewshinstall": true,
     "conn:wshenabled": true,
     "conn:autoconnect": true,
+    "conn:disconnectonsleep": true,
+    "conn:disconnectonlock": true,
     "conn:syncsshconfig": true,
     "editor:minimapenabled": true,
     "web:defaulturl": "https://github.com/Atreus-X/waveterm",

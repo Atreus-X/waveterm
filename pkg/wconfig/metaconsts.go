@@ -128,6 +128,8 @@ const (
 	ConfigKey_ConnAskBeforeWshInstall        = "conn:askbeforewshinstall"
 	ConfigKey_ConnWshEnabled                 = "conn:wshenabled"
 	ConfigKey_ConnAutoConnect                = "conn:autoconnect"
+	ConfigKey_ConnDisconnectOnSleep          = "conn:disconnectonsleep"
+	ConfigKey_ConnDisconnectOnLock           = "conn:disconnectonlock"
 	ConfigKey_ConnSyncSshConfig              = "conn:syncsshconfig"
 	ConfigKey_ConnLocalHostnameDisplay       = "conn:localhostdisplayname"
 

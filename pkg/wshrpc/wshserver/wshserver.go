@@ -781,8 +781,22 @@ func (ws *WshServer) DismissWshFailCommand(ctx context.Context, connName string)
 	return nil
 }
 
-func (ws *WshServer) NotifySystemResumeCommand(ctx context.Context) error {
-	log.Printf("NotifySystemResumeCommand called\n")
+func (ws *WshServer) NotifySystemSuspendCommand(ctx context.Context, data wshrpc.CommandSystemPowerData) error {
+	log.Printf("NotifySystemSuspendCommand called reason:%s\n", data.Reason)
+	conncontroller.DisconnectForPowerEvent(data.Reason)
+	return nil
+}
+
+func (ws *WshServer) NotifySystemResumeCommand(ctx context.Context, data wshrpc.CommandSystemPowerData) error {
+	log.Printf("NotifySystemResumeCommand called reason:%s\n", data.Reason)
+	reason, connNames := conncontroller.TakeSleepDisconnected()
+	if len(connNames) == 0 {
+		return nil
+	}
+	wps.Broker.Publish(wps.WaveEvent{
+		Event: wps.Event_ConnSleepDisconnect,
+		Data:  wshrpc.ConnSleepDisconnectData{Reason: reason, Conns: connNames},
+	})
 	return nil
 }
 

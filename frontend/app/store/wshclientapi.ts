@@ -649,9 +649,15 @@ export class RpcApiType {
     }
 
     // command "notifysystemresume" [call]
-    NotifySystemResumeCommand(client: WshClient, opts?: RpcOpts): Promise<void> {
-        if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "notifysystemresume", null, opts);
-        return client.wshRpcCall("notifysystemresume", null, opts);
+    NotifySystemResumeCommand(client: WshClient, data: CommandSystemPowerData, opts?: RpcOpts): Promise<void> {
+        if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "notifysystemresume", data, opts);
+        return client.wshRpcCall("notifysystemresume", data, opts);
+    }
+
+    // command "notifysystemsuspend" [call]
+    NotifySystemSuspendCommand(client: WshClient, data: CommandSystemPowerData, opts?: RpcOpts): Promise<void> {
+        if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "notifysystemsuspend", data, opts);
+        return client.wshRpcCall("notifysystemsuspend", data, opts);
     }
 
     // command "path" [call]

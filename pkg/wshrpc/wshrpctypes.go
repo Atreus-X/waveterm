@@ -112,7 +112,8 @@ type WshRpcInterface interface {
 	ConnUpdateWshCommand(ctx context.Context, remoteInfo RemoteInfo) (bool, error)
 	FindGitBashCommand(ctx context.Context, rescan bool) (string, error)
 	ConnServerInitCommand(ctx context.Context, data CommandConnServerInitData) error
-	NotifySystemResumeCommand(ctx context.Context) error
+	NotifySystemSuspendCommand(ctx context.Context, data CommandSystemPowerData) error
+	NotifySystemResumeCommand(ctx context.Context, data CommandSystemPowerData) error
 
 	// eventrecv is special, it's handled internally by WshRpc with EventListener
 	EventRecvCommand(ctx context.Context, data wps.WaveEvent) error
@@ -924,4 +925,13 @@ type CommandRemoteProcessListData struct {
 type CommandRemoteProcessSignalData struct {
 	Pid    int32  `json:"pid"`
 	Signal string `json:"signal"`
+}
+
+type CommandSystemPowerData struct {
+	Reason string `json:"reason"` // "sleep" or "lock"
+}
+
+type ConnSleepDisconnectData struct {
+	Reason string   `json:"reason"`
+	Conns  []string `json:"conns"`
 }
