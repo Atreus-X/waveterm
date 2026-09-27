@@ -695,8 +695,14 @@ func NotifyCommand(w *wshutil.WshRpc, data wshrpc.WaveNotificationOptions, opts 
 }
 
 // command "notifysystemresume", wshserver.NotifySystemResumeCommand
-func NotifySystemResumeCommand(w *wshutil.WshRpc, opts *wshrpc.RpcOpts) error {
-	_, err := sendRpcRequestCallHelper[any](w, "notifysystemresume", nil, opts)
+func NotifySystemResumeCommand(w *wshutil.WshRpc, data wshrpc.CommandSystemPowerData, opts *wshrpc.RpcOpts) error {
+	_, err := sendRpcRequestCallHelper[any](w, "notifysystemresume", data, opts)
+	return err
+}
+
+// command "notifysystemsuspend", wshserver.NotifySystemSuspendCommand
+func NotifySystemSuspendCommand(w *wshutil.WshRpc, data wshrpc.CommandSystemPowerData, opts *wshrpc.RpcOpts) error {
+	_, err := sendRpcRequestCallHelper[any](w, "notifysystemsuspend", data, opts)
 	return err
 }
 

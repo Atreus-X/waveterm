@@ -33,6 +33,7 @@ import { atoms, blockComponentModelMap, ConnStatusMapAtom, initGlobalAtoms, oref
 import { globalStore } from "./jotaiStore";
 import { modalsModel } from "./modalmodel";
 import { ClientService, ObjectService } from "./services";
+import { SleepReconnectModel } from "./sleepreconnect";
 import { isPreviewWindow } from "./windowtype";
 import * as WOS from "./wos";
 import { getFileSubject, waveEventSubscribeSingle } from "./wps";
@@ -80,6 +81,12 @@ function initGlobalWaveEventSubs(initOpts: WaveInitOpts) {
             modalsModel.pushModal("UserInputModal", { ...event.data });
         },
         scope: initOpts.windowId,
+    });
+    waveEventSubscribeSingle({
+        eventType: "conn:sleepdisconnect",
+        handler: (event) => {
+            SleepReconnectModel.getInstance().handleEvent(event.data);
+        },
     });
     waveEventSubscribeSingle({
         eventType: "blockfile",

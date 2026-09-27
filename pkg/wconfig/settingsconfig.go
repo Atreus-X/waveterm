@@ -179,6 +179,8 @@ type SettingsType struct {
 	ConnAskBeforeWshInstall  *bool   `json:"conn:askbeforewshinstall,omitempty"`
 	ConnWshEnabled           bool    `json:"conn:wshenabled,omitempty"`
 	ConnAutoConnect          *bool   `json:"conn:autoconnect,omitempty"`
+	ConnDisconnectOnSleep    *bool   `json:"conn:disconnectonsleep,omitempty"`
+	ConnDisconnectOnLock     *bool   `json:"conn:disconnectonlock,omitempty"`
 	ConnSyncSshConfig        *bool   `json:"conn:syncsshconfig,omitempty"`
 	ConnShowVitals           *bool   `json:"conn:showvitals,omitempty"`
 	ConnLocalHostnameDisplay *string `json:"conn:localhostdisplayname,omitempty"`
@@ -396,6 +398,8 @@ type ConnKeywords struct {
 	ConnWshEnabled          *bool  `json:"conn:wshenabled,omitempty"`
 	ConnAskBeforeWshInstall *bool  `json:"conn:askbeforewshinstall,omitempty"`
 	ConnAutoConnect         *bool  `json:"conn:autoconnect,omitempty"`
+	ConnDisconnectOnSleep   *bool  `json:"conn:disconnectonsleep,omitempty"`
+	ConnDisconnectOnLock    *bool  `json:"conn:disconnectonlock,omitempty"`
 	ConnWshPath             string `json:"conn:wshpath,omitempty"`
 	ConnShellPath           string `json:"conn:shellpath,omitempty"`
 	ConnIgnoreSshConfig     *bool  `json:"conn:ignoresshconfig,omitempty"`

@@ -112,7 +112,8 @@ type WshRpcInterface interface {
 	ConnUpdateWshCommand(ctx context.Context, remoteInfo RemoteInfo) (bool, error)
 	FindGitBashCommand(ctx context.Context, rescan bool) (string, error)
 	ConnServerInitCommand(ctx context.Context, data CommandConnServerInitData) error
-	NotifySystemResumeCommand(ctx context.Context) error
+	NotifySystemSuspendCommand(ctx context.Context, data CommandSystemPowerData) error
+	NotifySystemResumeCommand(ctx context.Context, data CommandSystemPowerData) error
 
 	// host inspector: runs in wavesrv over the connection's own SSH client, so it works without wsh
 	HostInfoCommand(ctx context.Context, data CommandHostInfoData) (*HostInfoData, error)
@@ -936,4 +937,13 @@ type CommandRemoteProcessListData struct {
 type CommandRemoteProcessSignalData struct {
 	Pid    int32  `json:"pid"`
 	Signal string `json:"signal"`
+}
+
+type CommandSystemPowerData struct {
+	Reason string `json:"reason"` // "sleep" or "lock"
+}
+
+type ConnSleepDisconnectData struct {
+	Reason string   `json:"reason"`
+	Conns  []string `json:"conns"`
 }

@@ -12,6 +12,12 @@
         "conn:autoconnect": {
           "type": "boolean"
         },
+        "conn:disconnectonsleep": {
+          "type": "boolean"
+        },
+        "conn:disconnectonlock": {
+          "type": "boolean"
+        },
         "conn:wshpath": {
           "type": "string"
         },

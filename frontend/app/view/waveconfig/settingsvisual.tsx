@@ -279,6 +279,22 @@ const SettingSections: SettingSection[] = [
                 defaultValue: true,
             },
             {
+                key: "conn:disconnectonsleep",
+                tooltip:
+                    "Closes SSH connections when the computer sleeps or hibernates, so they don't come back frozen. On wake, a bar offers to reconnect them; tmux sessions are re-attached.",
+                label: "Disconnect on sleep",
+                kind: "toggle",
+                defaultValue: true,
+            },
+            {
+                key: "conn:disconnectonlock",
+                tooltip:
+                    "Closes SSH connections when the screen locks (Windows and macOS). On unlock, a bar offers to reconnect them; tmux sessions are re-attached.",
+                label: "Disconnect on screen lock",
+                kind: "toggle",
+                defaultValue: true,
+            },
+            {
                 key: "conn:syncsshconfig",
                 tooltip:
                     "Adds the hosts in ~/.ssh/config to connections.json so they show up in the connection picker. Your SSH config itself isn't changed.",
