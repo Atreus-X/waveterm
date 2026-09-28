@@ -366,6 +366,9 @@
         "conn:syncsshconfig": {
           "type": "boolean"
         },
+        "conn:showvitals": {
+          "type": "boolean"
+        },
         "conn:localhostdisplayname": {
           "type": "string"
         },

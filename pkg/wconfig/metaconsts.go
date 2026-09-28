@@ -131,6 +131,7 @@ const (
 	ConfigKey_ConnDisconnectOnSleep          = "conn:disconnectonsleep"
 	ConfigKey_ConnDisconnectOnLock           = "conn:disconnectonlock"
 	ConfigKey_ConnSyncSshConfig              = "conn:syncsshconfig"
+	ConfigKey_ConnShowVitals                 = "conn:showvitals"
 	ConfigKey_ConnLocalHostnameDisplay       = "conn:localhostdisplayname"
 
 	ConfigKey_DebugClear                     = "debug:*"

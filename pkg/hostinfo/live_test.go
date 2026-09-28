@@ -9,6 +9,7 @@ import (
 	"os"
 	"runtime"
 	"testing"
+	"time"
 
 	"github.com/wavetermdev/waveterm/pkg/wshrpc"
 )
@@ -47,5 +48,21 @@ func TestLiveLocalCollect(t *testing.T) {
 	t.Logf("%s", out)
 	if data.System.Hostname == "" || data.System.MemTotal == 0 || len(data.Processes.Processes) == 0 {
 		t.Errorf("core fields empty")
+	}
+}
+
+func TestLiveLocalVitals(t *testing.T) {
+	if os.Getenv("HOSTINFO_LIVE") != "1" || runtime.GOOS != "linux" {
+		t.Skip("set HOSTINFO_LIVE=1 on a Linux machine to run")
+	}
+	start := time.Now()
+	data, err := Collect(context.Background(), wshrpc.CommandHostInfoData{Conn: "local", Sections: []string{wshrpc.HostSection_Vitals}})
+	if err != nil {
+		t.Fatalf("collect: %v", err)
+	}
+	out, _ := json.Marshal(data.Vitals)
+	t.Logf("took %v: %s", time.Since(start).Round(time.Millisecond), out)
+	if data.Vitals == nil || data.Vitals.MemTotal == 0 || data.Vitals.CpuCount == 0 {
+		t.Errorf("vitals empty: %+v", data.Vitals)
 	}
 }

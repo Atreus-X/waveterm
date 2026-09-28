@@ -610,6 +610,42 @@ func JobStartStreamCommand(w *wshutil.WshRpc, data wshrpc.CommandJobStartStreamD
 	return err
 }
 
+// command "librarynotedelete", wshserver.LibraryNoteDeleteCommand
+func LibraryNoteDeleteCommand(w *wshutil.WshRpc, data wshrpc.CommandLibraryNoteRefData, opts *wshrpc.RpcOpts) error {
+	_, err := sendRpcRequestCallHelper[any](w, "librarynotedelete", data, opts)
+	return err
+}
+
+// command "librarynotelist", wshserver.LibraryNoteListCommand
+func LibraryNoteListCommand(w *wshutil.WshRpc, opts *wshrpc.RpcOpts) ([]wshrpc.LibraryNoteInfo, error) {
+	resp, err := sendRpcRequestCallHelper[[]wshrpc.LibraryNoteInfo](w, "librarynotelist", nil, opts)
+	return resp, err
+}
+
+// command "librarynoteread", wshserver.LibraryNoteReadCommand
+func LibraryNoteReadCommand(w *wshutil.WshRpc, data wshrpc.CommandLibraryNoteRefData, opts *wshrpc.RpcOpts) (*wshrpc.LibraryNoteData, error) {
+	resp, err := sendRpcRequestCallHelper[*wshrpc.LibraryNoteData](w, "librarynoteread", data, opts)
+	return resp, err
+}
+
+// command "librarynotewrite", wshserver.LibraryNoteWriteCommand
+func LibraryNoteWriteCommand(w *wshutil.WshRpc, data wshrpc.CommandLibraryNoteWriteData, opts *wshrpc.RpcOpts) (*wshrpc.LibraryNoteData, error) {
+	resp, err := sendRpcRequestCallHelper[*wshrpc.LibraryNoteData](w, "librarynotewrite", data, opts)
+	return resp, err
+}
+
+// command "libraryread", wshserver.LibraryReadCommand
+func LibraryReadCommand(w *wshutil.WshRpc, opts *wshrpc.RpcOpts) (*wshrpc.LibraryData, error) {
+	resp, err := sendRpcRequestCallHelper[*wshrpc.LibraryData](w, "libraryread", nil, opts)
+	return resp, err
+}
+
+// command "librarywrite", wshserver.LibraryWriteCommand
+func LibraryWriteCommand(w *wshutil.WshRpc, data wshrpc.LibraryData, opts *wshrpc.RpcOpts) error {
+	_, err := sendRpcRequestCallHelper[any](w, "librarywrite", data, opts)
+	return err
+}
+
 // command "listallappfiles", wshserver.ListAllAppFilesCommand
 func ListAllAppFilesCommand(w *wshutil.WshRpc, data wshrpc.CommandListAllAppFilesData, opts *wshrpc.RpcOpts) (*wshrpc.CommandListAllAppFilesRtnData, error) {
 	resp, err := sendRpcRequestCallHelper[*wshrpc.CommandListAllAppFilesRtnData](w, "listallappfiles", data, opts)

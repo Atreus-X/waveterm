@@ -489,6 +489,20 @@ declare global {
     // wshrpc.CommandJobStartStreamData
     type CommandJobStartStreamData = object;
 
+    // wshrpc.CommandLibraryNoteRefData
+    type CommandLibraryNoteRefData = {
+        name?: string;
+        host?: string;
+    };
+
+    // wshrpc.CommandLibraryNoteWriteData
+    type CommandLibraryNoteWriteData = {
+        name?: string;
+        host?: string;
+        content: string;
+        basemodts?: number;
+    };
+
     // wshrpc.CommandListAllAppFilesData
     type CommandListAllAppFilesData = {
         appid: string;
@@ -1118,6 +1132,7 @@ declare global {
         processes?: HostProcessesInfo;
         services?: HostServicesInfo;
         docker?: HostDockerInfo;
+        vitals?: HostVitalsInfo;
         errors?: {[key: string]: string};
     };
 
@@ -1202,6 +1217,20 @@ declare global {
         disks: HostDiskInfo[];
     };
 
+    // wshrpc.HostVitalsInfo
+    type HostVitalsInfo = {
+        cpupct: number;
+        cpucount: number;
+        load1: number;
+        memtotal: number;
+        memavail: number;
+        uptimesec: number;
+        rxrate: number;
+        txrate: number;
+        diskmaxpct: number;
+        diskmaxmount?: string;
+    };
+
     // waveobj.Job
     type Job = WaveObj & {
         connection: string;
@@ -1262,6 +1291,38 @@ declare global {
     type LeafOrderEntry = {
         nodeid: string;
         blockid: string;
+    };
+
+    // wshrpc.LibraryData
+    type LibraryData = {
+        snippets: LibrarySnippet[];
+    };
+
+    // wshrpc.LibraryNoteData
+    type LibraryNoteData = {
+        content: string;
+        modts: number;
+        exists: boolean;
+    };
+
+    // wshrpc.LibraryNoteInfo
+    type LibraryNoteInfo = {
+        name?: string;
+        host?: string;
+        modts: number;
+        size: number;
+        header?: string;
+    };
+
+    // wshrpc.LibrarySnippet
+    type LibrarySnippet = {
+        id: string;
+        title: string;
+        body: string;
+        description?: string;
+        tags?: string[];
+        hosts?: string[];
+        run?: boolean;
     };
 
     // waveobj.MetaTSType
@@ -1666,6 +1727,7 @@ declare global {
         "conn:disconnectonsleep"?: boolean;
         "conn:disconnectonlock"?: boolean;
         "conn:syncsshconfig"?: boolean;
+        "conn:showvitals"?: boolean;
         "conn:localhostdisplayname"?: string;
         "debug:*"?: boolean;
         "debug:pprofport"?: number;

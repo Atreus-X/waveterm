@@ -4,7 +4,9 @@
 import { BlockNodeModel } from "@/app/block/blocktypes";
 import type { TabModel } from "@/app/store/tab-model";
 import { AiFileDiffViewModel } from "@/app/view/aifilediff/aifilediff";
+import { FleetViewModel } from "@/app/view/fleet/fleet";
 import { HostInfoViewModel } from "@/app/view/hostinfo/hostinfo-model";
+import { LibraryViewModel } from "@/app/view/library/library";
 import { LauncherViewModel } from "@/app/view/launcher/launcher";
 import { PreviewModel } from "@/app/view/preview/preview-model";
 import { ProcessViewerViewModel } from "@/app/view/processviewer/processviewer";
@@ -37,6 +39,8 @@ BlockRegistry.set("aifilediff", AiFileDiffViewModel);
 BlockRegistry.set("waveconfig", WaveConfigViewModel);
 BlockRegistry.set("processviewer", ProcessViewerViewModel);
 BlockRegistry.set("hostinfo", HostInfoViewModel);
+BlockRegistry.set("fleet", FleetViewModel);
+BlockRegistry.set("library", LibraryViewModel);
 
 function makeDefaultViewModel(viewType: string): ViewModel {
     const viewModel: ViewModel = {

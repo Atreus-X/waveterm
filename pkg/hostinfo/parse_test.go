@@ -316,3 +316,62 @@ func TestPermissionAndPasswordPatterns(t *testing.T) {
 		t.Error("a missing unit isn't a permission problem")
 	}
 }
+
+func TestParseVitals(t *testing.T) {
+	out := `@@hi-uid 1000
+@@hi-begin sample
+cpu1 cpu  1000 0 500 8000 100 0 0 0 0 0
+@@hi-sub net1
+    lo:  5000 50 0 0 0 0 0 0  5000 50 0 0 0 0 0 0
+  eth0: 1000000 900 0 0 0 0 0 0 500000 400 0 0 0 0 0 0
+veth9a:  2000000 900 0 0 0 0 0 0 900000 400 0 0 0 0 0 0
+@@hi-sub cpu2
+cpu2 cpu  1100 0 550 8300 150 0 0 0 0 0
+@@hi-sub net2
+    lo:  9000 50 0 0 0 0 0 0  9000 50 0 0 0 0 0 0
+  eth0: 1500000 990 0 0 0 0 0 0 600000 450 0 0 0 0 0 0
+veth9a:  9000000 900 0 0 0 0 0 0 999000 400 0 0 0 0 0 0
+@@hi-end sample
+@@hi-begin vitals
+mem MemTotal:  1000 kB
+mem MemAvailable: 250 kB
+loadavg=2.50 1.00 0.50 1/100 999
+cpucount=4
+uptime=120.5
+@@hi-sub disks
+Filesystem Type 1024-blocks Used Available Capacity Mounted on
+/dev/vda1 ext4 1000 400 600 40% /
+/dev/vdb1 xfs 1000 900 100 90% /srv/data
+tmpfs tmpfs 1000 1000 0 100% /run
+@@hi-end vitals
+`
+	data := parseOutput(out, []string{wshrpc.HostSection_Vitals})
+	v := data.Vitals
+	if v == nil {
+		t.Fatalf("no vitals: %+v", data.Errors)
+	}
+	if !near(v.CpuPct, 30) || v.CpuCount != 4 || !near(v.Load1, 2.5) || !near(v.UptimeSec, 120.5) {
+		t.Errorf("cpu/load/uptime: %+v", v)
+	}
+	if v.MemTotal != 1000*1024 || v.MemAvail != 250*1024 {
+		t.Errorf("mem: %+v", v)
+	}
+	// only eth0 counts: loopback and veth are excluded
+	if !near(v.RxRate, 500000/sampleSeconds) || !near(v.TxRate, 100000/sampleSeconds) {
+		t.Errorf("rates: rx %v tx %v", v.RxRate, v.TxRate)
+	}
+	if !near(v.DiskMaxPct, 90) || v.DiskMaxMount != "/srv/data" {
+		t.Errorf("disk max: %v %q (tmpfs must be ignored)", v.DiskMaxPct, v.DiskMaxMount)
+	}
+}
+
+func TestVitalsNotInDefaultSections(t *testing.T) {
+	for _, s := range validSections(nil) {
+		if s == wshrpc.HostSection_Vitals {
+			t.Errorf("vitals should only be collected when asked for")
+		}
+	}
+	if got := validSections([]string{"vitals", "bogus", "vitals"}); len(got) != 1 || got[0] != "vitals" {
+		t.Errorf("validSections: %v", got)
+	}
+}

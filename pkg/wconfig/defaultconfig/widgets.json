@@ -61,5 +61,27 @@
                 "view": "hostinfo"
             }
         }
+    },
+    "defwidget@fleet": {
+        "display:order": 1,
+        "icon": "tower-broadcast",
+        "label": "fleet",
+        "description": "Fleet: live CPU, memory, network and disk for all your SSH hosts",
+        "blockdef": {
+            "meta": {
+                "view": "fleet"
+            }
+        }
+    },
+    "defwidget@library": {
+        "display:order": 2,
+        "icon": "book-bookmark",
+        "label": "library",
+        "description": "Library: saved command snippets and notes (Cmd+Shift+L / Alt+Shift+L in a terminal to insert one)",
+        "blockdef": {
+            "meta": {
+                "view": "library"
+            }
+        }
     }
 }
