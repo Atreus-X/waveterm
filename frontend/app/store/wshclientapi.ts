@@ -72,6 +72,12 @@ export class RpcApiType {
         return client.wshRpcCall("badgewatchpid", data, opts);
     }
 
+    // command "blockbusy" [call]
+    BlockBusyCommand(client: WshClient, data: string, opts?: RpcOpts): Promise<BlockBusyInfo> {
+        if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "blockbusy", data, opts);
+        return client.wshRpcCall("blockbusy", data, opts);
+    }
+
     // command "blockinfo" [call]
     BlockInfoCommand(client: WshClient, data: string, opts?: RpcOpts): Promise<BlockInfoData> {
         if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "blockinfo", data, opts);

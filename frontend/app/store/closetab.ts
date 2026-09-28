@@ -37,3 +37,26 @@ export async function closeTabWithConfirm(workspaceId: string, tabId: string): P
     }
     return didClose;
 }
+
+// Asks before closing a single terminal that's running something (tab:confirmcloserunning).
+// Resolves true when it's fine to close; a failed check never blocks the close.
+export async function confirmBlockClose(blockId: string): Promise<boolean> {
+    const enabled = globalStore.get(getSettingsKeyAtom("tab:confirmcloserunning")) ?? true;
+    if (!enabled || !blockId) {
+        return true;
+    }
+    let busy: BlockBusyInfo = null;
+    try {
+        busy = await RpcApi.BlockBusyCommand(TabRpcClient, blockId, { timeout: 5000 });
+    } catch (e) {
+        console.log("error checking terminal for running commands", blockId, e);
+        return true;
+    }
+    if (busy == null) {
+        return true;
+    }
+    return getApi().confirmCloseBusy(
+        "This terminal is still running something. Close it anyway?",
+        formatBusyDetail([busy], "terminal")
+    );
+}
