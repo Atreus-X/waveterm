@@ -49,6 +49,7 @@ const previewElectronApi: ElectronApi = {
     getPathForFile: (_file: File) => "",
     openNativePath: (_filePath: string) => {},
     openFileExternal: (_opts: OpenFileExternalOpts) => Promise.resolve(""),
+    onOpenFileExternalProgress: (_callback: (progress: OpenFileExternalProgress) => void) => {},
     getExternalEditor: (_configuredPath: string) => null,
     setUpdateSource: (_source: string) => {},
     captureScreenshot: (_rect: Electron.Rectangle) => Promise.resolve(""),

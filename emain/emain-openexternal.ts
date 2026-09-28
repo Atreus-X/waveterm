@@ -144,7 +144,15 @@ function notify(title: string, body: string) {
     new electron.Notification({ title, body, silent: true }).show();
 }
 
-async function downloadRemote(remoteUri: string, localPath: string): Promise<{ hash: string; modTime: number }> {
+export type OpenProgressFn = (phase: "download" | "opening", received: number, total: number) => void;
+
+const ProgressIntervalMs = 150;
+
+async function downloadRemote(
+    remoteUri: string,
+    localPath: string,
+    onProgress?: OpenProgressFn
+): Promise<{ hash: string; modTime: number }> {
     const info = await RpcApi.FileInfoCommand(
         ElectronWshClient,
         { info: { path: remoteUri } },
@@ -164,9 +172,19 @@ async function downloadRemote(remoteUri: string, localPath: string): Promise<{ h
         throw new Error(`download failed (HTTP ${res.status})`);
     }
     const hash = crypto.createHash("sha256");
+    const total = info.size ?? 0;
+    let received = 0;
+    let lastReport = 0;
+    onProgress?.("download", 0, total);
     const hashing = new Transform({
         transform(chunk: Buffer, _enc, cb) {
             hash.update(chunk);
+            received += chunk.length;
+            const now = Date.now();
+            if (onProgress != null && now - lastReport >= ProgressIntervalMs) {
+                lastReport = now;
+                onProgress("download", received, total);
+            }
             cb(null, chunk);
         },
     });
@@ -176,6 +194,7 @@ async function downloadRemote(remoteUri: string, localPath: string): Promise<{ h
     const closed = new Promise<void>((resolve) => out.once("close", () => resolve()));
     await pipeline(Readable.fromWeb(res.body as any), hashing, out);
     await closed;
+    onProgress?.("opening", received, total);
     return { hash: hash.digest("hex"), modTime: info.modtime ?? 0 };
 }
 
@@ -223,11 +242,11 @@ async function openPathWithRetry(localPath: string): Promise<string> {
 
 // run-once files get a fresh copy per open (never overwriting one that may still be running) and no
 // save-back session
-async function openRemoteRunOnce(remoteUri: string, remotePath: string): Promise<string> {
+async function openRemoteRunOnce(remoteUri: string, remotePath: string, onProgress?: OpenProgressFn): Promise<string> {
     const dir = path.join(remoteEditRoot(), "run-" + crypto.randomBytes(6).toString("hex"));
     await fs.promises.mkdir(dir, { recursive: true });
     const localPath = path.join(dir, safeLocalName(remotePath));
-    await downloadRemote(remoteUri, localPath);
+    await downloadRemote(remoteUri, localPath, onProgress);
     const excuse = await openPathWithRetry(localPath);
     if (excuse) {
         console.log(`could not open ${localPath}: ${excuse}`);
@@ -330,11 +349,12 @@ async function openRemoteFile(
     connName: string,
     remotePath: string,
     mode: OpenExternalMode,
-    editorPath: string
+    editorPath: string,
+    onProgress?: OpenProgressFn
 ): Promise<string> {
     const remoteUri = formatRemoteUri(remotePath, connName);
     if (mode === "default" && isRunOnceFile(remotePath)) {
-        return openRemoteRunOnce(remoteUri, remotePath);
+        return openRemoteRunOnce(remoteUri, remotePath, onProgress);
     }
     let sess = remoteEditSessions.get(remoteUri);
     if (sess != null) {
@@ -342,7 +362,7 @@ async function openRemoteFile(
         const localBytes = await fs.promises.readFile(sess.localPath).catch(() => null);
         const clean = localBytes != null && hashBytes(localBytes) === sess.lastSyncedHash && !sess.uploading;
         if (clean) {
-            const { hash, modTime } = await downloadRemote(remoteUri, sess.localPath);
+            const { hash, modTime } = await downloadRemote(remoteUri, sess.localPath, onProgress);
             sess.lastSyncedHash = hash;
             sess.remoteModTime = modTime;
         }
@@ -351,7 +371,7 @@ async function openRemoteFile(
     const dir = path.join(remoteEditRoot(), crypto.createHash("sha256").update(remoteUri).digest("hex").slice(0, 16));
     await fs.promises.mkdir(dir, { recursive: true });
     const localPath = path.join(dir, safeLocalName(remotePath));
-    const { hash, modTime } = await downloadRemote(remoteUri, localPath);
+    const { hash, modTime } = await downloadRemote(remoteUri, localPath, onProgress);
     const localName = path.basename(localPath);
     // watch the directory, not the file, so editors that save by writing a temp file and renaming it still sync
     const watcher = fs.watch(dir, (_event, changed) => {
@@ -374,12 +394,12 @@ async function openRemoteFile(
     return openLocalFile(localPath, mode, editorPath);
 }
 
-export async function openFileExternal(opts: OpenFileExternalOpts): Promise<string> {
+export async function openFileExternal(opts: OpenFileExternalOpts, onProgress?: OpenProgressFn): Promise<string> {
     try {
         if (isLocalConn(opts.connection)) {
             return await openLocalFile(expandHome(opts.path), opts.mode, opts.editorPath);
         }
-        return await openRemoteFile(opts.connection, opts.path, opts.mode, opts.editorPath);
+        return await openRemoteFile(opts.connection, opts.path, opts.mode, opts.editorPath, onProgress);
     } catch (err) {
         const msg = `${err?.message ?? err}`;
         console.error("openFileExternal failed", opts, err);

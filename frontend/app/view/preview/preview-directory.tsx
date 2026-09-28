@@ -3,6 +3,8 @@
 
 import { ContextMenuModel } from "@/app/store/contextmenu";
 import { globalStore } from "@/app/store/jotaiStore";
+import { OpenExternalProgressModel } from "@/app/store/openexternal-progress";
+import { openProgressFraction, openProgressKey, openProgressLabel } from "@/app/store/openexternal-progress-util";
 import { TabRpcClient } from "@/app/store/wshrpcutil";
 import { useWaveEnv } from "@/app/waveenv/waveenv";
 import { checkKeyPressed, isCharacterKeyEvent } from "@/util/keyutil";
@@ -509,6 +511,8 @@ function TableRow({ model, row, focusIndex, setFocusIndex, setSearch, idx, handl
     const dirPath = useAtomValue(model.statFilePath);
     const connection = useAtomValue(model.connection);
     const doubleClickOpen = useAtomValue(env.getSettingsKeyAtom("preview:doubleclickopen")) ?? "external";
+    const openProgressMap = useAtomValue(OpenExternalProgressModel.getInstance().progressAtom);
+    const openProgress = openProgressMap[openProgressKey(connection, row.getValue("path") as string)];
 
     const dragItem: DraggedFile = {
         relName: row.getValue("name") as string,
@@ -534,7 +538,7 @@ function TableRow({ model, row, focusIndex, setFocusIndex, setSearch, idx, handl
 
     return (
         <div
-            className={clsx("dir-table-body-row", { focused: focusIndex === idx })}
+            className={clsx("dir-table-body-row relative", { focused: focusIndex === idx })}
             data-rowindex={idx}
             onDoubleClick={() => {
                 const newFileName = row.getValue("path") as string;
@@ -559,9 +563,40 @@ function TableRow({ model, row, focusIndex, setFocusIndex, setSearch, idx, handl
                     {flexRender(cell.column.columnDef.cell, cell.getContext())}
                 </div>
             ))}
+            {openProgress != null && <OpenProgressOverlay progress={openProgress} />}
         </div>
     );
 }
+
+// shown on a row while its remote file downloads to open in an external app
+const OpenProgressOverlay = React.memo(({ progress }: { progress: OpenFileExternalProgress }) => {
+    const frac = openProgressFraction(progress);
+    const isError = progress.phase === "error";
+    return (
+        <>
+            <div className="pointer-events-none absolute right-0 bottom-0 left-0 h-[2px] overflow-hidden rounded bg-white/10">
+                <div
+                    className={clsx(
+                        "h-full transition-[width] duration-150",
+                        isError ? "bg-error" : "bg-accent",
+                        frac == null && !isError && "w-1/3 animate-pulse"
+                    )}
+                    style={frac != null || isError ? { width: `${isError ? 100 : frac * 100}%` } : undefined}
+                />
+            </div>
+            <span
+                className={clsx(
+                    "pointer-events-none absolute top-1/2 right-2 max-w-[60%] -translate-y-1/2 truncate rounded bg-panel/90 px-1.5 text-[11px]",
+                    isError ? "text-error" : "text-accent"
+                )}
+                title={openProgressLabel(progress)}
+            >
+                {openProgressLabel(progress)}
+            </span>
+        </>
+    );
+});
+OpenProgressOverlay.displayName = "OpenProgressOverlay";
 
 const MemoizedTableBody = React.memo(
     TableBody,

@@ -394,7 +394,30 @@ export function initIpcHandlers() {
         }
     });
 
-    electron.ipcMain.handle("open-file-external", (_event, opts: OpenFileExternalOpts) => openFileExternal(opts));
+    // remote files download first: report progress to the page (file browser row) and the taskbar
+    electron.ipcMain.handle("open-file-external", async (event, opts: OpenFileExternalOpts) => {
+        const sender = event.sender;
+        const ww = getWaveWindowByWebContentsId(sender.id);
+        const send = (progress: OpenFileExternalProgress) => {
+            if (!sender.isDestroyed()) {
+                sender.send("open-file-external-progress", progress);
+            }
+        };
+        const setTaskbar = (value: number) => {
+            if (ww != null && !ww.isDestroyed()) {
+                ww.setProgressBar(value);
+            }
+        };
+        const base = { path: opts.path, connection: opts.connection ?? "" };
+        const rtn = await openFileExternal(opts, (phase, received, total) => {
+            send({ ...base, phase, received, total });
+            // an unknown size shows the taskbar's indeterminate state
+            setTaskbar(phase === "opening" ? 2 : total > 0 ? received / total : 2);
+        });
+        setTaskbar(-1);
+        send({ ...base, phase: rtn ? "error" : "done", received: 0, total: 0, error: rtn || undefined });
+        return rtn;
+    });
 
     electron.ipcMain.on("get-external-editor", (event, configuredPath: string) => {
         try {
