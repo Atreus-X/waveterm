@@ -2,8 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { describe, expect, it } from "vitest";
-import { applyPinnedSizes } from "../lib/layoutPin";
-import { FlexDirection, LayoutNode } from "../lib/types";
+import { newLayoutNode } from "../lib/layoutNode";
+import { adjustInsertForPinned, applyPinnedSizes } from "../lib/layoutPin";
+import { insertNode } from "../lib/layoutTree";
+import { FlexDirection, LayoutNode, LayoutTreeActionType, LayoutTreeState } from "../lib/types";
 
 function leaf(id: string, size: number, pinnedPx?: number): LayoutNode {
     return { id, size, flexDirection: FlexDirection.Row, pinnedPx };
@@ -50,5 +52,54 @@ describe("applyPinnedSizes", () => {
         const all = [leaf("a", 50, 300), leaf("b", 50, 300)];
         expect(applyPinnedSizes(all, 1000, 40)).toBe(false);
         expect(applyPinnedSizes([leaf("a", 50), leaf("b", 50, 300)], 0, 40)).toBe(false);
+    });
+});
+
+function block(id: string, pinnedPx?: number): LayoutNode {
+    const n = newLayoutNode(FlexDirection.Column, 50, undefined, { blockId: id });
+    n.id = id;
+    if (pinnedPx) n.pinnedPx = pinnedPx;
+    return n;
+}
+
+function order(root: LayoutNode): string[] {
+    return (root.children ?? []).map((c) => c.data?.blockId ?? `[${order(c).join(",")}]`);
+}
+
+function insert(state: LayoutTreeState, id: string) {
+    insertNode(state, { type: LayoutTreeActionType.InsertNode, node: block(id), magnified: false, focused: false });
+}
+
+describe("new blocks and pinned blocks", () => {
+    it("a new block lands left of a pinned block on the right edge", () => {
+        const state: LayoutTreeState = {
+            rootNode: newLayoutNode(FlexDirection.Row, 100, [block("main"), block("side", 400)]),
+        } as LayoutTreeState;
+        insert(state, "new1");
+        expect(order(state.rootNode)).toEqual(["main", "new1", "side"]);
+        insert(state, "new2");
+        expect(order(state.rootNode)).toEqual(["main", "new1", "new2", "side"]);
+    });
+
+    it("stays left of several pinned blocks at the edge", () => {
+        const state: LayoutTreeState = {
+            rootNode: newLayoutNode(FlexDirection.Row, 100, [block("main"), block("p1", 300), block("p2", 300)]),
+        } as LayoutTreeState;
+        insert(state, "new");
+        expect(order(state.rootNode)).toEqual(["main", "new", "p1", "p2"]);
+    });
+
+    it("a pinned block on the left edge doesn't change where new blocks go", () => {
+        const state: LayoutTreeState = {
+            rootNode: newLayoutNode(FlexDirection.Row, 100, [block("side", 300), block("main")]),
+        } as LayoutTreeState;
+        insert(state, "new");
+        expect(order(state.rootNode)).toEqual(["side", "main", "new"]);
+    });
+
+    it("never splits a pinned block to make room", () => {
+        const pinned = block("side", 400);
+        const root = newLayoutNode(FlexDirection.Row, 100, [block("main"), pinned]);
+        expect(adjustInsertForPinned(root, { node: pinned, index: 1 })).toEqual({ node: root, index: 1 });
     });
 });
