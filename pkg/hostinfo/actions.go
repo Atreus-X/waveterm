@@ -69,16 +69,20 @@ func outputOf(res *runResult) string {
 // retries with `sudo -n` (passwordless sudo). When sudo wants a password it reports NeedsAuth with
 // the command to run interactively instead of prompting.
 func RunAction(ctx context.Context, data wshrpc.CommandHostActionData) (*wshrpc.HostActionRtnData, error) {
+	ctx, cancel := context.WithTimeout(ctx, actionTimeout)
+	defer cancel()
+	target, err := getTarget(ctx, data.Conn)
+	if err != nil {
+		return nil, err
+	}
+	if target.os == OsWindows {
+		return runWinAction(ctx, target.run, data.Kind, data.Action, data.Target)
+	}
 	cmd, err := actionCommand(data.Kind, data.Action, data.Target)
 	if err != nil {
 		return nil, err
 	}
-	ctx, cancel := context.WithTimeout(ctx, actionTimeout)
-	defer cancel()
-	run, err := getRunner(ctx, data.Conn)
-	if err != nil {
-		return nil, err
-	}
+	run := target.run
 	res, err := run(ctx, cmd+"\n")
 	if err != nil {
 		return nil, err

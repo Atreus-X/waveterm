@@ -31,6 +31,8 @@ type CommandHostInfoData struct {
 type HostInfoData struct {
 	Conn      string             `json:"conn"`
 	Ts        int64              `json:"ts"`
+	// "linux" or "windows"; on Windows Uid is 0 for an administrator and 1000 otherwise
+	Os        string             `json:"os,omitempty"`
 	Uid       int                `json:"uid"`
 	User      string             `json:"user,omitempty"`
 	System    *HostSystemInfo    `json:"system,omitempty"`
