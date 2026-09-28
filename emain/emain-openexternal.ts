@@ -123,10 +123,7 @@ async function openLocalFile(localPath: string, mode: OpenExternalMode, editorPa
         openWithPicker(localPath);
         return "";
     }
-    let excuse = "";
-    await callWithOriginalXdgCurrentDesktopAsync(async () => {
-        excuse = await electron.shell.openPath(localPath);
-    });
+    const excuse = await openPathWithRetry(localPath);
     if (!excuse) {
         return "";
     }
@@ -173,8 +170,71 @@ async function downloadRemote(remoteUri: string, localPath: string): Promise<{ h
             cb(null, chunk);
         },
     });
-    await pipeline(Readable.fromWeb(res.body as any), hashing, fs.createWriteStream(localPath));
+    const out = fs.createWriteStream(localPath);
+    // "finish" can fire before the handle is closed; opening a file Windows still sees as open for
+    // writing fails ("another program is using this file"), so wait for "close" too
+    const closed = new Promise<void>((resolve) => out.once("close", () => resolve()));
+    await pipeline(Readable.fromWeb(res.body as any), hashing, out);
+    await closed;
     return { hash: hash.digest("hex"), modTime: info.modtime ?? 0 };
+}
+
+// run-once files: opening them executes or installs, so there's nothing to edit or sync back, and a
+// copy may still be running from the last open
+const RunOnceExtensions = new Set([
+    ".exe",
+    ".msi",
+    ".msix",
+    ".appx",
+    ".bat",
+    ".cmd",
+    ".com",
+    ".ps1",
+    ".vbs",
+    ".scr",
+    ".appimage",
+    ".deb",
+    ".rpm",
+    ".dmg",
+    ".pkg",
+    ".run",
+]);
+
+export function isRunOnceFile(name: string): boolean {
+    return RunOnceExtensions.has(path.extname(name).toLowerCase());
+}
+
+const SharingViolationRe = /another program|being used by another|used by another process|sharing violation/i;
+
+// a freshly written executable is briefly locked by antivirus scanning; retry the open for a few seconds
+async function openPathWithRetry(localPath: string): Promise<string> {
+    let excuse = "";
+    for (let attempt = 0; attempt < 6; attempt++) {
+        await callWithOriginalXdgCurrentDesktopAsync(async () => {
+            excuse = await electron.shell.openPath(localPath);
+        });
+        if (!excuse || !SharingViolationRe.test(excuse)) {
+            return excuse;
+        }
+        await new Promise((r) => setTimeout(r, 750 * (attempt + 1)));
+    }
+    return excuse;
+}
+
+// run-once files get a fresh copy per open (never overwriting one that may still be running) and no
+// save-back session
+async function openRemoteRunOnce(remoteUri: string, remotePath: string): Promise<string> {
+    const dir = path.join(remoteEditRoot(), "run-" + crypto.randomBytes(6).toString("hex"));
+    await fs.promises.mkdir(dir, { recursive: true });
+    const localPath = path.join(dir, safeLocalName(remotePath));
+    await downloadRemote(remoteUri, localPath);
+    const excuse = await openPathWithRetry(localPath);
+    if (excuse) {
+        console.log(`could not open ${localPath}: ${excuse}`);
+        electron.shell.showItemInFolder(localPath);
+        return excuse;
+    }
+    return "";
 }
 
 // one write, then appends: each RPC message stays well under the 32 MB transfer limit
@@ -273,6 +333,9 @@ async function openRemoteFile(
     editorPath: string
 ): Promise<string> {
     const remoteUri = formatRemoteUri(remotePath, connName);
+    if (mode === "default" && isRunOnceFile(remotePath)) {
+        return openRemoteRunOnce(remoteUri, remotePath);
+    }
     let sess = remoteEditSessions.get(remoteUri);
     if (sess != null) {
         // reuse the local copy; refresh it from the remote only if there are no unsynced local edits
