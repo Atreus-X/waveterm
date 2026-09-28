@@ -148,6 +148,9 @@ type SettingsType struct {
 	TabConfirmClose bool   `json:"tab:confirmclose,omitempty"`
 	TabBackground   string `json:"tab:background,omitempty"`
 
+	// Library block tab order, "snippets,notes" (default) or "notes,snippets"; the first opens by default
+	LibraryTabOrder string `json:"library:taborder,omitempty" jsonschema:"enum=snippets\\,notes,enum=notes\\,snippets"`
+
 	WidgetClear    bool  `json:"widget:*,omitempty"`
 	WidgetShowHelp *bool `json:"widget:showhelp,omitempty"`
 

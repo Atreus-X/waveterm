@@ -84,3 +84,21 @@ export function splitList(text: string): string[] {
         .map((t) => t.trim())
         .filter(Boolean);
 }
+
+export type LibraryTab = "snippets" | "notes";
+
+export const DefaultTabOrder: LibraryTab[] = ["snippets", "notes"];
+
+/** library:taborder ("snippets,notes" / "notes,snippets"); anything else falls back to the default. */
+export function parseTabOrder(setting: string): LibraryTab[] {
+    const parts = (setting ?? "").split(",").map((p) => p.trim());
+    if (parts.length === 2 && parts.includes("snippets") && parts.includes("notes")) {
+        return parts as LibraryTab[];
+    }
+    return DefaultTabOrder;
+}
+
+/** The setting value for the order with the two tabs swapped. */
+export function swapTabOrder(order: LibraryTab[]): string {
+    return [order[1], order[0]].join(",");
+}
