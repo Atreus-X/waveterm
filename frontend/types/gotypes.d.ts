@@ -1124,6 +1124,7 @@ declare global {
     type HostInfoData = {
         conn: string;
         ts: number;
+        os?: string;
         uid: number;
         user?: string;
         system?: HostSystemInfo;

@@ -186,3 +186,30 @@ export const HostCommands = {
     containerInspect: (name: string) => `docker inspect ${q(name)} | less`,
     processTop: (pid: number) => `top -p ${Math.trunc(pid)}`,
 };
+
+export type HostCommandSet = {
+    serviceJournal?: (unit: string) => string;
+    serviceStatus?: (unit: string) => string;
+    containerShell: (name: string) => string;
+    containerLogs: (name: string) => string;
+    containerInspect: (name: string) => string;
+    processTop?: (pid: number) => string;
+};
+
+// The remote shell may be cmd.exe, PowerShell or a Cygwin/MSYS bash, which quote differently, so only
+// names that need no escaping in any of them get a command (double quotes, no "$" for bash).
+const WinSafeNameRe = /^[A-Za-z0-9 _.@#{}~-]+$/;
+
+const WindowsCommands: HostCommandSet = {
+    serviceStatus: (unit: string) =>
+        WinSafeNameRe.test(unit)
+            ? `powershell.exe -NoProfile -Command "Get-Service -Name '${unit}' | Format-List *"`
+            : null,
+    containerShell: (name: string) => `docker exec -it "${name}" sh`,
+    containerLogs: (name: string) => `docker logs -f --tail 200 "${name}"`,
+    containerInspect: (name: string) => `docker inspect "${name}"`,
+};
+
+export function getHostCommands(os: string): HostCommandSet {
+    return os === "windows" ? WindowsCommands : HostCommands;
+}

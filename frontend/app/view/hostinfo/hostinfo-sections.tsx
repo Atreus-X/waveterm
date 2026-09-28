@@ -12,9 +12,9 @@ import {
     fmtBytes,
     fmtDuration,
     fmtRate,
+    getHostCommands,
     groupPorts,
     HostChanges,
-    HostCommands,
     isContainerIface,
     pct,
     usageLevel,
@@ -237,14 +237,25 @@ export const OverviewSection = memo(({ model, data }: SectionProps) => {
                     </div>
                     <UsageBar percent={sys.cpupct} className="mb-2" />
                     <KV k="Model" v={<span title={sys.cpumodel}>{sys.cpumodel || "-"}</span>} />
-                    <KV
-                        k="Load 1 / 5 / 15"
-                        v={
-                            <span className={cn("tabular-nums", loadPerCore >= 1 && "text-warning")}>
-                                {sys.load1.toFixed(2)} / {sys.load5.toFixed(2)} / {sys.load15.toFixed(2)}
-                            </span>
-                        }
-                    />
+                    {data.os === "windows" ? (
+                        <KV
+                            k="Load (busy cores + run queue)"
+                            v={
+                                <span className={cn("tabular-nums", loadPerCore >= 1 && "text-warning")}>
+                                    {sys.load1.toFixed(2)}
+                                </span>
+                            }
+                        />
+                    ) : (
+                        <KV
+                            k="Load 1 / 5 / 15"
+                            v={
+                                <span className={cn("tabular-nums", loadPerCore >= 1 && "text-warning")}>
+                                    {sys.load1.toFixed(2)} / {sys.load5.toFixed(2)} / {sys.load15.toFixed(2)}
+                                </span>
+                            }
+                        />
+                    )}
                 </Card>
                 <Card title="Memory">
                     <div className="mb-1 flex items-baseline gap-2">
@@ -264,7 +275,14 @@ export const OverviewSection = memo(({ model, data }: SectionProps) => {
                     {sys.virt && <KV k="Runs on" v={sys.virt} />}
                     <KV k="Up for" v={fmtDuration(sys.uptimesec)} />
                     <KV k="Logged-in sessions" v={sys.users} />
-                    <KV k="Inspecting as" v={`${data.user || "?"} (uid ${data.uid})`} />
+                    <KV
+                        k="Inspecting as"
+                        v={
+                            data.os === "windows"
+                                ? `${data.user || "?"} (${data.uid === 0 ? "administrator" : "standard user"})`
+                                : `${data.user || "?"} (uid ${data.uid})`
+                        }
+                    />
                 </Card>
             </div>
             <Card title="Disks">
@@ -463,6 +481,8 @@ export const ProcessesSection = memo(({ model, data }: SectionProps) => {
     const [query, setQuery] = useState("");
     const [sortBy, setSortBy] = useState<ProcSort>("cpu");
     const procs = data.processes;
+    const cmds = getHostCommands(data.os);
+    const isWindows = data.os === "windows";
     if (procs == null) return <Empty>No process information yet.</Empty>;
     const shown = procs.processes
         .filter((p) => matches(query, p.pid, p.name, p.user, p.args))
@@ -504,20 +524,24 @@ export const ProcessesSection = memo(({ model, data }: SectionProps) => {
                         <div className="tabular-nums text-secondary">{fmtDuration(p.elapsedsec)}</div>
                         <RowActions
                             actions={[
-                                {
-                                    icon: "chart-line",
-                                    title: "Watch in top",
-                                    onClick: () => model.openCommand(HostCommands.processTop(p.pid)),
-                                },
+                                ...(cmds.processTop
+                                    ? [
+                                          {
+                                              icon: "chart-line",
+                                              title: "Watch in top",
+                                              onClick: () => model.openCommand(cmds.processTop(p.pid)),
+                                          },
+                                      ]
+                                    : []),
                                 {
                                     icon: "hand",
-                                    title: "Terminate (SIGTERM)",
+                                    title: isWindows ? "Ask it to close (taskkill)" : "Terminate (SIGTERM)",
                                     onClick: () => ask(p, "term", "Terminate"),
                                     danger: true,
                                 },
                                 {
                                     icon: "skull",
-                                    title: "Kill (SIGKILL)",
+                                    title: isWindows ? "Force stop (Stop-Process -Force)" : "Kill (SIGKILL)",
                                     onClick: () => ask(p, "kill", "Kill"),
                                     danger: true,
                                 },
@@ -547,6 +571,7 @@ export const ServicesSection = memo(({ model, data, changes }: SectionProps) => 
     const [query, setQuery] = useState("");
     const [filter, setFilter] = useState<SvcFilter>(() => ((data.services?.failed ?? 0) > 0 ? "failed" : "all"));
     const svcs = data.services;
+    const cmds = getHostCommands(data.os);
     if (svcs == null) return <Empty>No service information yet.</Empty>;
     if (!svcs.available) return <Empty>This host doesn't use systemd, so there are no services to list.</Empty>;
     const counts = {
@@ -594,18 +619,22 @@ export const ServicesSection = memo(({ model, data, changes }: SectionProps) => 
                 {shown.map((s) => {
                     const running = s.active === "active" || s.active === "reloading";
                     const changed = changes.services.has(s.unit);
-                    const actions: RowAction[] = [
-                        {
+                    const actions: RowAction[] = [];
+                    const statusCmd = cmds.serviceStatus?.(s.unit);
+                    if (statusCmd) {
+                        actions.push({
                             icon: "circle-info",
                             title: "Show status",
-                            onClick: () => model.openCommand(HostCommands.serviceStatus(s.unit)),
-                        },
-                        {
+                            onClick: () => model.openCommand(statusCmd),
+                        });
+                    }
+                    if (cmds.serviceJournal) {
+                        actions.push({
                             icon: "scroll",
                             title: "Follow journal",
-                            onClick: () => model.openCommand(HostCommands.serviceJournal(s.unit)),
-                        },
-                    ];
+                            onClick: () => model.openCommand(cmds.serviceJournal(s.unit)),
+                        });
+                    }
                     if (running) {
                         actions.push(
                             {
@@ -665,6 +694,7 @@ export const DockerSection = memo(({ model, data, changes }: SectionProps) => {
     const [query, setQuery] = useState("");
     const liveStats = useAtomValue(model.dockerStatsAtom);
     const dk = data.docker;
+    const cmds = getHostCommands(data.os);
     const groups = useMemo(() => {
         const m = new Map<string, HostContainerInfo[]>();
         for (const c of dk?.containers ?? []) {
@@ -681,7 +711,7 @@ export const DockerSection = memo(({ model, data, changes }: SectionProps) => {
             <Notice tone="warn">
                 <div className="mb-1 font-medium">Docker didn't answer</div>
                 <div className="mb-1 font-mono break-all">{dk.error}</div>
-                {/permission denied/i.test(dk.error) && (
+                {data.os !== "windows" && /permission denied/i.test(dk.error) && (
                     <div>
                         Your user can't reach the Docker daemon. Add it to the docker group (
                         <span className="font-mono">sudo usermod -aG docker $USER</span>) and reconnect.
@@ -737,13 +767,13 @@ export const DockerSection = memo(({ model, data, changes }: SectionProps) => {
                                     actions.push({
                                         icon: "terminal",
                                         title: "Open a shell inside",
-                                        onClick: () => model.openCommand(HostCommands.containerShell(c.name)),
+                                        onClick: () => model.openCommand(cmds.containerShell(c.name)),
                                     });
                                 }
                                 actions.push({
                                     icon: "scroll",
                                     title: "Follow logs",
-                                    onClick: () => model.openCommand(HostCommands.containerLogs(c.name)),
+                                    onClick: () => model.openCommand(cmds.containerLogs(c.name)),
                                 });
                                 if (firstMount?.startsWith("/")) {
                                     actions.push({

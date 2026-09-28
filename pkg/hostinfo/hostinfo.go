@@ -1,8 +1,9 @@
 // Copyright 2026, Atreus-X (fork of Wave Terminal by Command Line Inc.)
 // SPDX-License-Identifier: Apache-2.0
 
-// Package hostinfo inspects Linux hosts agentlessly: it runs a read-only shell script over the
-// connection's existing SSH client (or locally), so it works on connections without wsh.
+// Package hostinfo inspects Linux and Windows hosts agentlessly: it runs a read-only script (sh on
+// Linux, PowerShell on Windows) over the connection's existing SSH client (or locally), so it works
+// on connections without wsh.
 package hostinfo
 
 import (
@@ -66,12 +67,21 @@ func (b *cappedBuffer) Write(p []byte) (int, error) {
 	return len(p), nil
 }
 
-func getRunner(ctx context.Context, connName string) (runnerFn, error) {
+// hostTarget runs scripts on one host: sh scripts on Linux, PowerShell scripts on Windows.
+type hostTarget struct {
+	os  string
+	run runnerFn
+}
+
+func getTarget(ctx context.Context, connName string) (*hostTarget, error) {
 	if conncontroller.IsLocalConnName(connName) {
-		if runtime.GOOS != "linux" {
-			return nil, fmt.Errorf("the host inspector supports Linux hosts; this computer runs %s", runtime.GOOS)
+		switch runtime.GOOS {
+		case "linux":
+			return &hostTarget{os: OsLinux, run: runLocal}, nil
+		case "windows":
+			return &hostTarget{os: OsWindows, run: runLocalPowerShell}, nil
 		}
-		return runLocal, nil
+		return nil, fmt.Errorf("the host inspector supports Linux and Windows hosts; this computer runs %s", runtime.GOOS)
 	}
 	if conncontroller.IsWslConnName(connName) {
 		return nil, fmt.Errorf("WSL connections aren't supported by the host inspector yet")
@@ -91,13 +101,30 @@ func getRunner(ctx context.Context, connName string) (runnerFn, error) {
 	if client == nil {
 		return nil, fmt.Errorf("connection %s is not connected", connName)
 	}
-	return func(ctx context.Context, script string) (*runResult, error) {
-		return runSSH(ctx, client, script)
-	}, nil
+	osName, ok := getCachedOs(connName)
+	if !ok {
+		probe, err := runSSH(ctx, client, osProbeCommand, "")
+		if err != nil {
+			return nil, err
+		}
+		osName = OsLinux
+		if isWindowsProbeOutput(probe.stdout) {
+			osName = OsWindows
+		}
+		setCachedOs(connName, osName)
+	}
+	if osName == OsWindows {
+		return &hostTarget{os: OsWindows, run: func(ctx context.Context, script string) (*runResult, error) {
+			return runSSH(ctx, client, psCommandLine, script)
+		}}, nil
+	}
+	return &hostTarget{os: OsLinux, run: func(ctx context.Context, script string) (*runResult, error) {
+		// sh reads the script from stdin, so the remote login shell only parses "sh -s"
+		return runSSH(ctx, client, "sh -s", script)
+	}}, nil
 }
 
-// runSSH feeds the script to `sh -s` on stdin, so the remote login shell only parses "sh -s".
-func runSSH(ctx context.Context, client *ssh.Client, script string) (*runResult, error) {
+func runSSH(ctx context.Context, client *ssh.Client, command string, stdin string) (*runResult, error) {
 	sess, err := client.NewSession()
 	if err != nil {
 		return nil, fmt.Errorf("opening ssh session: %w", err)
@@ -106,9 +133,9 @@ func runSSH(ctx context.Context, client *ssh.Client, script string) (*runResult,
 	var stdout, stderr cappedBuffer
 	sess.Stdout = &stdout
 	sess.Stderr = &stderr
-	sess.Stdin = strings.NewReader(script)
-	if err := sess.Start("sh -s"); err != nil {
-		return nil, fmt.Errorf("starting remote shell: %w", err)
+	sess.Stdin = strings.NewReader(stdin)
+	if err := sess.Start(command); err != nil {
+		return nil, fmt.Errorf("starting remote command: %w", err)
 	}
 	done := make(chan error, 1)
 	go func() {
@@ -138,7 +165,16 @@ func runSSH(ctx context.Context, client *ssh.Client, script string) (*runResult,
 }
 
 func runLocal(ctx context.Context, script string) (*runResult, error) {
-	cmd := exec.CommandContext(ctx, "sh", "-s")
+	return runLocalCmd(exec.CommandContext(ctx, "sh", "-s"), script)
+}
+
+func runLocalPowerShell(ctx context.Context, script string) (*runResult, error) {
+	cmd := exec.CommandContext(ctx, "powershell.exe", psArgs...)
+	hideConsoleWindow(cmd)
+	return runLocalCmd(cmd, script)
+}
+
+func runLocalCmd(cmd *exec.Cmd, script string) (*runResult, error) {
 	var stdout, stderr cappedBuffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
@@ -182,22 +218,35 @@ func Collect(ctx context.Context, data wshrpc.CommandHostInfoData) (*wshrpc.Host
 	}
 	ctx, cancel := context.WithTimeout(ctx, collectTimeout)
 	defer cancel()
-	run, err := getRunner(ctx, data.Conn)
+	target, err := getTarget(ctx, data.Conn)
 	if err != nil {
 		return nil, err
 	}
-	res, err := run(ctx, buildScript(sections, data.DockerStats))
-	if err != nil {
-		return nil, err
-	}
-	if !strings.Contains(res.stdout, "@@hi-uid") {
-		msg := strings.TrimSpace(res.stderr)
-		if msg == "" {
-			msg = fmt.Sprintf("exit code %d", res.exitCode)
+	var info *wshrpc.HostInfoData
+	if target.os == OsWindows {
+		res, err := target.run(ctx, buildWinScript(sections, data.DockerStats))
+		if err != nil {
+			return nil, err
 		}
-		return nil, fmt.Errorf("the host couldn't run the inspection script: %s", msg)
+		info, err = parseWinOutput(res.stdout, sections)
+		if err != nil {
+			return nil, fmt.Errorf("the host couldn't run the inspection script: %s", firstNonEmpty(strings.TrimSpace(res.stderr), err.Error()))
+		}
+	} else {
+		res, err := target.run(ctx, buildScript(sections, data.DockerStats))
+		if err != nil {
+			return nil, err
+		}
+		if !strings.Contains(res.stdout, "@@hi-uid") {
+			msg := strings.TrimSpace(res.stderr)
+			if msg == "" {
+				msg = fmt.Sprintf("exit code %d", res.exitCode)
+			}
+			return nil, fmt.Errorf("the host couldn't run the inspection script: %s", msg)
+		}
+		info = parseOutput(res.stdout, sections)
+		info.Os = OsLinux
 	}
-	info := parseOutput(res.stdout, sections)
 	info.Conn = data.Conn
 	info.Ts = time.Now().UnixMilli()
 	return info, nil
