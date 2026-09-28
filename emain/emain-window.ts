@@ -804,6 +804,22 @@ ipcMain.handle(
     }
 );
 
+// the same warning as closing a busy tab, for closing a single busy terminal
+ipcMain.handle("confirm-close-busy", async (event, message: string, detail: string) => {
+    const ww = getWaveWindowByWebContentsId(event.sender.id);
+    const opts: Electron.MessageBoxSyncOptions = {
+        type: "warning",
+        defaultId: 0,
+        cancelId: 0,
+        buttons: ["Cancel", "Close"],
+        title: "Close?",
+        message,
+        detail,
+    };
+    const choice = ww != null ? dialog.showMessageBoxSync(ww, opts) : dialog.showMessageBoxSync(opts);
+    return choice === 1;
+});
+
 ipcMain.on("switch-workspace", (event, workspaceId) => {
     fireAndForget(async () => {
         const ww = getWaveWindowByWebContentsId(event.sender.id);

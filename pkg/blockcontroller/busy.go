@@ -162,6 +162,18 @@ func blockBusyInfo(ctx context.Context, block *waveobj.Block) *wshrpc.BlockBusyI
 	return nil
 }
 
+// GetBlockBusyInfo reports what one terminal is running, or nil when it's idle or not a terminal.
+func GetBlockBusyInfo(ctx context.Context, blockId string) (*wshrpc.BlockBusyInfo, error) {
+	block, err := wstore.DBGet[*waveobj.Block](ctx, blockId)
+	if err != nil {
+		return nil, fmt.Errorf("error getting block: %w", err)
+	}
+	if block == nil {
+		return nil, nil
+	}
+	return blockBusyInfo(ctx, block), nil
+}
+
 // GetTabBusyInfo lists the terminals in a tab that are running something other than an idle shell.
 func GetTabBusyInfo(ctx context.Context, tabId string) ([]wshrpc.BlockBusyInfo, error) {
 	tab, err := wstore.DBMustGet[*waveobj.Tab](ctx, tabId)

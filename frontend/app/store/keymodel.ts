@@ -3,7 +3,7 @@
 
 import { WaveAIModel } from "@/app/aipanel/waveai-model";
 import { openSnippetPicker } from "@/app/modals/snippetpicker";
-import { closeTabWithConfirm } from "@/app/store/closetab";
+import { closeTabWithConfirm, confirmBlockClose } from "@/app/store/closetab";
 import { FocusManager } from "@/app/store/focusManager";
 import {
     atoms,
@@ -165,11 +165,15 @@ function uxCloseBlock(blockId: string) {
     const layoutModel = getLayoutModelForStaticTab();
     const node = layoutModel.getNodeByBlockId(blockId);
     if (node) {
-        fireAndForget(() => layoutModel.closeNode(node.id));
-
-        if (isAIFileDiff && isAIPanelOpen) {
-            setTimeout(() => WaveAIModel.getInstance().focusInput(), 50);
-        }
+        fireAndForget(async () => {
+            if (!(await confirmBlockClose(blockId))) {
+                return;
+            }
+            await layoutModel.closeNode(node.id);
+            if (isAIFileDiff && isAIPanelOpen) {
+                setTimeout(() => WaveAIModel.getInstance().focusInput(), 50);
+            }
+        });
     }
 }
 
@@ -215,11 +219,15 @@ function genericClose() {
     const blockData = blockAtom ? globalStore.get(blockAtom) : null;
     const isAIFileDiff = blockData?.meta?.view === "aifilediff";
 
-    fireAndForget(layoutModel.closeFocusedNode.bind(layoutModel));
-
-    if (isAIFileDiff && isAIPanelOpen) {
-        setTimeout(() => WaveAIModel.getInstance().focusInput(), 50);
-    }
+    fireAndForget(async () => {
+        if (!(await confirmBlockClose(blockId))) {
+            return;
+        }
+        await layoutModel.closeFocusedNode();
+        if (isAIFileDiff && isAIPanelOpen) {
+            setTimeout(() => WaveAIModel.getInstance().focusInput(), 50);
+        }
+    });
 }
 
 function switchBlockByBlockNum(index: number) {

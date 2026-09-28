@@ -114,6 +114,7 @@ type WshRpcInterface interface {
 	ConnServerInitCommand(ctx context.Context, data CommandConnServerInitData) error
 	NotifySystemSuspendCommand(ctx context.Context, data CommandSystemPowerData) error
 	TabBusyCommand(ctx context.Context, tabId string) ([]BlockBusyInfo, error)
+	BlockBusyCommand(ctx context.Context, blockId string) (*BlockBusyInfo, error)
 	NotifySystemResumeCommand(ctx context.Context, data CommandSystemPowerData) error
 
 	// host inspector: runs in wavesrv over the connection's own SSH client, so it works without wsh
