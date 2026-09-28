@@ -2,12 +2,16 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import * as electron from "electron";
+import fs from "fs";
 import * as child_process from "node:child_process";
 import * as crypto from "node:crypto";
-import fs from "fs";
+import { Readable, Transform } from "node:stream";
+import { pipeline } from "node:stream/promises";
 import * as path from "path";
 import { RpcApi } from "../frontend/app/store/wshclientapi";
+import { getWebServerEndpoint } from "../frontend/util/endpoints";
 import { formatRemoteUri } from "../frontend/util/waveutil";
+import { AuthKey, AuthKeyHeader } from "./authkey";
 import { callWithOriginalXdgCurrentDesktopAsync } from "./emain-platform";
 import { ElectronWshClient } from "./emain-wsh";
 
@@ -19,6 +23,7 @@ const RemoteEditDirName = "wave-remote-edit";
 const RemoteEditMaxAgeMs = 7 * 24 * 60 * 60 * 1000;
 const SyncDebounceMs = 700;
 const RemoteRpcTimeoutMs = 60000;
+const UploadChunkBytes = 16 * 1024 * 1024;
 
 type RemoteEditSession = {
     remoteUri: string;
@@ -48,7 +53,11 @@ function hashBytes(data: Buffer): string {
 
 // remote names can contain characters Windows won't accept in a filename
 function safeLocalName(remotePath: string): string {
-    const base = remotePath.split("/").filter((p) => p !== "").pop() || "file";
+    const base =
+        remotePath
+            .split("/")
+            .filter((p) => p !== "")
+            .pop() || "file";
     return base.replace(/[<>:"/\\|?*\x00-\x1f]/g, "_");
 }
 
@@ -139,17 +148,46 @@ function notify(title: string, body: string) {
 }
 
 async function downloadRemote(remoteUri: string, localPath: string): Promise<{ hash: string; modTime: number }> {
-    const info = await RpcApi.FileInfoCommand(ElectronWshClient, { info: { path: remoteUri } }, { timeout: RemoteRpcTimeoutMs });
+    const info = await RpcApi.FileInfoCommand(
+        ElectronWshClient,
+        { info: { path: remoteUri } },
+        { timeout: RemoteRpcTimeoutMs }
+    );
     if (info == null || info.notfound) {
         throw new Error("file not found on remote");
     }
     if (info.isdir) {
         throw new Error("cannot open a directory in an external application");
     }
-    const fileData = await RpcApi.FileReadCommand(ElectronWshClient, { info: { path: remoteUri } }, { timeout: RemoteRpcTimeoutMs });
-    const bytes = Buffer.from(fileData?.data64 ?? "", "base64");
-    await fs.promises.writeFile(localPath, bytes);
-    return { hash: hashBytes(bytes), modTime: info.modtime ?? 0 };
+    // streamed from wavesrv's stream-file endpoint rather than FileReadCommand, which returns the
+    // whole file in one base64 RPC message and so refuses anything over the 32 MB transfer limit
+    const url = `${getWebServerEndpoint()}/wave/stream-file?path=${encodeURIComponent(remoteUri)}`;
+    const res = await fetch(url, { headers: { [AuthKeyHeader]: AuthKey } });
+    if (!res.ok || res.body == null) {
+        throw new Error(`download failed (HTTP ${res.status})`);
+    }
+    const hash = crypto.createHash("sha256");
+    const hashing = new Transform({
+        transform(chunk: Buffer, _enc, cb) {
+            hash.update(chunk);
+            cb(null, chunk);
+        },
+    });
+    await pipeline(Readable.fromWeb(res.body as any), hashing, fs.createWriteStream(localPath));
+    return { hash: hash.digest("hex"), modTime: info.modtime ?? 0 };
+}
+
+// one write, then appends: each RPC message stays well under the 32 MB transfer limit
+async function uploadRemote(remoteUri: string, bytes: Buffer) {
+    for (let offset = 0; offset === 0 || offset < bytes.length; offset += UploadChunkBytes) {
+        const chunk = bytes.subarray(offset, offset + UploadChunkBytes);
+        const data = { info: { path: remoteUri }, data64: chunk.toString("base64") };
+        if (offset === 0) {
+            await RpcApi.FileWriteCommand(ElectronWshClient, data, { timeout: RemoteRpcTimeoutMs });
+        } else {
+            await RpcApi.FileAppendCommand(ElectronWshClient, data, { timeout: RemoteRpcTimeoutMs });
+        }
+    }
 }
 
 function scheduleSync(sess: RemoteEditSession) {
@@ -195,7 +233,11 @@ async function syncBack(sess: RemoteEditSession) {
     sess.uploading = true;
     const fileName = path.basename(sess.localPath);
     try {
-        const info = await RpcApi.FileInfoCommand(ElectronWshClient, { info: { path: sess.remoteUri } }, { timeout: RemoteRpcTimeoutMs });
+        const info = await RpcApi.FileInfoCommand(
+            ElectronWshClient,
+            { info: { path: sess.remoteUri } },
+            { timeout: RemoteRpcTimeoutMs }
+        );
         if (info != null && !info.notfound && (info.modtime ?? 0) !== sess.remoteModTime) {
             const overwrite = await confirmOverwriteChangedRemote(sess);
             if (!overwrite) {
@@ -203,12 +245,12 @@ async function syncBack(sess: RemoteEditSession) {
                 return;
             }
         }
-        await RpcApi.FileWriteCommand(
+        await uploadRemote(sess.remoteUri, bytes);
+        const after = await RpcApi.FileInfoCommand(
             ElectronWshClient,
-            { info: { path: sess.remoteUri }, data64: bytes.toString("base64") },
+            { info: { path: sess.remoteUri } },
             { timeout: RemoteRpcTimeoutMs }
         );
-        const after = await RpcApi.FileInfoCommand(ElectronWshClient, { info: { path: sess.remoteUri } }, { timeout: RemoteRpcTimeoutMs });
         sess.remoteModTime = after?.modtime ?? 0;
         sess.lastSyncedHash = hash;
         notify("Saved to remote", `${fileName} → ${sess.connName}`);
@@ -224,7 +266,12 @@ async function syncBack(sess: RemoteEditSession) {
     }
 }
 
-async function openRemoteFile(connName: string, remotePath: string, mode: OpenExternalMode, editorPath: string): Promise<string> {
+async function openRemoteFile(
+    connName: string,
+    remotePath: string,
+    mode: OpenExternalMode,
+    editorPath: string
+): Promise<string> {
     const remoteUri = formatRemoteUri(remotePath, connName);
     let sess = remoteEditSessions.get(remoteUri);
     if (sess != null) {
