@@ -252,6 +252,19 @@ export function initIpcHandlers() {
         event.sender.downloadURL(streamingUrl);
     });
 
+    electron.ipcMain.on("download-zip", (event, payload: { paths: string[]; name: string }) => {
+        const zipName = payload.name || "download.zip";
+        const url =
+            getWebServerEndpoint() +
+            "/wave/stream-zip/" +
+            encodeURIComponent(zipName) +
+            "?name=" +
+            encodeURIComponent(zipName) +
+            "&paths=" +
+            encodeURIComponent(JSON.stringify(payload.paths ?? []));
+        event.sender.downloadURL(url);
+    });
+
     electron.ipcMain.on("get-cursor-point", (event) => {
         const tabView = getWaveTabViewByWebContentsId(event.sender.id);
         if (tabView == null) {

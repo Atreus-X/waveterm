@@ -30,6 +30,7 @@ import { useDrag, useDrop } from "react-dnd";
 import { NativeTypes } from "react-dnd-html5-backend";
 import { quote as shellQuote } from "shell-quote";
 import { debounce } from "throttle-debounce";
+import { clickSelection, contextTargets, selectAll, zipNameFor } from "./dir-selection";
 import "./directorypreview.scss";
 import { EntryManagerOverlay, EntryManagerOverlayProps, EntryManagerType } from "./entry-manager";
 import {
@@ -347,6 +348,36 @@ function TableBody({
     const warningBoxRef = useRef<HTMLDivElement>(null);
     const conn = useAtomValue(model.connection);
     const setErrorMsg = useSetAtom(model.errorMsgAtom);
+    const env = useWaveEnv<PreviewEnv>();
+    const selection = useAtomValue(model.dirSelectionAtom);
+    const dirPath = useAtomValue(model.statFilePath);
+    const displayRows = getDisplayRows(table, dirsFirst);
+
+    const onRowClick = useCallback(
+        (e: React.MouseEvent, idx: number) => {
+            const paths = displayRows.map((r) => r.getValue("path") as string);
+            const r = clickSelection(
+                paths,
+                globalStore.get(model.dirSelectionAtom),
+                focusIndex,
+                model.dirSelectionAnchor,
+                idx,
+                { toggle: e.ctrlKey || e.metaKey, range: e.shiftKey }
+            );
+            model.dirSelectionAnchor = r.anchor;
+            globalStore.set(model.dirSelectionAtom, r.selection);
+            setFocusIndex(idx);
+        },
+        [displayRows, focusIndex, model, setFocusIndex]
+    );
+
+    const downloadZip = useCallback(
+        (targets: string[]) => {
+            const uris = targets.map((p) => formatRemoteUri(p, conn || "local"));
+            env.electron.downloadZip(uris, zipNameFor(targets, dirPath));
+        },
+        [conn, dirPath, env]
+    );
 
     useEffect(() => {
         if (focusIndex === null || !bodyRef.current || !osRef) {
@@ -386,6 +417,34 @@ function TableBody({
             e.stopPropagation();
             if (finfo == null) {
                 return;
+            }
+            const currentSelection = globalStore.get(model.dirSelectionAtom);
+            const targets = contextTargets(currentSelection, finfo.path);
+            if (targets.length > 1) {
+                const names = targets.map((p) => p.split("/").pop());
+                ContextMenuModel.getInstance().showContextMenu(
+                    [
+                        { label: `Download ${targets.length} Items as Zip`, click: () => downloadZip(targets) },
+                        { type: "separator" },
+                        {
+                            label: "Copy File Names",
+                            click: () => fireAndForget(() => navigator.clipboard.writeText(names.join("\n"))),
+                        },
+                        {
+                            label: "Copy Full File Names",
+                            click: () => fireAndForget(() => navigator.clipboard.writeText(targets.join("\n"))),
+                        },
+                        {
+                            label: "Copy File Names (Shell Quoted)",
+                            click: () => fireAndForget(() => navigator.clipboard.writeText(shellQuote(names))),
+                        },
+                    ],
+                    e
+                );
+                return;
+            }
+            if (currentSelection.length > 0 && !currentSelection.includes(finfo.path)) {
+                globalStore.set(model.dirSelectionAtom, []);
             }
             const fileName = finfo.path.split("/").pop();
             const menu: ContextMenuItem[] = [
@@ -428,6 +487,9 @@ function TableBody({
                 },
             ];
             addOpenMenuItems(menu, conn, finfo);
+            if (finfo.name !== "..") {
+                menu.push({ label: "Download as Zip", click: () => downloadZip([finfo.path]) });
+            }
             menu.push(
                 {
                     type: "separator",
@@ -446,10 +508,8 @@ function TableBody({
             );
             ContextMenuModel.getInstance().showContextMenu(menu, e);
         },
-        [setRefreshVersion, conn]
+        [setRefreshVersion, conn, downloadZip]
     );
-
-    const displayRows = getDisplayRows(table, dirsFirst);
 
     return (
         <div className="dir-table-body" ref={bodyRef}>
@@ -485,6 +545,8 @@ function TableBody({
                         setFocusIndex={setFocusIndex}
                         setSearch={setSearch}
                         idx={idx}
+                        selected={selection.includes(row.getValue("path") as string)}
+                        onRowClick={onRowClick}
                         handleFileContextMenu={handleFileContextMenu}
                         key={row.original.name === ".." ? "dotdot" : idx}
                     />
@@ -501,10 +563,21 @@ type TableRowProps = {
     setFocusIndex: (_: number) => void;
     setSearch: (_: string) => void;
     idx: number;
+    selected: boolean;
+    onRowClick: (e: React.MouseEvent, idx: number) => void;
     handleFileContextMenu: (e: any, finfo: FileInfo) => Promise<void>;
 };
 
-function TableRow({ model, row, focusIndex, setFocusIndex, setSearch, idx, handleFileContextMenu }: TableRowProps) {
+function TableRow({
+    model,
+    row,
+    focusIndex,
+    setSearch,
+    idx,
+    selected,
+    onRowClick,
+    handleFileContextMenu,
+}: TableRowProps) {
     const env = useWaveEnv<PreviewEnv>();
     const dirPath = useAtomValue(model.statFilePath);
     const connection = useAtomValue(model.connection);
@@ -534,7 +607,7 @@ function TableRow({ model, row, focusIndex, setFocusIndex, setSearch, idx, handl
 
     return (
         <div
-            className={clsx("dir-table-body-row", { focused: focusIndex === idx })}
+            className={clsx("dir-table-body-row", { focused: focusIndex === idx, selected })}
             data-rowindex={idx}
             onDoubleClick={() => {
                 const newFileName = row.getValue("path") as string;
@@ -546,7 +619,11 @@ function TableRow({ model, row, focusIndex, setFocusIndex, setSearch, idx, handl
                 setSearch("");
                 globalStore.set(model.directorySearchActive, false);
             }}
-            onClick={() => setFocusIndex(idx)}
+            onMouseDown={(e) => {
+                // shift-click would otherwise select the row text
+                if (e.shiftKey) e.preventDefault();
+            }}
+            onClick={(e) => onRowClick(e, idx)}
             onContextMenu={(e) => handleFileContextMenu(e, row.original)}
             ref={dragRef}
         >
@@ -585,6 +662,10 @@ function DirectoryPreview({ model }: DirectoryPreviewProps) {
     const finfo = useAtomValue(model.statFile);
     const dirPath = finfo?.path;
     const setErrorMsg = useSetAtom(model.errorMsgAtom);
+
+    useEffect(() => {
+        globalStore.set(model.dirSelectionAtom, []);
+    }, [dirPath]);
 
     useEffect(() => {
         model.refreshCallback = () => {
@@ -649,16 +730,23 @@ function DirectoryPreview({ model }: DirectoryPreviewProps) {
                 globalStore.set(model.directorySearchActive, true);
                 return true;
             }
+            if (checkKeyPressed(waveEvent, "Cmd:a")) {
+                globalStore.set(model.dirSelectionAtom, selectAll(filteredData.map((f) => f.path)));
+                return true;
+            }
             if (checkKeyPressed(waveEvent, "Escape")) {
                 setSearchText("");
                 globalStore.set(model.directorySearchActive, false);
+                globalStore.set(model.dirSelectionAtom, []);
                 return;
             }
             if (checkKeyPressed(waveEvent, "ArrowUp")) {
+                globalStore.set(model.dirSelectionAtom, []);
                 setFocusIndex((idx) => Math.max(idx - 1, 0));
                 return true;
             }
             if (checkKeyPressed(waveEvent, "ArrowDown")) {
+                globalStore.set(model.dirSelectionAtom, []);
                 setFocusIndex((idx) => Math.min(idx + 1, filteredData.length - 1));
                 return true;
             }

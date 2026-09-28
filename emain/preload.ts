@@ -24,6 +24,7 @@ contextBridge.exposeInMainWorld("api", {
     onContextMenuClick: (callback: (id: string | null) => void) =>
         ipcRenderer.on("contextmenu-click", (_event, id: string | null) => callback(id)),
     downloadFile: (filePath) => ipcRenderer.send("download", { filePath }),
+    downloadZip: (paths, name) => ipcRenderer.send("download-zip", { paths, name }),
     openExternal: (url) => {
         if (url && typeof url === "string") {
             ipcRenderer.send("open-external", url);
