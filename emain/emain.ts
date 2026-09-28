@@ -373,6 +373,21 @@ globalEvents.on("windows-updated", () => {
     makeAndSetAppMenu();
 });
 
+function notifyPowerEvent(phase: "suspend" | "resume", reason: "sleep" | "lock") {
+    console.log(`power event: ${phase} (${reason}), notifying server`);
+    fireAndForget(async () => {
+        try {
+            if (phase == "suspend") {
+                await RpcApi.NotifySystemSuspendCommand(ElectronWshClient, { reason }, { timeout: 5000 });
+            } else {
+                await RpcApi.NotifySystemResumeCommand(ElectronWshClient, { reason }, { noresponse: true });
+            }
+        } catch (e) {
+            console.log(`error notifying server of ${phase}`, e);
+        }
+    });
+}
+
 async function appMain() {
     // Set disableHardwareAcceleration as early as possible, if required.
     const launchSettings = getLaunchSettings();
@@ -446,16 +461,12 @@ async function appMain() {
             fireAndForget(createNewWaveWindow);
         }
     });
-    electron.powerMonitor.on("resume", () => {
-        console.log("system resumed from sleep, notifying server");
-        fireAndForget(async () => {
-            try {
-                await RpcApi.NotifySystemResumeCommand(ElectronWshClient, { noresponse: true });
-            } catch (e) {
-                console.log("error calling NotifySystemResumeCommand", e);
-            }
-        });
-    });
+    // suspend/lock close SSH connections (per conn:disconnectonsleep / conn:disconnectonlock) so they
+    // don't come back half-dead; resume/unlock tells the renderer which ones to offer to reconnect
+    electron.powerMonitor.on("suspend", () => notifyPowerEvent("suspend", "sleep"));
+    electron.powerMonitor.on("lock-screen", () => notifyPowerEvent("suspend", "lock"));
+    electron.powerMonitor.on("resume", () => notifyPowerEvent("resume", "sleep"));
+    electron.powerMonitor.on("unlock-screen", () => notifyPowerEvent("resume", "lock"));
     const rawGlobalHotKey = launchSettings?.["app:globalhotkey"];
     if (rawGlobalHotKey) {
         registerGlobalHotkey(rawGlobalHotKey);

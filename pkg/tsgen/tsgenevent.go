@@ -24,6 +24,7 @@ var waveEventRType = reflect.TypeOf(wps.WaveEvent{})
 var WaveEventDataTypes = map[string]reflect.Type{
 	wps.Event_BlockClose:          reflect.TypeOf(""),
 	wps.Event_ConnChange:          reflect.TypeOf(wshrpc.ConnStatus{}),
+	wps.Event_ConnSleepDisconnect: reflect.TypeOf(wshrpc.ConnSleepDisconnectData{}),
 	wps.Event_SysInfo:             reflect.TypeOf(wshrpc.TimeSeriesData{}),
 	wps.Event_ControllerStatus:    reflect.TypeOf((*blockcontroller.BlockControllerRuntimeStatus)(nil)),
 	wps.Event_BuilderStatus:       reflect.TypeOf(wshrpc.BuilderStatusData{}),

@@ -705,6 +705,11 @@ declare global {
         error?: string;
     };
 
+    // wshrpc.CommandSystemPowerData
+    type CommandSystemPowerData = {
+        reason: string;
+    };
+
     // wshrpc.CommandTermGetScrollbackLinesData
     type CommandTermGetScrollbackLinesData = {
         linestart: number;
@@ -837,6 +842,8 @@ declare global {
         "conn:wshenabled"?: boolean;
         "conn:askbeforewshinstall"?: boolean;
         "conn:autoconnect"?: boolean;
+        "conn:disconnectonsleep"?: boolean;
+        "conn:disconnectonlock"?: boolean;
         "conn:wshpath"?: string;
         "conn:shellpath"?: string;
         "conn:ignoresshconfig"?: boolean;
@@ -879,6 +886,12 @@ declare global {
         host: string;
         keywords?: ConnKeywords;
         logblockid?: string;
+    };
+
+    // wshrpc.ConnSleepDisconnectData
+    type ConnSleepDisconnectData = {
+        reason: string;
+        conns: string[];
     };
 
     // wshrpc.ConnStatus
@@ -1650,6 +1663,8 @@ declare global {
         "conn:askbeforewshinstall"?: boolean;
         "conn:wshenabled"?: boolean;
         "conn:autoconnect"?: boolean;
+        "conn:disconnectonsleep"?: boolean;
+        "conn:disconnectonlock"?: boolean;
         "conn:syncsshconfig"?: boolean;
         "conn:localhostdisplayname"?: string;
         "debug:*"?: boolean;

@@ -357,6 +357,12 @@
         "conn:autoconnect": {
           "type": "boolean"
         },
+        "conn:disconnectonsleep": {
+          "type": "boolean"
+        },
+        "conn:disconnectonlock": {
+          "type": "boolean"
+        },
         "conn:syncsshconfig": {
           "type": "boolean"
         },
