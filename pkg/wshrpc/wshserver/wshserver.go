@@ -31,6 +31,7 @@ import (
 	"github.com/wavetermdev/waveterm/pkg/filebackup"
 	"github.com/wavetermdev/waveterm/pkg/filestore"
 	"github.com/wavetermdev/waveterm/pkg/genconn"
+	"github.com/wavetermdev/waveterm/pkg/hostinfo"
 	"github.com/wavetermdev/waveterm/pkg/jobcontroller"
 	"github.com/wavetermdev/waveterm/pkg/panichandler"
 	"github.com/wavetermdev/waveterm/pkg/remote"
@@ -603,6 +604,14 @@ func (ws *WshServer) ConnEnsureCommand(ctx context.Context, data wshrpc.ConnExtD
 		return wslconn.EnsureConnection(ctx, distroName)
 	}
 	return conncontroller.EnsureConnection(ctx, data.ConnName)
+}
+
+func (ws *WshServer) HostInfoCommand(ctx context.Context, data wshrpc.CommandHostInfoData) (*wshrpc.HostInfoData, error) {
+	return hostinfo.Collect(ctx, data)
+}
+
+func (ws *WshServer) HostActionCommand(ctx context.Context, data wshrpc.CommandHostActionData) (*wshrpc.HostActionRtnData, error) {
+	return hostinfo.RunAction(ctx, data)
 }
 
 func (ws *WshServer) ConnDisconnectCommand(ctx context.Context, connName string) error {

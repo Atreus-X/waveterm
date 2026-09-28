@@ -510,6 +510,18 @@ export class RpcApiType {
         return client.wshRpcCall("getwaveairatelimit", null, opts);
     }
 
+    // command "hostaction" [call]
+    HostActionCommand(client: WshClient, data: CommandHostActionData, opts?: RpcOpts): Promise<HostActionRtnData> {
+        if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "hostaction", data, opts);
+        return client.wshRpcCall("hostaction", data, opts);
+    }
+
+    // command "hostinfo" [call]
+    HostInfoCommand(client: WshClient, data: CommandHostInfoData, opts?: RpcOpts): Promise<HostInfoData> {
+        if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "hostinfo", data, opts);
+        return client.wshRpcCall("hostinfo", data, opts);
+    }
+
     // command "jobcmdexited" [call]
     JobCmdExitedCommand(client: WshClient, data: CommandJobCmdExitedData, opts?: RpcOpts): Promise<void> {
         if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "jobcmdexited", data, opts);
