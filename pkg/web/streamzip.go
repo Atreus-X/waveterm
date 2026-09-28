@@ -19,7 +19,6 @@ import (
 	"github.com/wavetermdev/waveterm/pkg/remote/fileshare/fspath"
 	"github.com/wavetermdev/waveterm/pkg/remote/fileshare/wshfs"
 	"github.com/wavetermdev/waveterm/pkg/wshrpc"
-	"github.com/wavetermdev/waveterm/pkg/wshrpc/wshclient"
 )
 
 // /wave/stream-zip?paths=<json array of wsh:// URIs>[&name=x.zip] streams a zip of the given files
@@ -38,7 +37,7 @@ const (
 var (
 	zipStat        = wshfs.Stat
 	zipListEntries = wshfs.ListEntries
-	zipOpenFile    = openFileReader
+	zipOpenFile    = wshfs.OpenStream
 )
 
 type zipBuilder struct {
@@ -46,30 +45,6 @@ type zipBuilder struct {
 	zw      *zip.Writer
 	entries int
 	errors  []string
-}
-
-// openFileReader opens a remote (or local) file for streaming, like handleStreamFileFromReader.
-func openFileReader(ctx context.Context, path string) (*wshrpc.FileInfo, io.ReadCloser, error) {
-	altInfo, altReader, handled, err := wshfs.OpenAltStream(ctx, path, "")
-	if handled {
-		return altInfo, altReader, err
-	}
-	writerRouteId, err := wshfs.GetConnectionRouteId(ctx, path)
-	if err != nil {
-		return nil, nil, err
-	}
-	bareRpc := wshclient.GetBareRpcClient()
-	readerRouteId := wshclient.GetBareRpcClientRouteId()
-	reader, streamMeta := bareRpc.StreamBroker.CreateStreamReader(readerRouteId, writerRouteId, 256*1024)
-	info, err := wshfs.FileStream(ctx, wshrpc.CommandFileStreamData{
-		Info:       &wshrpc.FileInfo{Path: path},
-		StreamMeta: *streamMeta,
-	})
-	if err != nil {
-		reader.Close()
-		return nil, nil, err
-	}
-	return info, reader, nil
 }
 
 func childURI(ctx context.Context, parentURI string, name string) (string, error) {
