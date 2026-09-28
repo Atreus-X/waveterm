@@ -6,11 +6,15 @@
 # Usage:
 #   scripts/atreus-release-local.sh              # build only, artifacts in make/
 #   scripts/atreus-release-local.sh --publish    # build, then publish to the update feed + GitHub release
+#   --skip-upstream-check                        # publish even if upstream has commits the fork lacks
+#
+# Before building, upstream (wavetermdev/waveterm main, remote "upstream") is fetched; if it has
+# commits that aren't in HEAD, --publish stops and lists them (a build-only run just warns).
 #
 # The version comes from package.json (bump it with `npm version X.Y.Z --no-git-tag-version`, commit,
 # push). Release notes come from the "### vX.Y.Z" section of docs/docs/releasenotes.mdx.
 #
-# Toolchain (user-local is fine): Go 1.25+, Node 22 (nvm), Zig, Task, zip, mksquashfs, and wine
+# Toolchain (user-local is fine): Go 1.26+, Node 22 (nvm), Zig, Task, zip, mksquashfs, and wine
 # (electron-builder calls `wine`; a `wine` -> wine64 symlink works) for the Windows installer.
 #
 # Publishing settings live in a private env file outside the repo (default
@@ -31,10 +35,14 @@ FEED_URL=${FEED_URL:-https://www.atreusproject.com/updater/waveterm}
 GH_REPO=${GH_REPO:-Atreus-X/waveterm}
 
 PUBLISH=0
+SKIP_UPSTREAM_CHECK=${SKIP_UPSTREAM_CHECK:-0}
+UPSTREAM_REMOTE=${UPSTREAM_REMOTE:-upstream}
+UPSTREAM_BRANCH=${UPSTREAM_BRANCH:-main}
 for arg in "$@"; do
     case "$arg" in
         --publish) PUBLISH=1 ;;
-        -h|--help) sed -n '2,17p' "$0"; exit 0 ;;
+        --skip-upstream-check) SKIP_UPSTREAM_CHECK=1 ;;
+        -h|--help) sed -n '2,21p' "$0"; exit 0 ;;
         *) echo "unknown argument: $arg" >&2; exit 2 ;;
     esac
 done
@@ -61,6 +69,30 @@ SHA=$(git rev-parse HEAD)
 if [ "$PUBLISH" = 1 ] && ! git branch -r --contains "$SHA" | grep -q .; then
     echo "HEAD $SHA is not on any remote branch; push it first (the release tag points at it)" >&2
     exit 1
+fi
+
+# releasing without upstream's latest fixes should be a deliberate choice, not an oversight
+if [ "$SKIP_UPSTREAM_CHECK" != 1 ]; then
+    if ! git remote get-url "$UPSTREAM_REMOTE" >/dev/null 2>&1; then
+        echo "no '$UPSTREAM_REMOTE' remote to check; add it with" >&2
+        echo "  git remote add $UPSTREAM_REMOTE https://github.com/wavetermdev/waveterm.git" >&2
+        echo "or rerun with --skip-upstream-check" >&2
+        exit 1
+    fi
+    echo "== checking $UPSTREAM_REMOTE/$UPSTREAM_BRANCH for commits not in this build"
+    git fetch --quiet --no-tags "$UPSTREAM_REMOTE" "$UPSTREAM_BRANCH"
+    BEHIND=$(git rev-list --count HEAD..FETCH_HEAD)
+    if [ "$BEHIND" -gt 0 ]; then
+        echo "$UPSTREAM_REMOTE/$UPSTREAM_BRANCH has $BEHIND commit(s) that aren't in this build:" >&2
+        git log --oneline --no-decorate HEAD..FETCH_HEAD | head -n 25 >&2
+        if [ "$PUBLISH" = 1 ]; then
+            echo "merge them first (sync branch + PR), or rerun with --skip-upstream-check" >&2
+            exit 1
+        fi
+        echo "(build-only run: continuing; --publish would stop here)" >&2
+    else
+        echo "   up to date with $UPSTREAM_REMOTE/$UPSTREAM_BRANCH"
+    fi
 fi
 
 VERSION=$(node -p 'require("./package.json").version')
