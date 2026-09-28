@@ -1,6 +1,7 @@
 // Copyright 2026, Atreus-X (fork of Wave Terminal by Command Line Inc.)
 // SPDX-License-Identifier: Apache-2.0
 
+import { ScrollArea } from "@/app/element/scrollarea";
 import { HostVitalsDeps, useHostVitals } from "@/app/store/hostvitals";
 import { globalStore } from "@/app/store/jotaiStore";
 import { TabRpcClient } from "@/app/store/wshrpcutil";
@@ -319,7 +320,7 @@ export const FleetView = memo(({ model }: ViewComponentProps<FleetViewModel>) =>
                     </button>
                 </div>
             </div>
-            <div className="min-h-0 flex-1 overflow-auto">
+            <ScrollArea className="flex-1" horizontal>
                 {hosts.length === 0 ? (
                     <div className="py-10 text-center text-xs text-muted">
                         No SSH connections yet. Add hosts to ~/.ssh/config or connections.json and they'll appear here.
@@ -345,7 +346,7 @@ export const FleetView = memo(({ model }: ViewComponentProps<FleetViewModel>) =>
                         ))}
                     </div>
                 )}
-            </div>
+            </ScrollArea>
         </div>
     );
 });
