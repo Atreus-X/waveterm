@@ -18,12 +18,14 @@ on:
             - "**/*.go"
             - "**/*.ts"
             - "**/*.tsx"
+            - ".github/workflows/codeql.yml"
     pull_request:
         branches: ["main"]
         paths:
             - "**/*.go"
             - "**/*.ts"
             - "**/*.tsx"
+            - ".github/workflows/codeql.yml"
         types:
             - opened
             - synchronize
@@ -34,7 +36,7 @@ on:
 
 env:
     NODE_VERSION: 22
-    GO_VERSION: "1.25.6"
+    GO_VERSION: "1.26"
 
 jobs:
     analyze:
