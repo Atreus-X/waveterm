@@ -972,6 +972,12 @@ func StreamTestCommand(w *wshutil.WshRpc, opts *wshrpc.RpcOpts) chan wshrpc.Resp
 	return sendRpcRequestResponseStreamHelper[int](w, "streamtest", nil, opts)
 }
 
+// command "tabbusy", wshserver.TabBusyCommand
+func TabBusyCommand(w *wshutil.WshRpc, data string, opts *wshrpc.RpcOpts) ([]wshrpc.BlockBusyInfo, error) {
+	resp, err := sendRpcRequestCallHelper[[]wshrpc.BlockBusyInfo](w, "tabbusy", data, opts)
+	return resp, err
+}
+
 // command "termgetscrollbacklines", wshserver.TermGetScrollbackLinesCommand
 func TermGetScrollbackLinesCommand(w *wshutil.WshRpc, data wshrpc.CommandTermGetScrollbackLinesData, opts *wshrpc.RpcOpts) (*wshrpc.CommandTermGetScrollbackLinesRtnData, error) {
 	resp, err := sendRpcRequestCallHelper[*wshrpc.CommandTermGetScrollbackLinesRtnData](w, "termgetscrollbacklines", data, opts)

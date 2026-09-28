@@ -815,6 +815,10 @@ func (ws *WshServer) DismissWshFailCommand(ctx context.Context, connName string)
 	return nil
 }
 
+func (ws *WshServer) TabBusyCommand(ctx context.Context, tabId string) ([]wshrpc.BlockBusyInfo, error) {
+	return blockcontroller.GetTabBusyInfo(ctx, tabId)
+}
+
 func (ws *WshServer) NotifySystemSuspendCommand(ctx context.Context, data wshrpc.CommandSystemPowerData) error {
 	log.Printf("NotifySystemSuspendCommand called reason:%s\n", data.Reason)
 	conncontroller.DisconnectForPowerEvent(data.Reason)

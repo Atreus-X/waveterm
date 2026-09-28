@@ -548,6 +548,9 @@ func (bc *ShellController) startSshShellProcNoWsh(ctx context.Context, rc *RunSh
 		bc.TmuxSession = tmuxName
 		bc.TmuxConn = conn
 	})
+	if tmuxName != "" {
+		registerTmuxSession(bc.BlockId, conn, tmuxName)
+	}
 	if initialInput != "" {
 		if _, err := shellProc.Cmd.Write([]byte(initialInput + "\r")); err != nil {
 			log.Printf("error writing reconnect cmd for block %s: %v\n", bc.BlockId, err)

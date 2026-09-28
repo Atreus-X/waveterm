@@ -3,6 +3,7 @@
 
 import { WaveAIModel } from "@/app/aipanel/waveai-model";
 import { openSnippetPicker } from "@/app/modals/snippetpicker";
+import { closeTabWithConfirm } from "@/app/store/closetab";
 import { FocusManager } from "@/app/store/focusManager";
 import {
     atoms,
@@ -23,7 +24,7 @@ import {
 } from "@/app/store/global";
 import { getActiveTabModel } from "@/app/store/tab-model";
 import { WorkspaceLayoutModel } from "@/app/workspace/workspace-layout-model";
-import { deleteLayoutModelForTab, getLayoutModelForStaticTab, NavigateDirection } from "@/layout/index";
+import { getLayoutModelForStaticTab, NavigateDirection } from "@/layout/index";
 import * as keyutil from "@/util/keyutil";
 import { isWindows } from "@/util/platformutil";
 import { CHORD_TIMEOUT } from "@/util/sharedconst";
@@ -132,17 +133,9 @@ function getStaticTabBlockCount(): number {
 function simpleCloseStaticTab() {
     const workspaceId = globalStore.get(atoms.workspaceId);
     const tabId = globalStore.get(atoms.staticTabId);
-    const confirmClose = globalStore.get(getSettingsKeyAtom("tab:confirmclose")) ?? false;
-    getApi()
-        .closeTab(workspaceId, tabId, confirmClose)
-        .then((didClose) => {
-            if (didClose) {
-                deleteLayoutModelForTab(tabId);
-            }
-        })
-        .catch((e) => {
-            console.log("error closing tab", e);
-        });
+    closeTabWithConfirm(workspaceId, tabId).catch((e) => {
+        console.log("error closing tab", e);
+    });
 }
 
 function uxCloseBlock(blockId: string) {

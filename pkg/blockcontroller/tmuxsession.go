@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/wavetermdev/waveterm/pkg/remote/conncontroller"
@@ -20,6 +21,37 @@ import (
 // (re)starting the block re-attaches to it.
 
 const tmuxKillTimeout = 5 * time.Second
+
+type tmuxSessionRef struct {
+	Conn *conncontroller.SSHConn
+	Name string
+}
+
+// blockId -> the block's tmux session. Kept apart from the controller registry because closing a
+// tab destroys the controllers before the blockclose events arrive; the session must still be killed.
+var tmuxSessions = make(map[string]tmuxSessionRef)
+var tmuxSessionsLock = &sync.Mutex{}
+
+func registerTmuxSession(blockId string, conn *conncontroller.SSHConn, name string) {
+	tmuxSessionsLock.Lock()
+	defer tmuxSessionsLock.Unlock()
+	tmuxSessions[blockId] = tmuxSessionRef{Conn: conn, Name: name}
+}
+
+func getTmuxSession(blockId string) (tmuxSessionRef, bool) {
+	tmuxSessionsLock.Lock()
+	defer tmuxSessionsLock.Unlock()
+	ref, ok := tmuxSessions[blockId]
+	return ref, ok
+}
+
+func takeTmuxSession(blockId string) (tmuxSessionRef, bool) {
+	tmuxSessionsLock.Lock()
+	defer tmuxSessionsLock.Unlock()
+	ref, ok := tmuxSessions[blockId]
+	delete(tmuxSessions, blockId)
+	return ref, ok
+}
 
 func tmuxSessionName(blockId string) string {
 	if len(blockId) > 8 {

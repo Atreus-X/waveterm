@@ -978,6 +978,12 @@ export class RpcApiType {
         return client.wshRpcStream("streamtest", null, opts);
     }
 
+    // command "tabbusy" [call]
+    TabBusyCommand(client: WshClient, data: string, opts?: RpcOpts): Promise<BlockBusyInfo[]> {
+        if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "tabbusy", data, opts);
+        return client.wshRpcCall("tabbusy", data, opts);
+    }
+
     // command "termgetscrollbacklines" [call]
     TermGetScrollbackLinesCommand(client: WshClient, data: CommandTermGetScrollbackLinesData, opts?: RpcOpts): Promise<CommandTermGetScrollbackLinesRtnData> {
         if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "termgetscrollbacklines", data, opts);

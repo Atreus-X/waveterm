@@ -2,10 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { Tooltip } from "@/app/element/tooltip";
+import { closeTabWithConfirm } from "@/app/store/closetab";
 import { TabRpcClient } from "@/app/store/wshrpcutil";
 import { useWaveEnv } from "@/app/waveenv/waveenv";
 import { WorkspaceLayoutModel } from "@/app/workspace/workspace-layout-model";
-import { deleteLayoutModelForTab } from "@/layout/index";
 import { isMacOSTahoeOrLater } from "@/util/platformutil";
 import { fireAndForget } from "@/util/util";
 import { useAtomValue } from "jotai";
@@ -133,7 +133,6 @@ const TabBar = memo(({ workspace, noTabs }: TabBarProps) => {
     const isFullScreen = useAtomValue(env.atoms.isFullScreen);
     const zoomFactor = useAtomValue(env.atoms.zoomFactorAtom);
     const showMenuBar = useAtomValue(env.getSettingsKeyAtom("window:showmenubar"));
-    const confirmClose = useAtomValue(env.getSettingsKeyAtom("tab:confirmclose")) ?? false;
     const hideAiButtonSetting = useAtomValue(env.getSettingsKeyAtom("app:hideaibutton"));
     const waveAIDisabled = useAtomValue(env.getSettingsKeyAtom("waveai:disabled"));
     const hideAiButton = hideAiButtonSetting || waveAIDisabled;
@@ -545,12 +544,10 @@ const TabBar = memo(({ workspace, noTabs }: TabBarProps) => {
 
     const handleCloseTab = (event: React.MouseEvent<HTMLButtonElement, MouseEvent> | null, tabId: string) => {
         event?.stopPropagation();
-        env.electron
-            .closeTab(workspace.oid, tabId, confirmClose)
+        closeTabWithConfirm(workspace.oid, tabId)
             .then((didClose) => {
                 if (didClose) {
                     tabsWrapperRef.current?.style.setProperty("--tabs-wrapper-transition", "width 0.3s ease");
-                    deleteLayoutModelForTab(tabId);
                 }
             })
             .catch((e) => {
