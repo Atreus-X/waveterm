@@ -146,6 +146,7 @@ func handleBlockCloseEvent(event *wps.WaveEvent) {
 	if ref, ok := takeTmuxSession(blockId); ok && ref.Conn != nil {
 		go killTmuxSession(ref.Conn, ref.Name)
 	}
+	takePlainShell(blockId)
 	go DestroyBlockController(blockId)
 }
 
