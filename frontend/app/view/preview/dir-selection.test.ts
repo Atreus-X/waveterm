@@ -2,7 +2,15 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { describe, expect, it } from "vitest";
-import { clickSelection, contextTargets, selectAll, zipNameFor } from "./dir-selection";
+import {
+    clickSelection,
+    contextTargets,
+    extendSelection,
+    keepSelection,
+    selectAll,
+    toggleFocused,
+    zipNameFor,
+} from "./dir-selection";
 
 const paths = ["/srv/..", "/srv/a", "/srv/b", "/srv/c", "/srv/d"];
 const none = { toggle: false, range: false };
@@ -29,6 +37,30 @@ describe("clickSelection", () => {
         const want = ["/srv/a", "/srv/b", "/srv/c"];
         expect(clickSelection(paths, [], 1, 1, 3, { toggle: false, range: true }).selection).toEqual(want);
         expect(clickSelection(paths, [], 3, 3, 0, { toggle: false, range: true }).selection).toEqual(want);
+    });
+});
+
+describe("keyboard selection", () => {
+    it("shift+arrow extends from the focused row when nothing is selected", () => {
+        expect(extendSelection(paths, [], 2, 0, 3)).toEqual({ selection: ["/srv/b", "/srv/c"], anchor: 2 });
+    });
+
+    it("shift+arrow keeps the anchor and can shrink back", () => {
+        const r1 = extendSelection(paths, [], 2, 0, 4);
+        const r2 = extendSelection(paths, r1.selection, 4, r1.anchor, 3);
+        expect(r2.selection).toEqual(["/srv/b", "/srv/c"]);
+        const r3 = extendSelection(paths, r2.selection, 3, r2.anchor, 1);
+        expect(r3.selection).toEqual(["/srv/a", "/srv/b"]);
+    });
+
+    it("ctrl+arrow keeps the selection, making a lone focused row explicit", () => {
+        expect(keepSelection(paths, [], 2)).toEqual(["/srv/b"]);
+        expect(keepSelection(paths, ["/srv/a", "/srv/d"], 2)).toEqual(["/srv/a", "/srv/d"]);
+    });
+
+    it("ctrl+space toggles the focused row", () => {
+        expect(toggleFocused(paths, ["/srv/b"], 4)).toEqual(["/srv/b", "/srv/d"]);
+        expect(toggleFocused(paths, ["/srv/b", "/srv/d"], 4)).toEqual(["/srv/b"]);
     });
 });
 

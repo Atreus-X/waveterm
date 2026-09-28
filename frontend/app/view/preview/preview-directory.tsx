@@ -30,7 +30,15 @@ import { useDrag, useDrop } from "react-dnd";
 import { NativeTypes } from "react-dnd-html5-backend";
 import { quote as shellQuote } from "shell-quote";
 import { debounce } from "throttle-debounce";
-import { clickSelection, contextTargets, selectAll, zipNameFor } from "./dir-selection";
+import {
+    clickSelection,
+    contextTargets,
+    extendSelection,
+    keepSelection,
+    selectAll,
+    toggleFocused,
+    zipNameFor,
+} from "./dir-selection";
 import "./directorypreview.scss";
 import { EntryManagerOverlay, EntryManagerOverlayProps, EntryManagerType } from "./entry-manager";
 import {
@@ -352,6 +360,9 @@ function TableBody({
     const selection = useAtomValue(model.dirSelectionAtom);
     const dirPath = useAtomValue(model.statFilePath);
     const displayRows = getDisplayRows(table, dirsFirst);
+    useEffect(() => {
+        model.dirDisplayPaths = displayRows.map((r) => r.getValue("path") as string);
+    });
 
     const onRowClick = useCallback(
         (e: React.MouseEvent, idx: number) => {
@@ -730,8 +741,49 @@ function DirectoryPreview({ model }: DirectoryPreviewProps) {
                 globalStore.set(model.directorySearchActive, true);
                 return true;
             }
-            if (checkKeyPressed(waveEvent, "Cmd:a")) {
+            // Wave's "Cmd" is Alt on Windows/Linux; file selection uses Ctrl there, like other file managers
+            const selMod = PLATFORM == PlatformMacOS ? "Cmd" : "Ctrl";
+            if (checkKeyPressed(waveEvent, `${selMod}:a`)) {
                 globalStore.set(model.dirSelectionAtom, selectAll(filteredData.map((f) => f.path)));
+                return true;
+            }
+            const lastIdx = filteredData.length - 1;
+            const moves: [string, (idx: number) => number][] = [
+                ["ArrowUp", (idx) => Math.max(idx - 1, 0)],
+                ["ArrowDown", (idx) => Math.min(idx + 1, lastIdx)],
+                ["PageUp", (idx) => Math.max(idx - PageJumpSize, 0)],
+                ["PageDown", (idx) => Math.min(idx + PageJumpSize, lastIdx)],
+            ];
+            for (const [key, step] of moves) {
+                if (checkKeyPressed(waveEvent, `Shift:${key}`)) {
+                    const newIdx = step(focusIndex);
+                    const r = extendSelection(
+                        model.dirDisplayPaths,
+                        globalStore.get(model.dirSelectionAtom),
+                        focusIndex,
+                        model.dirSelectionAnchor,
+                        newIdx
+                    );
+                    model.dirSelectionAnchor = r.anchor;
+                    globalStore.set(model.dirSelectionAtom, r.selection);
+                    setFocusIndex(newIdx);
+                    return true;
+                }
+                if (checkKeyPressed(waveEvent, `${selMod}:${key}`)) {
+                    globalStore.set(
+                        model.dirSelectionAtom,
+                        keepSelection(model.dirDisplayPaths, globalStore.get(model.dirSelectionAtom), focusIndex)
+                    );
+                    setFocusIndex(step(focusIndex));
+                    return true;
+                }
+            }
+            if (checkKeyPressed(waveEvent, `${selMod}:Space`)) {
+                globalStore.set(
+                    model.dirSelectionAtom,
+                    toggleFocused(model.dirDisplayPaths, globalStore.get(model.dirSelectionAtom), focusIndex)
+                );
+                model.dirSelectionAnchor = focusIndex;
                 return true;
             }
             if (checkKeyPressed(waveEvent, "Escape")) {
@@ -792,7 +844,7 @@ function DirectoryPreview({ model }: DirectoryPreviewProps) {
         return () => {
             model.directoryKeyDownHandler = null;
         };
-    }, [filteredData, selectedPath, searchText]);
+    }, [filteredData, selectedPath, searchText, focusIndex]);
 
     useEffect(() => {
         if (filteredData.length != 0 && focusIndex > filteredData.length - 1) {

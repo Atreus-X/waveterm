@@ -33,6 +33,28 @@ export function clickSelection(
     return { selection: [], anchor: idx };
 }
 
+/** Shift+arrow: the selection spans from the anchor (the focused row if nothing is selected yet) to newIdx. */
+export function extendSelection(
+    paths: string[],
+    prev: string[],
+    focusIdx: number,
+    anchorIdx: number,
+    newIdx: number
+): DirSelectionResult {
+    const anchor = prev.length > 0 ? anchorIdx : focusIdx;
+    return clickSelection(paths, prev, focusIdx, anchor, newIdx, { toggle: false, range: true });
+}
+
+/** Ctrl+arrow moves focus but keeps the selection; a lone focused row becomes explicitly selected so moving away keeps it. */
+export function keepSelection(paths: string[], prev: string[], focusIdx: number): string[] {
+    return prev.length > 0 ? prev : [paths[focusIdx]].filter(isSelectable);
+}
+
+/** Ctrl+Space adds or removes the focused row. */
+export function toggleFocused(paths: string[], prev: string[], focusIdx: number): string[] {
+    return clickSelection(paths, prev, focusIdx, focusIdx, focusIdx, { toggle: true, range: false }).selection;
+}
+
 export function selectAll(paths: string[]): string[] {
     return paths.filter(isSelectable);
 }
