@@ -19,10 +19,73 @@ import (
 
 // Busy detection for the "close tab while something is running" warning:
 //   - shell integration (local and wsh shells) reports running-command directly
-//   - tmux-backed no-wsh ssh terminals are asked which command each pane is running
-//   - plain no-wsh ssh shells can't be inspected and are treated as idle
+//   - tmux-backed terminals are asked which command each pane is running
+//   - plain no-wsh ssh shells are started with PlainShellMarkerVar=<blockid> in their environment
+//     (an SSH env request; LC_* names pass the common "AcceptEnv LANG LC_*" sshd default, and an
+//     unknown LC_ name doesn't affect the locale). Everything the shell starts inherits it, so the
+//     host's /proc shows which processes belong to the terminal. Hosts that refuse the variable
+//     or have no /proc count as idle.
 
 const tmuxBusyTimeout = 3 * time.Second
+
+const PlainShellMarkerVar = "LC_WAVETERM_BLOCK"
+
+var plainShells = make(map[string]*conncontroller.SSHConn)
+var plainShellsLock = &sync.Mutex{}
+
+func registerPlainShell(blockId string, conn *conncontroller.SSHConn) {
+	plainShellsLock.Lock()
+	defer plainShellsLock.Unlock()
+	plainShells[blockId] = conn
+}
+
+func getPlainShell(blockId string) *conncontroller.SSHConn {
+	plainShellsLock.Lock()
+	defer plainShellsLock.Unlock()
+	return plainShells[blockId]
+}
+
+func takePlainShell(blockId string) {
+	plainShellsLock.Lock()
+	defer plainShellsLock.Unlock()
+	delete(plainShells, blockId)
+}
+
+// makePlainShellBusyCmd prints the command name of every process tagged with the block's marker
+// (the shell itself and anything it started). grep -a -l -F behaves the same in GNU grep, busybox
+// and ugrep (unlike -z).
+func makePlainShellBusyCmd(blockId string) string {
+	marker := PlainShellMarkerVar + "=" + blockId
+	return wrapInSh(fmt.Sprintf(`for f in $(grep -a -l -F %s /proc/[0-9]*/environ 2>/dev/null); do cat "${f%%/environ}/comm" 2>/dev/null; done; true`, shSingleQuote(marker)))
+}
+
+// runRemoteOutput runs cmd in a new session on conn, bounded by ctx.
+func runRemoteOutput(ctx context.Context, conn *conncontroller.SSHConn, cmd string) (string, error) {
+	client := conn.GetClient()
+	if client == nil {
+		return "", fmt.Errorf("not connected")
+	}
+	session, err := client.NewSession()
+	if err != nil {
+		return "", err
+	}
+	defer session.Close()
+	type result struct {
+		out []byte
+		err error
+	}
+	resCh := make(chan result, 1)
+	go func() {
+		out, err := session.Output(cmd)
+		resCh <- result{out, err}
+	}()
+	select {
+	case res := <-resCh:
+		return string(res.out), res.err
+	case <-ctx.Done():
+		return "", ctx.Err()
+	}
+}
 
 // pane_current_command values that mean "sitting at a prompt"
 var idleShellNames = map[string]bool{
@@ -37,35 +100,11 @@ func isIdleShellCommand(cmd string) bool {
 
 // tmuxBusyCommands returns the non-shell commands running in any pane of the session.
 func tmuxBusyCommands(ctx context.Context, conn *conncontroller.SSHConn, sessionName string) ([]string, error) {
-	client := conn.GetClient()
-	if client == nil {
-		return nil, fmt.Errorf("not connected")
-	}
-	session, err := client.NewSession()
+	out, err := runRemoteOutput(ctx, conn, makeTmuxListPanesCmd(sessionName))
 	if err != nil {
 		return nil, err
 	}
-	defer session.Close()
-	cmd := makeTmuxListPanesCmd(sessionName)
-	type result struct {
-		out []byte
-		err error
-	}
-	resCh := make(chan result, 1)
-	go func() {
-		out, err := session.Output(cmd)
-		resCh <- result{out, err}
-	}()
-	var res result
-	select {
-	case res = <-resCh:
-	case <-ctx.Done():
-		return nil, ctx.Err()
-	}
-	if res.err != nil {
-		return nil, res.err
-	}
-	return parseTmuxBusyCommands(string(res.out)), nil
+	return parseTmuxBusyCommands(out), nil
 }
 
 // all panes of all windows in the session; a missing session prints nothing
@@ -97,19 +136,30 @@ func blockBusyInfo(ctx context.Context, block *waveobj.Block) *wshrpc.BlockBusyI
 		}
 		return info
 	}
-	ref, ok := getTmuxSession(block.OID)
-	if !ok || ref.Conn == nil {
-		return nil
-	}
 	ctx, cancelFn := context.WithTimeout(ctx, tmuxBusyTimeout)
 	defer cancelFn()
-	cmds, err := tmuxBusyCommands(ctx, ref.Conn, ref.Name)
-	if err != nil || len(cmds) == 0 {
-		return nil
+	if ref, ok := getTmuxSession(block.OID); ok && ref.Conn != nil {
+		cmds, err := tmuxBusyCommands(ctx, ref.Conn, ref.Name)
+		if err != nil || len(cmds) == 0 {
+			return nil
+		}
+		info.Command = strings.Join(cmds, ", ")
+		info.Tmux = true
+		return info
 	}
-	info.Command = strings.Join(cmds, ", ")
-	info.Tmux = true
-	return info
+	if conn := getPlainShell(block.OID); conn != nil {
+		out, err := runRemoteOutput(ctx, conn, makePlainShellBusyCmd(block.OID))
+		if err != nil {
+			return nil
+		}
+		cmds := parseTmuxBusyCommands(out)
+		if len(cmds) == 0 {
+			return nil
+		}
+		info.Command = strings.Join(cmds, ", ")
+		return info
+	}
+	return nil
 }
 
 // GetTabBusyInfo lists the terminals in a tab that are running something other than an idle shell.
