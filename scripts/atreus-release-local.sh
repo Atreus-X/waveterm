@@ -6,10 +6,11 @@
 # Usage:
 #   scripts/atreus-release-local.sh              # build only, artifacts in make/
 #   scripts/atreus-release-local.sh --publish    # build, then publish to the update feed + GitHub release
-#   --skip-upstream-check                        # publish even if upstream has commits the fork lacks
+#   --skip-upstream-check                        # publish anyway (upstream commits reviewed and not taken)
 #
 # Before building, upstream (wavetermdev/waveterm main, remote "upstream") is fetched; if it has
-# commits that aren't in HEAD, --publish stops and lists them (a build-only run just warns).
+# commits that aren't in HEAD, --publish stops and lists them (a build-only run just warns). Review
+# them with scripts/upstream-review.sh before syncing.
 #
 # The version comes from package.json (bump it with `npm version X.Y.Z --no-git-tag-version`, commit,
 # push). Release notes come from the "### vX.Y.Z" section of docs/docs/releasenotes.mdx.
@@ -42,7 +43,7 @@ for arg in "$@"; do
     case "$arg" in
         --publish) PUBLISH=1 ;;
         --skip-upstream-check) SKIP_UPSTREAM_CHECK=1 ;;
-        -h|--help) sed -n '2,21p' "$0"; exit 0 ;;
+        -h|--help) sed -n '2,22p' "$0"; exit 0 ;;
         *) echo "unknown argument: $arg" >&2; exit 2 ;;
     esac
 done
@@ -86,7 +87,8 @@ if [ "$SKIP_UPSTREAM_CHECK" != 1 ]; then
         echo "$UPSTREAM_REMOTE/$UPSTREAM_BRANCH has $BEHIND commit(s) that aren't in this build:" >&2
         git log --oneline --no-decorate HEAD..FETCH_HEAD | head -n 25 >&2
         if [ "$PUBLISH" = 1 ]; then
-            echo "merge them first (sync branch + PR), or rerun with --skip-upstream-check" >&2
+            echo "review them first (scripts/upstream-review.sh), then sync on a branch + PR and release from that." >&2
+            echo "--skip-upstream-check is only for commits that were reviewed and deliberately not taken." >&2
             exit 1
         fi
         echo "(build-only run: continuing; --publish would stop here)" >&2
