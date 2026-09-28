@@ -168,6 +168,8 @@ export class PreviewModel implements ViewModel {
     // file browser multi-selection (paths in display order; empty = just the focused row)
     dirSelectionAtom = atom<string[]>([]) as PrimitiveAtom<string[]>;
     dirSelectionAnchor = 0;
+    // row paths in display (sorted) order, kept by the table for keyboard selection
+    dirDisplayPaths: string[] = [];
     refreshCallback: () => void;
     directoryKeyDownHandler: (waveEvent: WaveKeyboardEvent) => boolean;
     codeEditKeyDownHandler: (waveEvent: WaveKeyboardEvent) => boolean;
