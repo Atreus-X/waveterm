@@ -43,6 +43,7 @@ import "./directorypreview.scss";
 import { EntryManagerOverlay, EntryManagerOverlayProps, EntryManagerType } from "./entry-manager";
 import {
     cleanMimetype,
+    confirmMultiDelete,
     getBestUnit,
     getLastModifiedTime,
     getSortIcon,
@@ -449,6 +450,11 @@ function TableBody({
                             label: "Copy File Names (Shell Quoted)",
                             click: () => fireAndForget(() => navigator.clipboard.writeText(shellQuote(names))),
                         },
+                        { type: "separator" },
+                        {
+                            label: `Delete ${targets.length} Items…`,
+                            click: () => confirmMultiDelete(model, targets, setErrorMsg),
+                        },
                     ],
                     e
                 );
@@ -818,6 +824,13 @@ function DirectoryPreview({ model }: DirectoryPreviewProps) {
                 setSearchText("");
                 globalStore.set(model.directorySearchActive, false);
                 return true;
+            }
+            if (checkKeyPressed(waveEvent, "Delete")) {
+                const selection = globalStore.get(model.dirSelectionAtom);
+                if (selection.length > 1) {
+                    confirmMultiDelete(model, selection, setErrorMsg);
+                    return true;
+                }
             }
             if (checkKeyPressed(waveEvent, "Backspace")) {
                 if (searchText.length == 0) {
