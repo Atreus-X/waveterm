@@ -177,7 +177,7 @@ const AgentUsageWidgetComponent = () => {
                 const data = await RpcApi.AgentUsageCommand(
                     TabRpcClient,
                     { agent, conn: conn === "" ? undefined : conn, sessionhours: sessionHours },
-                    { timeout: 30000 }
+                    { timeout: 90000 }
                 );
                 if (cancelled) {
                     return;

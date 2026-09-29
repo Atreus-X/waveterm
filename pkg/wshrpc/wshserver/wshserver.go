@@ -65,7 +65,10 @@ import (
 	"github.com/wavetermdev/waveterm/tsunami/build"
 )
 
-var InvalidWslDistroNames = []string{"docker-desktop", "docker-desktop-data"}
+// kept well under the frontend's timeout so a dead wsh route still leaves time for the SFTP fallback
+const AgentUsageWshTimeoutMs = 8000
+
+var InvalidWslDistroNames =[]string{"docker-desktop", "docker-desktop-data"}
 
 type WshServer struct{}
 
@@ -627,7 +630,7 @@ func (ws *WshServer) AgentUsageCommand(ctx context.Context, data wshrpc.CommandA
 	}
 	var wshErr error
 	if sftpfs.ConnHasWsh(data.Conn) {
-		rtn, err := wshclient.RemoteAgentUsageCommand(wshfs.RpcClient, data, &wshrpc.RpcOpts{Timeout: 30000, Route: wshutil.MakeConnectionRouteId(data.Conn)})
+		rtn, err := wshclient.RemoteAgentUsageCommand(wshfs.RpcClient, data, &wshrpc.RpcOpts{Timeout: AgentUsageWshTimeoutMs, Route: wshutil.MakeConnectionRouteId(data.Conn)})
 		if err == nil {
 			return rtn, nil
 		}
