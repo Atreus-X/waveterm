@@ -250,7 +250,7 @@ const SectionBody = memo(({ model, data }: { model: HostInfoViewModel; data: Hos
     const props = { model, data, changes };
     return (
         <ScrollArea className="min-w-0 flex-1" horizontal>
-            <div className="p-3">
+            <div className="min-w-[640px] p-3">
                 {sectionError && <div className="mb-2 text-xs text-error">{sectionError}</div>}
                 {active === "overview" && <OverviewSection {...props} />}
                 {active === "network" && <NetworkSection {...props} />}
