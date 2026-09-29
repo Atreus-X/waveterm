@@ -1,22 +1,33 @@
 // Copyright 2026, Atreus-X (fork of Wave Terminal by Command Line Inc.)
 // SPDX-License-Identifier: Apache-2.0
 
+import { ContextMenuModel } from "@/app/store/contextmenu";
 import { globalStore } from "@/app/store/jotaiStore";
 import { LibraryModel } from "@/app/store/library-model";
+import { TabRpcClient } from "@/app/store/wshrpcutil";
 import { WaveEnv, WaveEnvSubset } from "@/app/waveenv/waveenv";
-import { cn } from "@/util/util";
+import { cn, fireAndForget } from "@/util/util";
 import * as jotai from "jotai";
-import { memo, useEffect, useMemo, useState } from "react";
-import { hostMatches, newSnippet, parsePlaceholders, rankSnippets, splitList } from "./library-util";
+import React, { memo, useEffect, useMemo, useState } from "react";
+import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
+import {
+    hostMatches,
+    LibraryTab,
+    newSnippet,
+    parsePlaceholders,
+    parseTabOrder,
+    rankSnippets,
+    splitList,
+    swapTabOrder,
+} from "./library-util";
 import { NoteEditor } from "./note-editor";
 import { SnippetFill } from "./snippet-fill";
 
 export type LibraryEnv = WaveEnvSubset<{
     atoms: { fullConfigAtom: WaveEnv["atoms"]["fullConfigAtom"] };
+    rpc: { SetConfigCommand: WaveEnv["rpc"]["SetConfigCommand"] };
     createBlock: WaveEnv["createBlock"];
 }>;
-
-type LibraryTab = "snippets" | "notes";
 
 // set by openLibraryNote() just before creating a Library block, consumed by that block's model
 const PendingNoteAtom = jotai.atom<CommandLibraryNoteRefData>(null) as jotai.PrimitiveAtom<CommandLibraryNoteRefData>;
@@ -48,11 +59,16 @@ export class LibraryViewModel implements ViewModel {
     fillingAtom = jotai.atom<LibrarySnippet>(null) as jotai.PrimitiveAtom<LibrarySnippet>;
     flashAtom = jotai.atom<string>(null) as jotai.PrimitiveAtom<string>;
     endIconButtons: jotai.Atom<IconButtonDecl[]>;
+    tabOrderAtom: jotai.Atom<LibraryTab[]>;
 
     constructor({ blockId, waveEnv }: ViewModelInitType) {
         this.viewType = "library";
         this.blockId = blockId;
         this.env = waveEnv;
+        this.tabOrderAtom = jotai.atom((get) =>
+            parseTabOrder(get(this.env.atoms.fullConfigAtom)?.settings?.["library:taborder"])
+        );
+        globalStore.set(this.tabAtom, globalStore.get(this.tabOrderAtom)[0]);
         this.lib.load();
         const pending = globalStore.get(PendingNoteAtom);
         if (pending != null) {
@@ -75,6 +91,12 @@ export class LibraryViewModel implements ViewModel {
 
     get viewComponent(): ViewComponent {
         return LibraryView;
+    }
+
+    // saved in settings (library:taborder), so every Library block uses the same order
+    swapTabs() {
+        const next = swapTabOrder(globalStore.get(this.tabOrderAtom));
+        fireAndForget(() => this.env.rpc.SetConfigCommand(TabRpcClient, { "library:taborder": next }));
     }
 
     flash(msg: string) {
@@ -270,6 +292,24 @@ const SnippetEditor = memo(({ model, snippet }: { model: LibraryViewModel; snipp
 });
 SnippetEditor.displayName = "SnippetEditor";
 
+// list | draggable divider | detail; each tab remembers its own divider position (per viewer)
+function LibrarySplit({ id, children }: { id: string; children: [React.ReactNode, React.ReactNode] }) {
+    return (
+        <PanelGroup direction="horizontal" autoSaveId={`wave-library-${id}-split`} className="min-h-0 flex-1">
+            <Panel defaultSize={32} minSize={15} maxSize={75} className="min-h-0">
+                {children[0]}
+            </Panel>
+            <PanelResizeHandle
+                className="w-1 cursor-col-resize bg-transparent transition-colors hover:bg-accent/40 data-[resize-handle-state=drag]:bg-accent/60"
+                title="Drag to resize"
+            />
+            <Panel minSize={25} className="min-h-0 min-w-0">
+                {children[1]}
+            </Panel>
+        </PanelGroup>
+    );
+}
+
 const SnippetsTab = memo(({ model }: { model: LibraryViewModel }) => {
     const snippets = jotai.useAtomValue(model.lib.snippetsAtom);
     const selectedId = jotai.useAtomValue(model.selectedSnippetAtom);
@@ -281,8 +321,8 @@ const SnippetsTab = memo(({ model }: { model: LibraryViewModel }) => {
     const selected = snippets.find((s) => s.id === selectedId) ?? null;
     const target = model.lib.isTerminal(targetId) ? targetLabel(model.lib, targetId) : null;
     return (
-        <div className="flex min-h-0 flex-1">
-            <div className="flex w-64 shrink-0 flex-col border-r border-border">
+        <LibrarySplit id="snippets">
+            <div className="flex h-full min-h-0 flex-col border-r border-border">
                 <div className="flex items-center gap-2 border-b border-border p-2">
                     <input
                         value={query}
@@ -333,7 +373,7 @@ const SnippetsTab = memo(({ model }: { model: LibraryViewModel }) => {
                     ))}
                 </div>
             </div>
-            <div className="min-w-0 flex-1 overflow-auto p-3">
+            <div className="h-full min-w-0 overflow-auto p-3">
                 {filling ? (
                     <SnippetFill
                         snippet={filling}
@@ -350,7 +390,7 @@ const SnippetsTab = memo(({ model }: { model: LibraryViewModel }) => {
                     </div>
                 )}
             </div>
-        </div>
+        </LibrarySplit>
     );
 });
 SnippetsTab.displayName = "SnippetsTab";
@@ -401,8 +441,8 @@ const NotesTab = memo(({ model }: { model: LibraryViewModel }) => {
         );
     };
     return (
-        <div className="flex min-h-0 flex-1">
-            <div className="flex w-64 shrink-0 flex-col border-r border-border">
+        <LibrarySplit id="notes">
+            <div className="flex h-full min-h-0 flex-col border-r border-border">
                 <div className="flex items-center gap-2 border-b border-border p-2">
                     {newName == null ? (
                         <button
@@ -445,7 +485,7 @@ const NotesTab = memo(({ model }: { model: LibraryViewModel }) => {
                     {hosts.map((n) => renderItem(n))}
                 </div>
             </div>
-            <div className="flex min-w-0 flex-1 flex-col gap-2 p-3">
+            <div className="flex h-full min-w-0 flex-col gap-2 p-3">
                 {selected ? (
                     <>
                         <div className="flex items-center gap-2">
@@ -489,13 +529,15 @@ const NotesTab = memo(({ model }: { model: LibraryViewModel }) => {
                     </div>
                 )}
             </div>
-        </div>
+        </LibrarySplit>
     );
 });
 NotesTab.displayName = "NotesTab";
 
 export const LibraryView = memo(({ model }: ViewComponentProps<LibraryViewModel>) => {
     const tab = jotai.useAtomValue(model.tabAtom);
+    const tabOrder = jotai.useAtomValue(model.tabOrderAtom);
+    const [dragTab, setDragTab] = useState<LibraryTab>(null);
     const loaded = jotai.useAtomValue(model.lib.loadedAtom);
     const error = jotai.useAtomValue(model.lib.errorAtom);
     const flash = jotai.useAtomValue(model.flashAtom);
@@ -508,14 +550,39 @@ export const LibraryView = memo(({ model }: ViewComponentProps<LibraryViewModel>
     }, []);
     return (
         <div className="flex h-full min-h-0 flex-col">
-            <div className="flex items-center gap-1 border-b border-border px-2 py-1.5">
-                {(["snippets", "notes"] as LibraryTab[]).map((t) => (
+            <div
+                className="flex items-center gap-1 border-b border-border px-2 py-1.5"
+                onContextMenu={(e) => {
+                    e.preventDefault();
+                    ContextMenuModel.getInstance().showContextMenu(
+                        [{ label: "Swap Tab Order", click: () => model.swapTabs() }],
+                        e
+                    );
+                }}
+            >
+                {tabOrder.map((t) => (
                     <button
                         key={t}
+                        draggable
+                        onDragStart={(e) => {
+                            setDragTab(t);
+                            e.dataTransfer.effectAllowed = "move";
+                        }}
+                        onDragEnd={() => setDragTab(null)}
+                        onDragOver={(e) => {
+                            if (dragTab != null && dragTab !== t) e.preventDefault();
+                        }}
+                        onDrop={(e) => {
+                            e.preventDefault();
+                            if (dragTab != null && dragTab !== t) model.swapTabs();
+                            setDragTab(null);
+                        }}
                         onClick={() => globalStore.set(model.tabAtom, t)}
+                        title="Drag to swap the tab order (or right-click)"
                         className={cn(
                             "cursor-pointer rounded px-3 py-1 text-xs",
-                            tab === t ? "bg-accent/20 text-primary" : "text-secondary hover:bg-hoverbg"
+                            tab === t ? "bg-accent/20 text-primary" : "text-secondary hover:bg-hoverbg",
+                            dragTab === t && "opacity-50"
                         )}
                     >
                         <i className={cn("fa-solid mr-1.5", t === "snippets" ? "fa-code" : "fa-note-sticky")} />

@@ -7,8 +7,10 @@ import {
     fillPlaceholders,
     hostMatches,
     parsePlaceholders,
+    parseTabOrder,
     rankSnippets,
     splitList,
+    swapTabOrder,
 } from "./library-util";
 
 test("parsePlaceholders finds names and defaults once each, skipping escaped ones", () => {
@@ -53,4 +55,14 @@ test("rankSnippets filters by every word and puts host matches and title hits fi
 test("splitList", () => {
     expect(splitList(" a, b ,,c ")).toEqual(["a", "b", "c"]);
     expect(splitList("")).toEqual([]);
+});
+
+test("parseTabOrder / swapTabOrder", () => {
+    expect(parseTabOrder("notes,snippets")).toEqual(["notes", "snippets"]);
+    expect(parseTabOrder(" snippets , notes ")).toEqual(["snippets", "notes"]);
+    expect(parseTabOrder(undefined)).toEqual(["snippets", "notes"]);
+    expect(parseTabOrder("notes")).toEqual(["snippets", "notes"]);
+    expect(parseTabOrder("notes,notes")).toEqual(["snippets", "notes"]);
+    expect(swapTabOrder(["snippets", "notes"])).toBe("notes,snippets");
+    expect(swapTabOrder(["notes", "snippets"])).toBe("snippets,notes");
 });

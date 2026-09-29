@@ -1705,6 +1705,7 @@ declare global {
         "tab:preset"?: string;
         "tab:confirmclose"?: boolean;
         "tab:background"?: string;
+        "library:taborder"?: string;
         "tab:confirmcloserunning"?: boolean;
         "widget:*"?: boolean;
         "widget:showhelp"?: boolean;

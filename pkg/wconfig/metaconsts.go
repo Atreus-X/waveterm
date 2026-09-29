@@ -96,6 +96,9 @@ const (
 	ConfigKey_TabPreset                      = "tab:preset"
 	ConfigKey_TabConfirmClose                = "tab:confirmclose"
 	ConfigKey_TabBackground                  = "tab:background"
+
+	ConfigKey_LibraryTabOrder                = "library:taborder"
+
 	ConfigKey_TabConfirmCloseRunning         = "tab:confirmcloserunning"
 
 	ConfigKey_WidgetClear                    = "widget:*"

@@ -273,6 +273,13 @@
         "tab:background": {
           "type": "string"
         },
+        "library:taborder": {
+          "type": "string",
+          "enum": [
+            "snippets,notes",
+            "notes,snippets"
+          ]
+        },
         "tab:confirmcloserunning": {
           "type": "boolean"
         },
