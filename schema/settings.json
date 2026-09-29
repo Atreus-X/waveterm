@@ -284,7 +284,8 @@
           "type": "string",
           "enum": [
             "claude",
-            "codex"
+            "codex",
+            "off"
           ]
         },
         "agentusage:conn": {

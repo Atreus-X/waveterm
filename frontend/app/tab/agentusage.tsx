@@ -168,7 +168,7 @@ const AgentUsageWidgetComponent = () => {
     useEffect(() => {
         setUsage(null);
         setError(null);
-        if (agent === "") {
+        if (agent === "off") {
             return;
         }
         let cancelled = false;
@@ -214,7 +214,7 @@ const AgentUsageWidgetComponent = () => {
     const connOptions = conn !== "" && !connList.includes(conn) ? [conn, ...connList] : connList;
 
     let meter: React.ReactNode;
-    if (agent === "") {
+    if (agent === "off") {
         meter = <i className="fa fa-gauge-high" />;
     } else if (error != null) {
         meter = <i className="fa fa-triangle-exclamation text-yellow-500" />;
@@ -255,7 +255,7 @@ const AgentUsageWidgetComponent = () => {
                 {...getReferenceProps()}
                 className="flex items-center gap-1.5 px-2 mb-1 h-[22px] text-xs rounded-sm cursor-pointer hover:bg-hover transition-colors"
                 style={{ WebkitAppRegion: "no-drag" } as any}
-                title={agent === "" ? "AI agent usage" : `${AgentLabels[agent] ?? agent} usage`}
+                title={agent === "off" ? "AI agent usage" : `${AgentLabels[agent] ?? agent} usage`}
             >
                 {meter}
             </div>
@@ -296,7 +296,7 @@ const AgentUsageWidgetComponent = () => {
                                     value={agent}
                                     onChange={(e) => setSetting({ "agentusage:agent": e.target.value })}
                                 >
-                                    <option value="">Off</option>
+                                    <option value="off">Off</option>
                                     <option value="claude">Claude Code</option>
                                     <option value="codex">Codex</option>
                                 </select>

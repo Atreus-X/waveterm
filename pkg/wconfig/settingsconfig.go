@@ -151,7 +151,7 @@ type SettingsType struct {
 	// Library block tab order, "snippets,notes" (default) or "notes,snippets"; the first opens by default
 	LibraryTabOrder string `json:"library:taborder,omitempty" jsonschema:"enum=snippets\\,notes,enum=notes\\,snippets"`
 	// AI agent whose usage the tab bar meter shows: "claude" or "codex"; empty hides the meter
-	AgentUsageAgent string `json:"agentusage:agent,omitempty" jsonschema:"enum=claude,enum=codex"`
+	AgentUsageAgent string `json:"agentusage:agent,omitempty" jsonschema:"enum=claude,enum=codex,enum=off"`
 	// connection the agent runs on ("wsh"/SSH name, e.g. "user@host"); empty means this machine
 	AgentUsageConn string `json:"agentusage:conn,omitempty"`
 	// length in hours of the plan's rolling usage session (default 5, as on Claude Pro/Max)
