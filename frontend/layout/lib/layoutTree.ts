@@ -11,6 +11,7 @@ import {
     findParent,
     removeChild,
 } from "./layoutNode";
+import { adjustInsertForPinned } from "./layoutPin";
 import {
     DefaultNodeSize,
     DropDirection,
@@ -284,7 +285,10 @@ export function insertNode(layoutState: LayoutTreeState, action: LayoutTreeInser
     if (!layoutState.rootNode) {
         layoutState.rootNode = action.node;
     } else {
-        const insertLoc = findNextInsertLocation(layoutState.rootNode, DEFAULT_MAX_CHILDREN);
+        const insertLoc = adjustInsertForPinned(
+            layoutState.rootNode,
+            findNextInsertLocation(layoutState.rootNode, DEFAULT_MAX_CHILDREN)
+        );
         addChildAt(insertLoc.node, insertLoc.index, action.node);
         if (action.magnified) {
             layoutState.magnifiedNodeId = action.node.id;

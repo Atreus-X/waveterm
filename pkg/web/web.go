@@ -479,6 +479,8 @@ func RunWebServer(listener net.Listener) {
 	gr.HandleFunc("/wave/stream-local-file", WebFnWrap(WebFnOpts{AllowCaching: true}, handleStreamLocalFile))
 	gr.HandleFunc("/wave/stream-file", WebFnWrap(WebFnOpts{AllowCaching: true}, handleStreamFile))
 	gr.PathPrefix("/wave/stream-file/").HandlerFunc(WebFnWrap(WebFnOpts{AllowCaching: true}, handleStreamFile))
+	gr.HandleFunc("/wave/stream-zip", WebFnWrap(WebFnOpts{}, handleStreamZip))
+	gr.PathPrefix("/wave/stream-zip/").HandlerFunc(WebFnWrap(WebFnOpts{}, handleStreamZip))
 	gr.HandleFunc("/api/post-chat-message", WebFnWrap(WebFnOpts{AllowCaching: false}, aiusechat.WaveAIPostMessageHandler))
 
 	// Non-streaming /wave/ routes get timeout protection

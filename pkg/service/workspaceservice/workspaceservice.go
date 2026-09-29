@@ -219,6 +219,7 @@ func (svc *WorkspaceService) CloseTab(ctx context.Context, workspaceId string, t
 	ctx = waveobj.ContextWithUpdates(ctx)
 	tab, err := wstore.DBGet[*waveobj.Tab](ctx, tabId)
 	if err == nil && tab != nil {
+		blockcontroller.NoteTmuxSessionsForTab(ctx, tab)
 		go func() {
 			for _, blockId := range tab.BlockIds {
 				blockcontroller.DestroyBlockController(blockId)

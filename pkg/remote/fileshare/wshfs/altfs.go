@@ -8,10 +8,8 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io"
-	"strings"
 
 	"github.com/wavetermdev/waveterm/pkg/remote/connparse"
-	"github.com/wavetermdev/waveterm/pkg/remote/fileshare/fspath"
 	"github.com/wavetermdev/waveterm/pkg/wshrpc"
 )
 
@@ -86,65 +84,4 @@ func altRead(ctx context.Context, alt AltFs, conn *connparse.Connection, data ws
 		rtn.Data64 = base64.StdEncoding.EncodeToString(rawData)
 	}
 	return rtn, nil
-}
-
-// copyViaServer copies a single file between any two hosts (at least one alt-backed) by reading
-// it into wavesrv and writing it out. Mirrors wshremote's RemoteFileCopyCommand semantics:
-// files only, size-limited, dest dir or trailing slash means "copy into", overwrite required
-// to replace an existing file.
-func copyViaServer(ctx context.Context, srcUri, destUri string, opts *wshrpc.FileCopyOpts) error {
-	if opts.Overwrite && opts.Merge {
-		return fmt.Errorf("cannot specify both overwrite and merge")
-	}
-	srcInfo, err := Stat(ctx, srcUri)
-	if err != nil {
-		return fmt.Errorf("cannot get info for source file %q: %w", srcUri, err)
-	}
-	if srcInfo.NotFound {
-		return fmt.Errorf("source file %q not found", srcUri)
-	}
-	if srcInfo.IsDir {
-		return fmt.Errorf("copying directories is not supported")
-	}
-	if srcInfo.Size > RemoteFileTransferSizeLimit {
-		return fmt.Errorf("file %q size %d exceeds transfer limit of %d bytes", srcUri, srcInfo.Size, RemoteFileTransferSizeLimit)
-	}
-	destConn, err := parseConnection(ctx, destUri)
-	if err != nil {
-		return err
-	}
-	srcConn, err := parseConnection(ctx, srcUri)
-	if err != nil {
-		return err
-	}
-	finalDestUri := destUri
-	destInfo, err := Stat(ctx, destUri)
-	if err != nil {
-		return fmt.Errorf("cannot stat destination %q: %w", destUri, err)
-	}
-	if strings.HasSuffix(destUri, "/") || (!destInfo.NotFound && destInfo.IsDir) {
-		intoDir := *destConn
-		intoDir.Path = fspath.Join(destConn.Path, fspath.Base(srcConn.Path))
-		finalDestUri = intoDir.GetFullURI()
-		destInfo, err = Stat(ctx, finalDestUri)
-		if err != nil {
-			return fmt.Errorf("cannot stat destination %q: %w", finalDestUri, err)
-		}
-	}
-	if !destInfo.NotFound {
-		if !opts.Overwrite {
-			return fmt.Errorf(OverwriteRequiredError, finalDestUri)
-		}
-		if destInfo.IsDir {
-			return fmt.Errorf("cannot overwrite directory %q with a file", finalDestUri)
-		}
-	}
-	fileData, err := Read(ctx, wshrpc.FileData{Info: &wshrpc.FileInfo{Path: srcUri}})
-	if err != nil {
-		return fmt.Errorf("cannot read %q: %w", srcUri, err)
-	}
-	return PutFile(ctx, wshrpc.FileData{
-		Info:   &wshrpc.FileInfo{Path: finalDestUri, Mode: srcInfo.Mode.Perm()},
-		Data64: fileData.Data64,
-	})
 }

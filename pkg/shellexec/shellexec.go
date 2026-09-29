@@ -44,6 +44,12 @@ type CommandOptsType struct {
 	ShellOpts   []string                  `json:"shellOpts,omitempty"`
 	SwapToken   *shellutil.TokenSwapEntry `json:"swapToken,omitempty"`
 	ForceJwt    bool                      `json:"forcejwt,omitempty"`
+	// WrapCommand, if set, wraps the final remote command (env assignments included), e.g. to run
+	// the shell inside a tmux session
+	WrapCommand func(cmd string) string `json:"-"`
+	// SessionEnv is requested on no-wsh ssh sessions (SSH "env" requests); sshd only honors
+	// names its AcceptEnv allows, so a refusal is ignored
+	SessionEnv map[string]string `json:"-"`
 }
 
 type ShellProc struct {
@@ -325,6 +331,9 @@ func StartRemoteShellProcNoWsh(ctx context.Context, termSize waveobj.TermSize, c
 	session.Stdout = remoteStdoutWrite
 	session.Stderr = remoteStdoutWrite
 
+	for name, value := range cmdOpts.SessionEnv {
+		session.Setenv(name, value)
+	}
 	session.RequestPty("xterm-256color", termSize.Rows, termSize.Cols, nil)
 	sessionWrap := MakeSessionWrap(session, "", pipePty)
 	if sessionCmd != "" {
@@ -462,6 +471,10 @@ func StartRemoteShellProc(ctx context.Context, logCtx context.Context, termSize 
 	if jwtToken != "" && cmdOpts.ForceJwt {
 		conn.Debugf(logCtx, "adding JWT token to environment\n")
 		cmdCombined = fmt.Sprintf(`%s=%s %s`, wavebase.WaveJwtTokenVarName, jwtToken, cmdCombined)
+	}
+	if cmdOpts.WrapCommand != nil {
+		cmdCombined = cmdOpts.WrapCommand(cmdCombined)
+		conn.Infof(logCtx, "wrapped shell command: %s\n", cmdCombined)
 	}
 	shellutil.AddTokenSwapEntry(cmdOpts.SwapToken)
 	session.RequestPty("xterm-256color", termSize.Rows, termSize.Cols, nil)

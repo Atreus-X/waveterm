@@ -7,6 +7,7 @@ export type PreviewEnv = WaveEnvSubset<{
     electron: {
         onQuicklook: WaveEnv["electron"]["onQuicklook"];
         getPathForFile: WaveEnv["electron"]["getPathForFile"];
+        downloadZip: WaveEnv["electron"]["downloadZip"];
     };
     rpc: {
         ConnEnsureCommand: WaveEnv["rpc"]["ConnEnsureCommand"];

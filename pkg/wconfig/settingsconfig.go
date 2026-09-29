@@ -150,6 +150,8 @@ type SettingsType struct {
 
 	// Library block tab order, "snippets,notes" (default) or "notes,snippets"; the first opens by default
 	LibraryTabOrder string `json:"library:taborder,omitempty" jsonschema:"enum=snippets\\,notes,enum=notes\\,snippets"`
+	// warn before closing a tab whose terminals are running something (default true)
+	TabConfirmCloseRunning *bool `json:"tab:confirmcloserunning,omitempty"`
 
 	WidgetClear    bool  `json:"widget:*,omitempty"`
 	WidgetShowHelp *bool `json:"widget:showhelp,omitempty"`

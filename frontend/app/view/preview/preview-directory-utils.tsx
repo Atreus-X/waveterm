@@ -111,6 +111,58 @@ export function handleRename(
     });
 }
 
+const MaxDeleteNamesListed = 8;
+
+export function describeDeleteTargets(paths: string[]): string {
+    const names = paths.map((p) => p.replace(/\/+$/, "").split("/").pop());
+    const listed = names.slice(0, MaxDeleteNamesListed).join(", ");
+    const more = names.length > MaxDeleteNamesListed ? ` and ${names.length - MaxDeleteNamesListed} more` : "";
+    return `${listed}${more}`;
+}
+
+// Deleting a multi-selection always asks first; folders in it are deleted with their contents.
+export function confirmMultiDelete(model: PreviewModel, paths: string[], setErrorMsg: (msg: ErrorMsg) => void) {
+    if (paths.length === 0) {
+        return;
+    }
+    setErrorMsg({
+        status: `Delete ${paths.length} Items?`,
+        text: `This permanently deletes ${describeDeleteTargets(paths)}, including everything inside any folders. It can't be undone.`,
+        level: "warning",
+        showDismiss: true,
+        buttons: [
+            {
+                text: `Delete ${paths.length} Items`,
+                onClick: () => deleteMany(model, paths, setErrorMsg),
+            },
+        ],
+    });
+}
+
+function deleteMany(model: PreviewModel, paths: string[], setErrorMsg: (msg: ErrorMsg) => void) {
+    setErrorMsg(null);
+    fireAndForget(async () => {
+        const failures: string[] = [];
+        for (const path of paths) {
+            try {
+                const formattedPath = await model.formatRemoteUri(path, globalStore.get);
+                await model.env.rpc.FileDeleteCommand(TabRpcClient, { path: formattedPath, recursive: true });
+            } catch (e) {
+                failures.push(`${path.split("/").pop()}: ${e}`);
+            }
+        }
+        globalStore.set(model.dirSelectionAtom, []);
+        model.refreshCallback();
+        if (failures.length > 0) {
+            setErrorMsg({
+                status: failures.length === 1 ? "Delete Failed" : `${failures.length} Deletes Failed`,
+                text: failures.join("\n"),
+                level: "error",
+            });
+        }
+    });
+}
+
 export function handleFileDelete(
     model: PreviewModel,
     path: string,
