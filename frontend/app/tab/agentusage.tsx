@@ -350,7 +350,7 @@ const AgentUsageWidgetComponent = () => {
                             />
                             {conn !== "" && (
                                 <div className="text-[11px] text-muted">
-                                    Remote hosts need wsh installed on the connection.
+                                    Remote hosts are read through wsh when it is installed, otherwise over SFTP.
                                 </div>
                             )}
                         </div>
