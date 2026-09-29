@@ -252,18 +252,15 @@ func Move(ctx context.Context, data wshrpc.CommandFileCopyData) error {
 	if srcConn.Host == destConn.Host && srcAlt != nil {
 		return srcAlt.Move(ctx, srcConn.Path, destConn.Path)
 	}
-	if srcAlt != nil || destAlt != nil {
-		if err := copyViaServer(ctx, data.SrcUri, data.DestUri, opts); err != nil {
-			return fmt.Errorf("cannot copy %q to %q: %w", data.SrcUri, data.DestUri, err)
-		}
-		return delete_(ctx, srcConn, false)
-	}
-	if srcConn.Host != destConn.Host {
-		isDir, err := copyInternal(srcConn, destConn, opts)
+	if srcAlt != nil || destAlt != nil || srcConn.Host != destConn.Host {
+		srcInfo, err := stat(ctx, srcConn)
 		if err != nil {
+			return fmt.Errorf("cannot get info for %q: %w", data.SrcUri, err)
+		}
+		if err := streamCopy(ctx, data.SrcUri, data.DestUri, opts); err != nil {
 			return fmt.Errorf("cannot copy %q to %q: %w", data.SrcUri, data.DestUri, err)
 		}
-		return delete_(ctx, srcConn, opts.Recursive && isDir)
+		return delete_(ctx, srcConn, srcInfo.IsDir)
 	}
 	return moveInternal(srcConn, destConn, opts)
 }
@@ -282,8 +279,10 @@ func Copy(ctx context.Context, data wshrpc.CommandFileCopyData) error {
 	if err != nil {
 		return fmt.Errorf("error parsing destination connection: %w", err)
 	}
-	if getAltFs(ctx, srcConn.Host) != nil || getAltFs(ctx, destConn.Host) != nil {
-		return copyViaServer(ctx, data.SrcUri, data.DestUri, opts)
+	// between hosts, or with a no-wsh (SFTP) host on either side, wavesrv streams the copy itself so
+	// both kinds of host get folders and no size limit; same-host wsh copies stay on the remote
+	if srcConn.Host != destConn.Host || getAltFs(ctx, srcConn.Host) != nil || getAltFs(ctx, destConn.Host) != nil {
+		return streamCopy(ctx, data.SrcUri, data.DestUri, opts)
 	}
 	_, err = copyInternal(srcConn, destConn, opts)
 	return err

@@ -262,7 +262,7 @@ To disable `wsh` for every connection, set `"conn:wshenabled": false` in `settin
 
 #### Browsing files without wsh (SFTP)
 
-On connections that run without `wsh`, the file browser (preview view) and file operations (open, save, rename, delete, new file/folder, copy between hosts) use SFTP over the same SSH connection instead, so nothing needs to be installed on the remote host. The remote `sshd` must have the `sftp` subsystem enabled (the OpenSSH default). As with `wsh`, copies are single-file only and limited to 32MB; copies between two different hosts are relayed through Wave.
+On connections that run without `wsh`, the file browser (preview view) and file operations (open, save, rename, delete, new file/folder, copy between hosts) use SFTP over the same SSH connection instead, so nothing needs to be installed on the remote host. The remote `sshd` must have the `sftp` subsystem enabled (the OpenSSH default). Copies between two different hosts (including drag-and-drop uploads from your computer) and any copy involving an SFTP host are streamed through Wave in pieces, so files of any size and whole folders work the same on SFTP and `wsh` hosts; copies within a single `wsh` host run on that host.
 
 ## Managing Connections with the CLI
 
