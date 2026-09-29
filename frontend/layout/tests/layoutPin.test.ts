@@ -4,7 +4,7 @@
 import { describe, expect, it } from "vitest";
 import { newLayoutNode } from "../lib/layoutNode";
 import { adjustInsertForPinned, applyPinnedSizes } from "../lib/layoutPin";
-import { insertNode } from "../lib/layoutTree";
+import { insertNode, insertNodeAtIndex } from "../lib/layoutTree";
 import { FlexDirection, LayoutNode, LayoutTreeActionType, LayoutTreeState } from "../lib/types";
 
 function leaf(id: string, size: number, pinnedPx?: number): LayoutNode {
@@ -95,6 +95,20 @@ describe("new blocks and pinned blocks", () => {
         } as LayoutTreeState;
         insert(state, "new");
         expect(order(state.rootNode)).toEqual(["side", "main", "new"]);
+    });
+
+    it("splitting from a pinned block on the right edge lands left of it", () => {
+        const state: LayoutTreeState = {
+            rootNode: newLayoutNode(FlexDirection.Row, 100, [block("main"), block("side", 400)]),
+        } as LayoutTreeState;
+        insertNodeAtIndex(state, {
+            type: LayoutTreeActionType.InsertNodeAtIndex,
+            node: block("new"),
+            indexArr: [1],
+            magnified: false,
+            focused: false,
+        });
+        expect(order(state.rootNode)).toEqual(["main", "new", "side"]);
     });
 
     it("never splits a pinned block to make room", () => {
