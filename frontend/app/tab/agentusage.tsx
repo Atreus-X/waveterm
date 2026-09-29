@@ -146,7 +146,7 @@ const LimitInput = memo(
 LimitInput.displayName = "LimitInput";
 
 const AgentUsageWidgetComponent = () => {
-    const agent = useAtomValue(getSettingsKeyAtom("agentusage:agent")) ?? "";
+    const agent = useAtomValue(getSettingsKeyAtom("agentusage:agent")) ?? "claude";
     const conn = useAtomValue(getSettingsKeyAtom("agentusage:conn")) ?? "";
     const dailyLimit = useAtomValue(getSettingsKeyAtom("agentusage:dailylimit")) ?? 0;
     const weeklyLimit = useAtomValue(getSettingsKeyAtom("agentusage:weeklylimit")) ?? 0;
