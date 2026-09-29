@@ -1,6 +1,7 @@
 // Copyright 2026, Atreus-X (fork of Wave Terminal by Command Line Inc.)
 // SPDX-License-Identifier: Apache-2.0
 
+import { ScrollArea } from "@/app/element/scrollarea";
 import { ContextMenuModel } from "@/app/store/contextmenu";
 import { globalStore } from "@/app/store/jotaiStore";
 import { LibraryModel } from "@/app/store/library-model";
@@ -339,7 +340,7 @@ const SnippetsTab = memo(({ model }: { model: LibraryViewModel }) => {
                         <i className="fa-solid fa-plus" />
                     </button>
                 </div>
-                <div className="min-h-0 flex-1 overflow-auto">
+                <ScrollArea className="flex-1">
                     {snippets.length === 0 && (
                         <div className="p-4 text-xs text-muted">
                             No snippets yet. Add one with +, or press Cmd+Shift+L (Alt+Shift+L on Windows/Linux) in a
@@ -371,25 +372,27 @@ const SnippetsTab = memo(({ model }: { model: LibraryViewModel }) => {
                             <span className="truncate font-mono text-[11px] text-muted">{s.body.split("\n")[0]}</span>
                         </button>
                     ))}
+                </ScrollArea>
+            </div>
+            <ScrollArea className="h-full min-w-0">
+                <div className="p-3">
+                    {filling ? (
+                        <SnippetFill
+                            snippet={filling}
+                            targetLabel={target}
+                            onCancel={() => globalStore.set(model.fillingAtom, null)}
+                            onInsert={(text, run) => model.finishInsert(text, run)}
+                        />
+                    ) : selected ? (
+                        <SnippetEditor model={model} snippet={selected} />
+                    ) : (
+                        <div className="py-10 text-center text-xs text-muted">
+                            Pick a snippet to edit it, or double-click one to insert it into the{" "}
+                            {target ?? "last terminal you used"}.
+                        </div>
+                    )}
                 </div>
-            </div>
-            <div className="h-full min-w-0 overflow-auto p-3">
-                {filling ? (
-                    <SnippetFill
-                        snippet={filling}
-                        targetLabel={target}
-                        onCancel={() => globalStore.set(model.fillingAtom, null)}
-                        onInsert={(text, run) => model.finishInsert(text, run)}
-                    />
-                ) : selected ? (
-                    <SnippetEditor model={model} snippet={selected} />
-                ) : (
-                    <div className="py-10 text-center text-xs text-muted">
-                        Pick a snippet to edit it, or double-click one to insert it into the{" "}
-                        {target ?? "last terminal you used"}.
-                    </div>
-                )}
-            </div>
+            </ScrollArea>
         </LibrarySplit>
     );
 });
@@ -468,7 +471,7 @@ const NotesTab = memo(({ model }: { model: LibraryViewModel }) => {
                     )}
                 </div>
                 {error && <div className="px-3 py-1 text-[11px] text-error">{error}</div>}
-                <div className="min-h-0 flex-1 overflow-auto">
+                <ScrollArea className="flex-1">
                     <div className="px-3 pt-2 pb-1 text-[11px] font-semibold tracking-wide text-muted uppercase">
                         Notes
                     </div>
@@ -483,7 +486,7 @@ const NotesTab = memo(({ model }: { model: LibraryViewModel }) => {
                         </div>
                     )}
                     {hosts.map((n) => renderItem(n))}
-                </div>
+                </ScrollArea>
             </div>
             <div className="flex h-full min-w-0 flex-col gap-2 p-3">
                 {selected ? (

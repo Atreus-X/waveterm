@@ -1,6 +1,7 @@
 // Copyright 2026, Atreus-X (fork of Wave Terminal by Command Line Inc.)
 // SPDX-License-Identifier: Apache-2.0
 
+import { ScrollArea } from "@/app/element/scrollarea";
 import { cn } from "@/util/util";
 import { useAtomValue } from "jotai";
 import { memo } from "react";
@@ -248,15 +249,17 @@ const SectionBody = memo(({ model, data }: { model: HostInfoViewModel; data: Hos
     const sectionError = data?.errors?.[backend];
     const props = { model, data, changes };
     return (
-        <div className="min-h-0 min-w-0 flex-1 overflow-auto p-3">
-            {sectionError && <div className="mb-2 text-xs text-error">{sectionError}</div>}
-            {active === "overview" && <OverviewSection {...props} />}
-            {active === "network" && <NetworkSection {...props} />}
-            {active === "ports" && <PortsSection {...props} />}
-            {active === "processes" && <ProcessesSection {...props} />}
-            {active === "services" && <ServicesSection {...props} />}
-            {active === "docker" && <DockerSection {...props} />}
-        </div>
+        <ScrollArea className="min-w-0 flex-1" horizontal>
+            <div className="p-3">
+                {sectionError && <div className="mb-2 text-xs text-error">{sectionError}</div>}
+                {active === "overview" && <OverviewSection {...props} />}
+                {active === "network" && <NetworkSection {...props} />}
+                {active === "ports" && <PortsSection {...props} />}
+                {active === "processes" && <ProcessesSection {...props} />}
+                {active === "services" && <ServicesSection {...props} />}
+                {active === "docker" && <DockerSection {...props} />}
+            </div>
+        </ScrollArea>
     );
 });
 SectionBody.displayName = "SectionBody";
