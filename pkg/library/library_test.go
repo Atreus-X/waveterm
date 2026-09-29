@@ -134,6 +134,39 @@ func TestNoteConflictDetection(t *testing.T) {
 	}
 }
 
+func TestRenameNote(t *testing.T) {
+	useTempConfig(t)
+	if _, err := WriteNote(wshrpc.CommandLibraryNoteWriteData{Name: "a", Content: "# Old\n\nbody\n"}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := WriteNote(wshrpc.CommandLibraryNoteWriteData{Name: "taken", Content: "x"}); err != nil {
+		t.Fatal(err)
+	}
+	hdr := "New desc"
+	if err := RenameNote(wshrpc.CommandLibraryNoteRenameData{Name: "a", NewName: "b", NewHeader: &hdr}); err != nil {
+		t.Fatal(err)
+	}
+	got, err := ReadNote(wshrpc.CommandLibraryNoteRefData{Name: "b"})
+	if err != nil || got.Content != "# New desc\n\nbody\n" {
+		t.Fatalf("got %q, %v", got.Content, err)
+	}
+	if old, _ := ReadNote(wshrpc.CommandLibraryNoteRefData{Name: "a"}); old.Exists {
+		t.Fatal("old note still exists")
+	}
+	if err := RenameNote(wshrpc.CommandLibraryNoteRenameData{Name: "b", NewName: "taken"}); err == nil {
+		t.Fatal("expected collision error")
+	}
+	if _, err := WriteNote(wshrpc.CommandLibraryNoteWriteData{Host: "h1", Content: "plain\n"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := RenameNote(wshrpc.CommandLibraryNoteRenameData{Host: "h1", NewName: "z"}); err == nil {
+		t.Fatal("host notes must not rename")
+	}
+	if err := RenameNote(wshrpc.CommandLibraryNoteRenameData{Host: "h1", NewHeader: &hdr}); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestNoteNameValidation(t *testing.T) {
 	useTempConfig(t)
 	bad := []string{"", "../escape", `a\b`, "a/b", "what?", ".hidden", "trailing.", "x:y", strings.Repeat("n", 121)}

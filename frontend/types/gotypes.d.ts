@@ -503,6 +503,14 @@ declare global {
         host?: string;
     };
 
+    // wshrpc.CommandLibraryNoteRenameData
+    type CommandLibraryNoteRenameData = {
+        name?: string;
+        host?: string;
+        newname?: string;
+        newheader?: string;
+    };
+
     // wshrpc.CommandLibraryNoteWriteData
     type CommandLibraryNoteWriteData = {
         name?: string;

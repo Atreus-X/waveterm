@@ -297,6 +297,73 @@ func WriteNote(data wshrpc.CommandLibraryNoteWriteData) (*wshrpc.LibraryNoteData
 	return readNote(path)
 }
 
+// setHeader replaces the first non-empty line, keeping any leading "#" markers; an empty note gets a heading.
+func setHeader(content, header string) string {
+	header = strings.TrimSpace(strings.ReplaceAll(header, "\n", " "))
+	lines := strings.Split(content, "\n")
+	for i, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "" {
+			continue
+		}
+		prefix := ""
+		if strings.HasPrefix(trimmed, "#") {
+			rest := strings.TrimLeft(trimmed, "#")
+			prefix = trimmed[:len(trimmed)-len(rest)] + " "
+		}
+		lines[i] = prefix + header
+		return strings.Join(lines, "\n")
+	}
+	return "# " + header + "\n\n"
+}
+
+// RenameNote renames a general note's file and/or rewrites its first line.
+func RenameNote(data wshrpc.CommandLibraryNoteRenameData) error {
+	oldPath, err := notePath(wshrpc.CommandLibraryNoteRefData{Name: data.Name, Host: data.Host})
+	if err != nil {
+		return err
+	}
+	newPath := oldPath
+	newName := strings.TrimSpace(data.NewName)
+	if newName != "" && newName != data.Name {
+		if data.Host != "" {
+			return fmt.Errorf("a host note is named after its connection and can't be renamed")
+		}
+		newPath, err = notePath(wshrpc.CommandLibraryNoteRefData{Name: newName})
+		if err != nil {
+			return err
+		}
+	}
+	lock.Lock()
+	defer lock.Unlock()
+	cur, err := readNote(oldPath)
+	if err != nil {
+		return err
+	}
+	if !cur.Exists {
+		return fmt.Errorf("note not found")
+	}
+	if newPath != oldPath {
+		if _, err := os.Stat(newPath); err == nil {
+			return fmt.Errorf("a note named %q already exists", newName)
+		}
+	}
+	content := cur.Content
+	if data.NewHeader != nil {
+		content = setHeader(content, *data.NewHeader)
+	}
+	if newPath == oldPath && content == cur.Content {
+		return nil
+	}
+	if err := atomicWrite(newPath, []byte(content)); err != nil {
+		return err
+	}
+	if newPath != oldPath {
+		return os.Remove(oldPath)
+	}
+	return nil
+}
+
 func DeleteNote(ref wshrpc.CommandLibraryNoteRefData) error {
 	path, err := notePath(ref)
 	if err != nil {

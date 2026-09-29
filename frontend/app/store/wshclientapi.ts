@@ -636,6 +636,12 @@ export class RpcApiType {
         return client.wshRpcCall("librarynoteread", data, opts);
     }
 
+    // command "librarynoterename" [call]
+    LibraryNoteRenameCommand(client: WshClient, data: CommandLibraryNoteRenameData, opts?: RpcOpts): Promise<void> {
+        if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "librarynoterename", data, opts);
+        return client.wshRpcCall("librarynoterename", data, opts);
+    }
+
     // command "librarynotewrite" [call]
     LibraryNoteWriteCommand(client: WshClient, data: CommandLibraryNoteWriteData, opts?: RpcOpts): Promise<LibraryNoteData> {
         if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "librarynotewrite", data, opts);

@@ -140,6 +140,11 @@ export class LibraryModel {
         return rtn;
     }
 
+    async renameNote(data: CommandLibraryNoteRenameData) {
+        await RpcApi.LibraryNoteRenameCommand(TabRpcClient, data);
+        await this.refreshNotes();
+    }
+
     async deleteNote(ref: CommandLibraryNoteRefData) {
         await RpcApi.LibraryNoteDeleteCommand(TabRpcClient, ref);
         await this.refreshNotes();

@@ -43,6 +43,15 @@ type LibraryNoteData struct {
 	Exists  bool   `json:"exists"`
 }
 
+type CommandLibraryNoteRenameData struct {
+	Name string `json:"name,omitempty"`
+	Host string `json:"host,omitempty"`
+	// new file name (the title) for a general note; empty keeps the name. Not allowed for host notes.
+	NewName string `json:"newname,omitempty"`
+	// when set, replaces the note's first non-empty line (the description shown in the list)
+	NewHeader *string `json:"newheader,omitempty"`
+}
+
 type CommandLibraryNoteWriteData struct {
 	Name    string `json:"name,omitempty"`
 	Host    string `json:"host,omitempty"`

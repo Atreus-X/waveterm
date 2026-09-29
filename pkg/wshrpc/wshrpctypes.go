@@ -128,6 +128,7 @@ type WshRpcInterface interface {
 	LibraryNoteReadCommand(ctx context.Context, data CommandLibraryNoteRefData) (*LibraryNoteData, error)
 	LibraryNoteWriteCommand(ctx context.Context, data CommandLibraryNoteWriteData) (*LibraryNoteData, error)
 	LibraryNoteDeleteCommand(ctx context.Context, data CommandLibraryNoteRefData) error
+	LibraryNoteRenameCommand(ctx context.Context, data CommandLibraryNoteRenameData) error
 
 	// eventrecv is special, it's handled internally by WshRpc with EventListener
 	EventRecvCommand(ctx context.Context, data wps.WaveEvent) error
