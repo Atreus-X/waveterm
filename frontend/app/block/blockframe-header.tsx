@@ -41,6 +41,7 @@ function handleHeaderContextMenu(
     e.preventDefault();
     e.stopPropagation();
     const magnified = globalStore.get(nodeModel.isMagnified);
+    const pinned = globalStore.get(nodeModel.isPinned);
     const menu: ContextMenuItem[] = [
         {
             label: magnified ? "Un-Magnify Block" : "Magnify Block",
@@ -48,14 +49,23 @@ function handleHeaderContextMenu(
                 nodeModel.toggleMagnify();
             },
         },
+    ];
+    // pinning only means something next to other blocks
+    if (pinned || globalStore.get(nodeModel.numLeafs) > 1) {
+        menu.push({
+            label: pinned ? "Unpin Size" : "Pin Size (keep it as the window resizes)",
+            click: () => nodeModel.togglePin(),
+        });
+    }
+    menu.push(
         { type: "separator" },
         {
             label: "Copy BlockId",
             click: () => {
                 navigator.clipboard.writeText(blockId);
             },
-        },
-    ];
+        }
+    );
     const extraItems = viewModel?.getSettingsMenuItems?.();
     if (extraItems && extraItems.length > 0) menu.push({ type: "separator" }, ...extraItems);
     menu.push(
@@ -124,11 +134,25 @@ const HeaderEndIcons = React.memo(({ viewModel, nodeModel, blockId }: HeaderEndI
     const magnified = jotai.useAtomValue(nodeModel.isMagnified);
     const ephemeral = jotai.useAtomValue(nodeModel.isEphemeral);
     const numLeafs = jotai.useAtomValue(nodeModel.numLeafs);
+    const pinned = jotai.useAtomValue(nodeModel.isPinned);
     const magnifyDisabled = numLeafs <= 1;
     const showSplitButtons = jotai.useAtomValue(blockEnv.getSettingsKeyAtom("term:showsplitbuttons"));
 
     const endIconsElem: React.ReactElement[] = [];
 
+    if (pinned) {
+        endIconsElem.push(
+            <IconButton
+                key="pinned"
+                decl={{
+                    elemtype: "iconbutton",
+                    icon: "thumbtack",
+                    title: "Size pinned - keeps its size as the window resizes (click to unpin)",
+                    click: () => nodeModel.togglePin(),
+                }}
+            />
+        );
+    }
     if (endIconButtons && endIconButtons.length > 0) {
         endIconsElem.push(...endIconButtons.map((button, idx) => <IconButton key={idx} decl={button} />));
     }
