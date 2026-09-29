@@ -6,6 +6,7 @@
     "app:defaultnewblock": "term",
     "app:tabbar": "top",
     "app:confirmquit": true,
+    "tab:confirmcloserunning": true,
     "app:hideaibutton": false,
     "term:showsplitbuttons": false,
     "app:disablectrlshiftarrows": false,
