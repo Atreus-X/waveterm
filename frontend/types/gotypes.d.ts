@@ -1638,6 +1638,7 @@ declare global {
         "app:focusfollowscursor"?: string;
         "app:tabbar"?: string;
         "app:theme"?: string;
+        "app:scrollbarsize"?: number;
         "feature:waveappbuilder"?: boolean;
         "ai:*"?: boolean;
         "ai:preset"?: string;
