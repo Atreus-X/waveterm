@@ -154,6 +154,10 @@ type SettingsType struct {
 	AgentUsageAgent string `json:"agentusage:agent,omitempty" jsonschema:"enum=claude,enum=codex"`
 	// connection the agent runs on ("wsh"/SSH name, e.g. "user@host"); empty means this machine
 	AgentUsageConn string `json:"agentusage:conn,omitempty"`
+	// length in hours of the plan's rolling usage session (default 5, as on Claude Pro/Max)
+	AgentUsageSessionHours int64 `json:"agentusage:sessionhours,omitempty"`
+	// token budget for one session; 0 shows raw usage without a bar
+	AgentUsageSessionLimit int64 `json:"agentusage:sessionlimit,omitempty"`
 	// token budget for the meter's "today" bar; 0 shows raw usage without a bar
 	AgentUsageDailyLimit int64 `json:"agentusage:dailylimit,omitempty"`
 	// token budget for the meter's "last 7 days" bar; 0 shows raw usage without a bar

@@ -137,6 +137,8 @@ const AgentUsageWidgetComponent = () => {
     const conn = useAtomValue(getSettingsKeyAtom("agentusage:conn")) ?? "";
     const dailyLimit = useAtomValue(getSettingsKeyAtom("agentusage:dailylimit")) ?? 0;
     const weeklyLimit = useAtomValue(getSettingsKeyAtom("agentusage:weeklylimit")) ?? 0;
+    const sessionLimit = useAtomValue(getSettingsKeyAtom("agentusage:sessionlimit")) ?? 0;
+    const sessionHours = useAtomValue(getSettingsKeyAtom("agentusage:sessionhours")) ?? 5;
     const [usage, setUsage] = useState<AgentUsageData>(null);
     const [error, setError] = useState<string>(null);
     const [connList, setConnList] = useState<string[]>([]);
@@ -161,7 +163,7 @@ const AgentUsageWidgetComponent = () => {
             try {
                 const data = await RpcApi.AgentUsageCommand(
                     TabRpcClient,
-                    { agent, conn: conn === "" ? undefined : conn },
+                    { agent, conn: conn === "" ? undefined : conn, sessionhours: sessionHours },
                     { timeout: 30000 }
                 );
                 if (cancelled) {
@@ -181,7 +183,7 @@ const AgentUsageWidgetComponent = () => {
             cancelled = true;
             clearInterval(timer);
         };
-    }, [agent, conn]);
+    }, [agent, conn, sessionHours]);
 
     useEffect(() => {
         if (!isOpen) {
@@ -196,8 +198,10 @@ const AgentUsageWidgetComponent = () => {
         RpcApi.SetConfigCommand(TabRpcClient, settings as SettingsType);
     }, []);
 
+    const sessionRatio = sessionLimit > 0 && usage != null ? usage.session.total / sessionLimit : 0;
     const dayRatio = dailyLimit > 0 && usage != null ? usage.today.total / dailyLimit : 0;
     const weekRatio = weeklyLimit > 0 && usage != null ? usage.week.total / weeklyLimit : 0;
+    const sessionRemaining = usage != null ? formatRemaining(usage.session.resetat, Date.now()) : null;
     const connOptions = conn !== "" && !connList.includes(conn) ? [conn, ...connList] : connList;
 
     let meter: React.ReactNode;
@@ -207,11 +211,13 @@ const AgentUsageWidgetComponent = () => {
         meter = <i className="fa fa-triangle-exclamation text-yellow-500" />;
     } else if (usage == null) {
         meter = <span className="text-muted">…</span>;
-    } else if (dailyLimit > 0 || weeklyLimit > 0) {
+    } else if (sessionLimit > 0 || dailyLimit > 0 || weeklyLimit > 0) {
         meter = (
             <>
-                <span className="font-medium">{Math.round(Math.max(dayRatio, weekRatio) * 100)}%</span>
+                <span className="font-medium">{Math.round(Math.max(sessionRatio, dayRatio, weekRatio) * 100)}%</span>
+                {sessionRemaining != null && <span className="text-muted">{sessionRemaining}</span>}
                 <div className="flex flex-col gap-0.5 w-10">
+                    {sessionLimit > 0 && <UsageBar used={usage.session.total} limit={sessionLimit} />}
                     {dailyLimit > 0 && <UsageBar used={usage.today.total} limit={dailyLimit} />}
                     {weeklyLimit > 0 && <UsageBar used={usage.week.total} limit={weeklyLimit} />}
                 </div>
@@ -242,6 +248,7 @@ const AgentUsageWidgetComponent = () => {
                     >
                         {usage != null && (
                             <>
+                                <WindowRow label={`Session (${sessionHours}h)`} win={usage.session} limit={sessionLimit} />
                                 <WindowRow label="Today" win={usage.today} limit={dailyLimit} />
                                 <WindowRow label="Last 7 days" win={usage.week} limit={weeklyLimit} />
                             </>
@@ -284,6 +291,28 @@ const AgentUsageWidgetComponent = () => {
                                     ))}
                                 </select>
                             </label>
+                            <label className="flex items-center justify-between gap-2 text-xs">
+                                Session length (hours)
+                                <input
+                                    type="number"
+                                    min={1}
+                                    max={24}
+                                    className="w-28 px-1.5 py-0.5 rounded bg-black/30 border border-border text-right"
+                                    defaultValue={sessionHours}
+                                    key={sessionHours}
+                                    onBlur={(e) => {
+                                        const n = parseInt(e.target.value);
+                                        if (n >= 1 && n <= 24 && n !== sessionHours) {
+                                            setSetting({ "agentusage:sessionhours": n });
+                                        }
+                                    }}
+                                />
+                            </label>
+                            <LimitInput
+                                label="Session limit (tokens)"
+                                value={sessionLimit}
+                                onCommit={(v) => setSetting({ "agentusage:sessionlimit": v })}
+                            />
                             <LimitInput
                                 label="Daily limit (tokens)"
                                 value={dailyLimit}

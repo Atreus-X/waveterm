@@ -290,6 +290,12 @@
         "agentusage:conn": {
           "type": "string"
         },
+        "agentusage:sessionhours": {
+          "type": "integer"
+        },
+        "agentusage:sessionlimit": {
+          "type": "integer"
+        },
         "agentusage:dailylimit": {
           "type": "integer"
         },

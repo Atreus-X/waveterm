@@ -57,6 +57,32 @@ func TestCollectClaude(t *testing.T) {
 	}
 }
 
+func TestCurrentSession(t *testing.T) {
+	base := time.Date(2026, 1, 1, 10, 20, 0, 0, time.UTC)
+	span := 5 * time.Hour
+	ev := func(ts time.Time, out int64) usageEvent { return usageEvent{ts: ts, output: out} }
+	events := []usageEvent{
+		ev(base.Add(3*time.Hour), 7), // out of order on purpose
+		ev(base, 10),
+		ev(base.Add(30*time.Minute), 5),
+		ev(base.Add(6*time.Hour), 100), // past 15:00 end: opens a second session ending 21:00
+	}
+	got := currentSession(events, base.Add(7*time.Hour), span)
+	if got.Total != 100 || got.Messages != 1 {
+		t.Errorf("second session = %+v", got)
+	}
+	if want := time.Date(2026, 1, 1, 21, 0, 0, 0, time.UTC).UnixMilli(); got.ResetAt != want {
+		t.Errorf("resetat = %d, want %d", got.ResetAt, want)
+	}
+	first := currentSession(events[:3], base.Add(4*time.Hour), span)
+	if first.Total != 22 || first.Messages != 3 {
+		t.Errorf("first session = %+v", first)
+	}
+	if expired := currentSession(events[:3], base.Add(6*time.Hour), span); expired.ResetAt != 0 || expired.Total != 0 {
+		t.Errorf("expired session = %+v", expired)
+	}
+}
+
 func TestCollectMissingAndUnknown(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)

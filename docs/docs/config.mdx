@@ -110,6 +110,8 @@ wsh editconfig
 | library:taborder                     | string   | order of the Library block's tabs, `"snippets,notes"` (default) or `"notes,snippets"`; the first tab opens by default. Set it by dragging one tab onto the other, or right-click the tab bar → Swap Tab Order |
 | agentusage:agent                     | string   | AI agent whose usage the tab bar meter tracks, `"claude"` or `"codex"` (empty = meter shows only a gauge icon). Usage is read from the agent's local session logs (`~/.claude/projects`, `~/.codex/sessions`) |
 | agentusage:conn                      | string   | connection the agent runs on, e.g. `user@host`; empty means this machine. Remote hosts need wsh installed |
+| agentusage:sessionhours              | int      | length in hours of the plan's rolling usage session (default 5, as on Claude Pro/Max); the session opens with the first message, floored to the hour |
+| agentusage:sessionlimit              | int      | your own token budget for one session; 0 shows raw usage without a bar |
 | agentusage:dailylimit                | int      | your own token budget for today (input + output + cache-write tokens); 0 shows raw usage without a bar. The plan's real limits are not in the logs |
 | agentusage:weeklylimit               | int      | your own token budget for the last 7 days; 0 shows raw usage without a bar |
 | tab:confirmclose                     | bool     | if set to true, a confirmation dialog will be shown before closing a tab (defaults to false)                                                                                                                                                                   |

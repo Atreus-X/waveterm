@@ -13,12 +13,16 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"sort"
 	"time"
 
 	"github.com/wavetermdev/waveterm/pkg/wshrpc"
 )
 
-const WeekDays = 7
+const (
+	WeekDays            = 7
+	DefaultSessionHours = 5
+)
 
 var (
 	usageMarker = []byte(`"usage"`)
@@ -93,7 +97,9 @@ func Collect(ctx context.Context, data wshrpc.CommandAgentUsageData) (*wshrpc.Ag
 		return rtn, nil
 	}
 	rtn.Available = true
+	var events []usageEvent
 	emit := func(ev usageEvent) {
+		events = append(events, ev)
 		addToWindow(&rtn.Week, ev)
 		if !ev.ts.Before(dayStart) {
 			addToWindow(&rtn.Today, ev)
@@ -121,7 +127,32 @@ func Collect(ctx context.Context, data wshrpc.CommandAgentUsageData) (*wshrpc.Ag
 	if rtn.Week.FirstTs != 0 {
 		rtn.Week.ResetAt = rtn.Week.FirstTs + weekWindow.Milliseconds()
 	}
+	sessionHours := data.SessionHours
+	if sessionHours <= 0 {
+		sessionHours = DefaultSessionHours
+	}
+	rtn.Session = currentSession(events, now, time.Duration(sessionHours)*time.Hour)
 	return rtn, nil
+}
+
+// currentSession mirrors how Claude's plan sessions work: a session opens with the first message
+// (floored to the hour) and lasts a fixed span; the next message after it ends opens a new one.
+func currentSession(events []usageEvent, now time.Time, span time.Duration) wshrpc.AgentUsageWindow {
+	sort.Slice(events, func(i, j int) bool { return events[i].ts.Before(events[j].ts) })
+	var win wshrpc.AgentUsageWindow
+	var end time.Time
+	for _, ev := range events {
+		if end.IsZero() || !ev.ts.Before(end) {
+			win = wshrpc.AgentUsageWindow{}
+			end = ev.ts.Truncate(time.Hour).Add(span)
+		}
+		addToWindow(&win, ev)
+	}
+	if end.IsZero() || !now.Before(end) {
+		return wshrpc.AgentUsageWindow{}
+	}
+	win.ResetAt = end.UnixMilli()
+	return win
 }
 
 func addToWindow(w *wshrpc.AgentUsageWindow, ev usageEvent) {

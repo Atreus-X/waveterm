@@ -12,6 +12,8 @@ type CommandAgentUsageData struct {
 	Agent string `json:"agent"`
 	// connection the agent runs on; empty or "local" scans this machine, anything else needs wsh on that host
 	Conn string `json:"conn,omitempty"`
+	// length of the plan's rolling session in hours (Claude Pro/Max use 5); 0 means the default
+	SessionHours int `json:"sessionhours,omitempty"`
 }
 
 type AgentUsageWindow struct {
@@ -31,6 +33,8 @@ type AgentUsageWindow struct {
 type AgentUsageData struct {
 	Agent     string           `json:"agent"`
 	Available bool             `json:"available"`
+	// the currently open plan session; empty (resetat 0) when no session is active
+	Session   AgentUsageWindow `json:"session"`
 	Today     AgentUsageWindow `json:"today"`
 	Week      AgentUsageWindow `json:"week"`
 }

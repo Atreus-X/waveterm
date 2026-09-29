@@ -84,6 +84,7 @@ declare global {
     type AgentUsageData = {
         agent: string;
         available: boolean;
+        session: AgentUsageWindow;
         today: AgentUsageWindow;
         week: AgentUsageWindow;
     };
@@ -258,6 +259,7 @@ declare global {
     type CommandAgentUsageData = {
         agent: string;
         conn?: string;
+        sessionhours?: number;
     };
 
     // wshrpc.CommandAuthenticateJobManagerData
@@ -1734,6 +1736,8 @@ declare global {
         "library:taborder"?: string;
         "agentusage:agent"?: string;
         "agentusage:conn"?: string;
+        "agentusage:sessionhours"?: number;
+        "agentusage:sessionlimit"?: number;
         "agentusage:dailylimit"?: number;
         "agentusage:weeklylimit"?: number;
         "tab:confirmcloserunning"?: boolean;
