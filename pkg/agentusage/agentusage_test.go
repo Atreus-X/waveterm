@@ -49,6 +49,12 @@ func TestCollectClaude(t *testing.T) {
 	if got.Week.Total != 2+20+100+3+30 || got.Week.Messages != 2 {
 		t.Errorf("week = %+v", got.Week)
 	}
+	if got.Today.ResetAt <= now.UnixMilli() || got.Today.ResetAt > now.Add(24*time.Hour).UnixMilli() {
+		t.Errorf("today resetat = %d", got.Today.ResetAt)
+	}
+	if want := got.Week.FirstTs + (WeekDays * 24 * time.Hour).Milliseconds(); got.Week.ResetAt != want {
+		t.Errorf("week resetat = %d, want %d", got.Week.ResetAt, want)
+	}
 }
 
 func TestCollectMissingAndUnknown(t *testing.T) {

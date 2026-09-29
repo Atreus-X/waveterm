@@ -74,7 +74,8 @@ func Collect(ctx context.Context, data wshrpc.CommandAgentUsageData) (*wshrpc.Ag
 	}
 	now := time.Now()
 	dayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
-	weekStart := dayStart.AddDate(0, 0, -(WeekDays - 1))
+	weekWindow := WeekDays * 24 * time.Hour
+	weekStart := now.Add(-weekWindow)
 	var root string
 	var scan func(ctx context.Context, path string, since time.Time, emit func(usageEvent)) error
 	switch data.Agent {
@@ -115,6 +116,10 @@ func Collect(ctx context.Context, data wshrpc.CommandAgentUsageData) (*wshrpc.Ag
 	})
 	if walkErr != nil {
 		return nil, walkErr
+	}
+	rtn.Today.ResetAt = dayStart.AddDate(0, 0, 1).UnixMilli()
+	if rtn.Week.FirstTs != 0 {
+		rtn.Week.ResetAt = rtn.Week.FirstTs + weekWindow.Milliseconds()
 	}
 	return rtn, nil
 }

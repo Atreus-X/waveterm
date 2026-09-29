@@ -97,6 +97,7 @@ declare global {
         total: number;
         messages: number;
         firstts: number;
+        resetat: number;
     };
 
     // wshrpc.AiMessageData

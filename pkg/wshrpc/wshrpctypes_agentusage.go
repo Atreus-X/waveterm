@@ -24,6 +24,8 @@ type AgentUsageWindow struct {
 	Messages int   `json:"messages"`
 	// unix millis of the oldest counted message, 0 when there is none
 	FirstTs int64 `json:"firstts"`
+	// unix millis when the window next frees capacity: next local midnight for today, the oldest message aging out for the week; 0 when there is no usage to expire
+	ResetAt int64 `json:"resetat"`
 }
 
 type AgentUsageData struct {

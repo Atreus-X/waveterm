@@ -25,6 +25,22 @@ function formatTokens(n: number): string {
     return String(n);
 }
 
+function formatRemaining(resetAt: number, now: number): string {
+    if (resetAt <= 0) {
+        return null;
+    }
+    const mins = Math.max(0, Math.ceil((resetAt - now) / 60000));
+    const days = Math.floor(mins / 1440);
+    const hours = Math.floor((mins % 1440) / 60);
+    if (days > 0) {
+        return `${days}d ${hours}h`;
+    }
+    if (hours > 0) {
+        return `${hours}h ${mins % 60}m`;
+    }
+    return `${mins}m`;
+}
+
 function usageColor(ratio: number): string {
     if (ratio >= 1) {
         return "bg-red-500";
@@ -56,10 +72,14 @@ UsageBar.displayName = "UsageBar";
 
 const WindowRow = memo(({ label, win, limit }: { label: string; win: AgentUsageWindow; limit: number }) => {
     const pct = limit > 0 ? Math.round((win.total / limit) * 100) : null;
+    const remaining = formatRemaining(win.resetat, Date.now());
     return (
         <div className="flex flex-col gap-1">
             <div className="flex justify-between text-xs">
-                <span className="font-medium">{label}</span>
+                <span className="font-medium">
+                    {label}
+                    {remaining != null && <span className="font-normal text-muted"> ({remaining} until reset)</span>}
+                </span>
                 <span className="text-secondary">
                     {formatTokens(win.total)}
                     {limit > 0 ? ` / ${formatTokens(limit)} (${pct}%)` : ""}
