@@ -2,12 +2,16 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import * as electron from "electron";
+import fs from "fs";
 import * as child_process from "node:child_process";
 import * as crypto from "node:crypto";
-import fs from "fs";
+import { Readable, Transform } from "node:stream";
+import { pipeline } from "node:stream/promises";
 import * as path from "path";
 import { RpcApi } from "../frontend/app/store/wshclientapi";
+import { getWebServerEndpoint } from "../frontend/util/endpoints";
 import { formatRemoteUri } from "../frontend/util/waveutil";
+import { AuthKey, AuthKeyHeader } from "./authkey";
 import { callWithOriginalXdgCurrentDesktopAsync } from "./emain-platform";
 import { ElectronWshClient } from "./emain-wsh";
 
@@ -19,6 +23,7 @@ const RemoteEditDirName = "wave-remote-edit";
 const RemoteEditMaxAgeMs = 7 * 24 * 60 * 60 * 1000;
 const SyncDebounceMs = 700;
 const RemoteRpcTimeoutMs = 60000;
+const UploadChunkBytes = 16 * 1024 * 1024;
 
 type RemoteEditSession = {
     remoteUri: string;
@@ -48,7 +53,11 @@ function hashBytes(data: Buffer): string {
 
 // remote names can contain characters Windows won't accept in a filename
 function safeLocalName(remotePath: string): string {
-    const base = remotePath.split("/").filter((p) => p !== "").pop() || "file";
+    const base =
+        remotePath
+            .split("/")
+            .filter((p) => p !== "")
+            .pop() || "file";
     return base.replace(/[<>:"/\\|?*\x00-\x1f]/g, "_");
 }
 
@@ -114,10 +123,7 @@ async function openLocalFile(localPath: string, mode: OpenExternalMode, editorPa
         openWithPicker(localPath);
         return "";
     }
-    let excuse = "";
-    await callWithOriginalXdgCurrentDesktopAsync(async () => {
-        excuse = await electron.shell.openPath(localPath);
-    });
+    const excuse = await openPathWithRetry(localPath);
     if (!excuse) {
         return "";
     }
@@ -138,18 +144,129 @@ function notify(title: string, body: string) {
     new electron.Notification({ title, body, silent: true }).show();
 }
 
-async function downloadRemote(remoteUri: string, localPath: string): Promise<{ hash: string; modTime: number }> {
-    const info = await RpcApi.FileInfoCommand(ElectronWshClient, { info: { path: remoteUri } }, { timeout: RemoteRpcTimeoutMs });
+export type OpenProgressFn = (phase: "download" | "opening", received: number, total: number) => void;
+
+const ProgressIntervalMs = 150;
+
+async function downloadRemote(
+    remoteUri: string,
+    localPath: string,
+    onProgress?: OpenProgressFn
+): Promise<{ hash: string; modTime: number }> {
+    const info = await RpcApi.FileInfoCommand(
+        ElectronWshClient,
+        { info: { path: remoteUri } },
+        { timeout: RemoteRpcTimeoutMs }
+    );
     if (info == null || info.notfound) {
         throw new Error("file not found on remote");
     }
     if (info.isdir) {
         throw new Error("cannot open a directory in an external application");
     }
-    const fileData = await RpcApi.FileReadCommand(ElectronWshClient, { info: { path: remoteUri } }, { timeout: RemoteRpcTimeoutMs });
-    const bytes = Buffer.from(fileData?.data64 ?? "", "base64");
-    await fs.promises.writeFile(localPath, bytes);
-    return { hash: hashBytes(bytes), modTime: info.modtime ?? 0 };
+    // streamed from wavesrv's stream-file endpoint rather than FileReadCommand, which returns the
+    // whole file in one base64 RPC message and so refuses anything over the 32 MB transfer limit
+    const url = `${getWebServerEndpoint()}/wave/stream-file?path=${encodeURIComponent(remoteUri)}`;
+    const res = await fetch(url, { headers: { [AuthKeyHeader]: AuthKey } });
+    if (!res.ok || res.body == null) {
+        throw new Error(`download failed (HTTP ${res.status})`);
+    }
+    const hash = crypto.createHash("sha256");
+    const total = info.size ?? 0;
+    let received = 0;
+    let lastReport = 0;
+    onProgress?.("download", 0, total);
+    const hashing = new Transform({
+        transform(chunk: Buffer, _enc, cb) {
+            hash.update(chunk);
+            received += chunk.length;
+            const now = Date.now();
+            if (onProgress != null && now - lastReport >= ProgressIntervalMs) {
+                lastReport = now;
+                onProgress("download", received, total);
+            }
+            cb(null, chunk);
+        },
+    });
+    const out = fs.createWriteStream(localPath);
+    // "finish" can fire before the handle is closed; opening a file Windows still sees as open for
+    // writing fails ("another program is using this file"), so wait for "close" too
+    const closed = new Promise<void>((resolve) => out.once("close", () => resolve()));
+    await pipeline(Readable.fromWeb(res.body as any), hashing, out);
+    await closed;
+    onProgress?.("opening", received, total);
+    return { hash: hash.digest("hex"), modTime: info.modtime ?? 0 };
+}
+
+// run-once files: opening them executes or installs, so there's nothing to edit or sync back, and a
+// copy may still be running from the last open
+const RunOnceExtensions = new Set([
+    ".exe",
+    ".msi",
+    ".msix",
+    ".appx",
+    ".bat",
+    ".cmd",
+    ".com",
+    ".ps1",
+    ".vbs",
+    ".scr",
+    ".appimage",
+    ".deb",
+    ".rpm",
+    ".dmg",
+    ".pkg",
+    ".run",
+]);
+
+export function isRunOnceFile(name: string): boolean {
+    return RunOnceExtensions.has(path.extname(name).toLowerCase());
+}
+
+const SharingViolationRe = /another program|being used by another|used by another process|sharing violation/i;
+
+// a freshly written executable is briefly locked by antivirus scanning; retry the open for a few seconds
+async function openPathWithRetry(localPath: string): Promise<string> {
+    let excuse = "";
+    for (let attempt = 0; attempt < 6; attempt++) {
+        await callWithOriginalXdgCurrentDesktopAsync(async () => {
+            excuse = await electron.shell.openPath(localPath);
+        });
+        if (!excuse || !SharingViolationRe.test(excuse)) {
+            return excuse;
+        }
+        await new Promise((r) => setTimeout(r, 750 * (attempt + 1)));
+    }
+    return excuse;
+}
+
+// run-once files get a fresh copy per open (never overwriting one that may still be running) and no
+// save-back session
+async function openRemoteRunOnce(remoteUri: string, remotePath: string, onProgress?: OpenProgressFn): Promise<string> {
+    const dir = path.join(remoteEditRoot(), "run-" + crypto.randomBytes(6).toString("hex"));
+    await fs.promises.mkdir(dir, { recursive: true });
+    const localPath = path.join(dir, safeLocalName(remotePath));
+    await downloadRemote(remoteUri, localPath, onProgress);
+    const excuse = await openPathWithRetry(localPath);
+    if (excuse) {
+        console.log(`could not open ${localPath}: ${excuse}`);
+        electron.shell.showItemInFolder(localPath);
+        return excuse;
+    }
+    return "";
+}
+
+// one write, then appends: each RPC message stays well under the 32 MB transfer limit
+async function uploadRemote(remoteUri: string, bytes: Buffer) {
+    for (let offset = 0; offset === 0 || offset < bytes.length; offset += UploadChunkBytes) {
+        const chunk = bytes.subarray(offset, offset + UploadChunkBytes);
+        const data = { info: { path: remoteUri }, data64: chunk.toString("base64") };
+        if (offset === 0) {
+            await RpcApi.FileWriteCommand(ElectronWshClient, data, { timeout: RemoteRpcTimeoutMs });
+        } else {
+            await RpcApi.FileAppendCommand(ElectronWshClient, data, { timeout: RemoteRpcTimeoutMs });
+        }
+    }
 }
 
 function scheduleSync(sess: RemoteEditSession) {
@@ -195,7 +312,11 @@ async function syncBack(sess: RemoteEditSession) {
     sess.uploading = true;
     const fileName = path.basename(sess.localPath);
     try {
-        const info = await RpcApi.FileInfoCommand(ElectronWshClient, { info: { path: sess.remoteUri } }, { timeout: RemoteRpcTimeoutMs });
+        const info = await RpcApi.FileInfoCommand(
+            ElectronWshClient,
+            { info: { path: sess.remoteUri } },
+            { timeout: RemoteRpcTimeoutMs }
+        );
         if (info != null && !info.notfound && (info.modtime ?? 0) !== sess.remoteModTime) {
             const overwrite = await confirmOverwriteChangedRemote(sess);
             if (!overwrite) {
@@ -203,12 +324,12 @@ async function syncBack(sess: RemoteEditSession) {
                 return;
             }
         }
-        await RpcApi.FileWriteCommand(
+        await uploadRemote(sess.remoteUri, bytes);
+        const after = await RpcApi.FileInfoCommand(
             ElectronWshClient,
-            { info: { path: sess.remoteUri }, data64: bytes.toString("base64") },
+            { info: { path: sess.remoteUri } },
             { timeout: RemoteRpcTimeoutMs }
         );
-        const after = await RpcApi.FileInfoCommand(ElectronWshClient, { info: { path: sess.remoteUri } }, { timeout: RemoteRpcTimeoutMs });
         sess.remoteModTime = after?.modtime ?? 0;
         sess.lastSyncedHash = hash;
         notify("Saved to remote", `${fileName} → ${sess.connName}`);
@@ -224,15 +345,24 @@ async function syncBack(sess: RemoteEditSession) {
     }
 }
 
-async function openRemoteFile(connName: string, remotePath: string, mode: OpenExternalMode, editorPath: string): Promise<string> {
+async function openRemoteFile(
+    connName: string,
+    remotePath: string,
+    mode: OpenExternalMode,
+    editorPath: string,
+    onProgress?: OpenProgressFn
+): Promise<string> {
     const remoteUri = formatRemoteUri(remotePath, connName);
+    if (mode === "default" && isRunOnceFile(remotePath)) {
+        return openRemoteRunOnce(remoteUri, remotePath, onProgress);
+    }
     let sess = remoteEditSessions.get(remoteUri);
     if (sess != null) {
         // reuse the local copy; refresh it from the remote only if there are no unsynced local edits
         const localBytes = await fs.promises.readFile(sess.localPath).catch(() => null);
         const clean = localBytes != null && hashBytes(localBytes) === sess.lastSyncedHash && !sess.uploading;
         if (clean) {
-            const { hash, modTime } = await downloadRemote(remoteUri, sess.localPath);
+            const { hash, modTime } = await downloadRemote(remoteUri, sess.localPath, onProgress);
             sess.lastSyncedHash = hash;
             sess.remoteModTime = modTime;
         }
@@ -241,7 +371,7 @@ async function openRemoteFile(connName: string, remotePath: string, mode: OpenEx
     const dir = path.join(remoteEditRoot(), crypto.createHash("sha256").update(remoteUri).digest("hex").slice(0, 16));
     await fs.promises.mkdir(dir, { recursive: true });
     const localPath = path.join(dir, safeLocalName(remotePath));
-    const { hash, modTime } = await downloadRemote(remoteUri, localPath);
+    const { hash, modTime } = await downloadRemote(remoteUri, localPath, onProgress);
     const localName = path.basename(localPath);
     // watch the directory, not the file, so editors that save by writing a temp file and renaming it still sync
     const watcher = fs.watch(dir, (_event, changed) => {
@@ -264,12 +394,12 @@ async function openRemoteFile(connName: string, remotePath: string, mode: OpenEx
     return openLocalFile(localPath, mode, editorPath);
 }
 
-export async function openFileExternal(opts: OpenFileExternalOpts): Promise<string> {
+export async function openFileExternal(opts: OpenFileExternalOpts, onProgress?: OpenProgressFn): Promise<string> {
     try {
         if (isLocalConn(opts.connection)) {
             return await openLocalFile(expandHome(opts.path), opts.mode, opts.editorPath);
         }
-        return await openRemoteFile(opts.connection, opts.path, opts.mode, opts.editorPath);
+        return await openRemoteFile(opts.connection, opts.path, opts.mode, opts.editorPath, onProgress);
     } catch (err) {
         const msg = `${err?.message ?? err}`;
         console.error("openFileExternal failed", opts, err);
