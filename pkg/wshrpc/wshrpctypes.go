@@ -129,6 +129,9 @@ type WshRpcInterface interface {
 	LibraryNoteWriteCommand(ctx context.Context, data CommandLibraryNoteWriteData) (*LibraryNoteData, error)
 	LibraryNoteDeleteCommand(ctx context.Context, data CommandLibraryNoteRefData) error
 
+	// agent usage: token totals scanned from the local Claude Code / Codex session logs
+	AgentUsageCommand(ctx context.Context, data CommandAgentUsageData) (*AgentUsageData, error)
+
 	// eventrecv is special, it's handled internally by WshRpc with EventListener
 	EventRecvCommand(ctx context.Context, data wps.WaveEvent) error
 
@@ -136,6 +139,7 @@ type WshRpcInterface interface {
 	WshRpcRemoteFileInterface
 	RemoteStreamCpuDataCommand(ctx context.Context) chan RespOrErrorUnion[TimeSeriesData]
 	RemoteGetInfoCommand(ctx context.Context) (RemoteInfo, error)
+	RemoteAgentUsageCommand(ctx context.Context, data CommandAgentUsageData) (*AgentUsageData, error)
 	RemoteInstallRcFilesCommand(ctx context.Context) error
 	RemoteStartJobCommand(ctx context.Context, data CommandRemoteStartJobData) (*CommandStartJobRtnData, error)
 	RemoteReconnectToJobManagerCommand(ctx context.Context, data CommandRemoteReconnectToJobManagerData) (*CommandRemoteReconnectToJobManagerRtnData, error)

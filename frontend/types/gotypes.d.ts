@@ -80,6 +80,25 @@ declare global {
         conn?: {[key: string]: number};
     };
 
+    // wshrpc.AgentUsageData
+    type AgentUsageData = {
+        agent: string;
+        available: boolean;
+        today: AgentUsageWindow;
+        week: AgentUsageWindow;
+    };
+
+    // wshrpc.AgentUsageWindow
+    type AgentUsageWindow = {
+        input: number;
+        output: number;
+        cachewrite: number;
+        cacheread: number;
+        total: number;
+        messages: number;
+        firstts: number;
+    };
+
     // wshrpc.AiMessageData
     type AiMessageData = {
         message?: string;
@@ -232,6 +251,12 @@ declare global {
     type CloseTabRtnType = {
         closewindow?: boolean;
         newactivetabid?: string;
+    };
+
+    // wshrpc.CommandAgentUsageData
+    type CommandAgentUsageData = {
+        agent: string;
+        conn?: string;
     };
 
     // wshrpc.CommandAuthenticateJobManagerData
@@ -1706,6 +1731,10 @@ declare global {
         "tab:confirmclose"?: boolean;
         "tab:background"?: string;
         "library:taborder"?: string;
+        "agentusage:agent"?: string;
+        "agentusage:conn"?: string;
+        "agentusage:dailylimit"?: number;
+        "agentusage:weeklylimit"?: number;
         "tab:confirmcloserunning"?: boolean;
         "widget:*"?: boolean;
         "widget:showhelp"?: boolean;

@@ -24,6 +24,12 @@ export class RpcApiType {
         return client.wshRpcCall("activity", data, opts);
     }
 
+    // command "agentusage" [call]
+    AgentUsageCommand(client: WshClient, data: CommandAgentUsageData, opts?: RpcOpts): Promise<AgentUsageData> {
+        if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "agentusage", data, opts);
+        return client.wshRpcCall("agentusage", data, opts);
+    }
+
     // command "aisendmessage" [call]
     AiSendMessageCommand(client: WshClient, data: AiMessageData, opts?: RpcOpts): Promise<void> {
         if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "aisendmessage", data, opts);
@@ -736,6 +742,12 @@ export class RpcApiType {
     RecordTEventCommand(client: WshClient, data: TEvent, opts?: RpcOpts): Promise<void> {
         if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "recordtevent", data, opts);
         return client.wshRpcCall("recordtevent", data, opts);
+    }
+
+    // command "remoteagentusage" [call]
+    RemoteAgentUsageCommand(client: WshClient, data: CommandAgentUsageData, opts?: RpcOpts): Promise<AgentUsageData> {
+        if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "remoteagentusage", data, opts);
+        return client.wshRpcCall("remoteagentusage", data, opts);
     }
 
     // command "remotedisconnectfromjobmanager" [call]

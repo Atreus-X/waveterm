@@ -33,6 +33,7 @@ import (
 	"github.com/wavetermdev/waveterm/pkg/genconn"
 	"github.com/wavetermdev/waveterm/pkg/hostinfo"
 	"github.com/wavetermdev/waveterm/pkg/jobcontroller"
+	"github.com/wavetermdev/waveterm/pkg/agentusage"
 	"github.com/wavetermdev/waveterm/pkg/library"
 	"github.com/wavetermdev/waveterm/pkg/panichandler"
 	"github.com/wavetermdev/waveterm/pkg/remote"
@@ -55,6 +56,7 @@ import (
 	"github.com/wavetermdev/waveterm/pkg/wcore"
 	"github.com/wavetermdev/waveterm/pkg/wps"
 	"github.com/wavetermdev/waveterm/pkg/wshrpc"
+	"github.com/wavetermdev/waveterm/pkg/wshrpc/wshclient"
 	"github.com/wavetermdev/waveterm/pkg/wshutil"
 	"github.com/wavetermdev/waveterm/pkg/wsl"
 	"github.com/wavetermdev/waveterm/pkg/wslconn"
@@ -613,6 +615,16 @@ func (ws *WshServer) HostInfoCommand(ctx context.Context, data wshrpc.CommandHos
 
 func (ws *WshServer) HostActionCommand(ctx context.Context, data wshrpc.CommandHostActionData) (*wshrpc.HostActionRtnData, error) {
 	return hostinfo.RunAction(ctx, data)
+}
+
+func (ws *WshServer) AgentUsageCommand(ctx context.Context, data wshrpc.CommandAgentUsageData) (*wshrpc.AgentUsageData, error) {
+	if data.Conn == "" || conncontroller.IsLocalConnName(data.Conn) {
+		return agentusage.Collect(ctx, data)
+	}
+	if err := conncontroller.EnsureConnection(ctx, data.Conn); err != nil {
+		return nil, fmt.Errorf("connecting to %q: %w", data.Conn, err)
+	}
+	return wshclient.RemoteAgentUsageCommand(wshfs.RpcClient, data, &wshrpc.RpcOpts{Timeout: 30000, Route: wshutil.MakeConnectionRouteId(data.Conn)})
 }
 
 func (ws *WshServer) LibraryReadCommand(ctx context.Context) (*wshrpc.LibraryData, error) {

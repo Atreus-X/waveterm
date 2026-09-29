@@ -280,6 +280,22 @@
             "notes,snippets"
           ]
         },
+        "agentusage:agent": {
+          "type": "string",
+          "enum": [
+            "claude",
+            "codex"
+          ]
+        },
+        "agentusage:conn": {
+          "type": "string"
+        },
+        "agentusage:dailylimit": {
+          "type": "integer"
+        },
+        "agentusage:weeklylimit": {
+          "type": "integer"
+        },
         "tab:confirmcloserunning": {
           "type": "boolean"
         },
