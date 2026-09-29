@@ -1,4 +1,5 @@
 @.kilocode/rules/rules.md
+@.kilocode/rules/atreus-fork.md
 
 ---
 
