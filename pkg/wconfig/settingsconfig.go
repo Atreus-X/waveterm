@@ -148,6 +148,9 @@ type SettingsType struct {
 	TabConfirmClose bool   `json:"tab:confirmclose,omitempty"`
 	TabBackground   string `json:"tab:background,omitempty"`
 
+	// warn before closing a tab whose terminals are running something (default true)
+	TabConfirmCloseRunning *bool `json:"tab:confirmcloserunning,omitempty"`
+
 	WidgetClear    bool  `json:"widget:*,omitempty"`
 	WidgetShowHelp *bool `json:"widget:showhelp,omitempty"`
 

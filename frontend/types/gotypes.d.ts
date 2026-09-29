@@ -146,6 +146,14 @@ declare global {
         jobid?: string;
     };
 
+    // wshrpc.BlockBusyInfo
+    type BlockBusyInfo = {
+        blockid: string;
+        conn?: string;
+        command: string;
+        tmux?: boolean;
+    };
+
     // blockcontroller.BlockControllerRuntimeStatus
     type BlockControllerRuntimeStatus = {
         blockid: string;
@@ -1697,6 +1705,7 @@ declare global {
         "tab:preset"?: string;
         "tab:confirmclose"?: boolean;
         "tab:background"?: string;
+        "tab:confirmcloserunning"?: boolean;
         "widget:*"?: boolean;
         "widget:showhelp"?: boolean;
         "window:*"?: boolean;

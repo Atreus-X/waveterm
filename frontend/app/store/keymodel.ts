@@ -3,6 +3,7 @@
 
 import { WaveAIModel } from "@/app/aipanel/waveai-model";
 import { openSnippetPicker } from "@/app/modals/snippetpicker";
+import { closeTabWithConfirm, confirmBlockClose } from "@/app/store/closetab";
 import { FocusManager } from "@/app/store/focusManager";
 import {
     atoms,
@@ -23,7 +24,7 @@ import {
 } from "@/app/store/global";
 import { getActiveTabModel } from "@/app/store/tab-model";
 import { WorkspaceLayoutModel } from "@/app/workspace/workspace-layout-model";
-import { deleteLayoutModelForTab, getLayoutModelForStaticTab, NavigateDirection } from "@/layout/index";
+import { getLayoutModelForStaticTab, NavigateDirection } from "@/layout/index";
 import * as keyutil from "@/util/keyutil";
 import { isWindows } from "@/util/platformutil";
 import { CHORD_TIMEOUT } from "@/util/sharedconst";
@@ -132,17 +133,9 @@ function getStaticTabBlockCount(): number {
 function simpleCloseStaticTab() {
     const workspaceId = globalStore.get(atoms.workspaceId);
     const tabId = globalStore.get(atoms.staticTabId);
-    const confirmClose = globalStore.get(getSettingsKeyAtom("tab:confirmclose")) ?? false;
-    getApi()
-        .closeTab(workspaceId, tabId, confirmClose)
-        .then((didClose) => {
-            if (didClose) {
-                deleteLayoutModelForTab(tabId);
-            }
-        })
-        .catch((e) => {
-            console.log("error closing tab", e);
-        });
+    closeTabWithConfirm(workspaceId, tabId).catch((e) => {
+        console.log("error closing tab", e);
+    });
 }
 
 function uxCloseBlock(blockId: string) {
@@ -172,11 +165,15 @@ function uxCloseBlock(blockId: string) {
     const layoutModel = getLayoutModelForStaticTab();
     const node = layoutModel.getNodeByBlockId(blockId);
     if (node) {
-        fireAndForget(() => layoutModel.closeNode(node.id));
-
-        if (isAIFileDiff && isAIPanelOpen) {
-            setTimeout(() => WaveAIModel.getInstance().focusInput(), 50);
-        }
+        fireAndForget(async () => {
+            if (!(await confirmBlockClose(blockId))) {
+                return;
+            }
+            await layoutModel.closeNode(node.id);
+            if (isAIFileDiff && isAIPanelOpen) {
+                setTimeout(() => WaveAIModel.getInstance().focusInput(), 50);
+            }
+        });
     }
 }
 
@@ -222,11 +219,15 @@ function genericClose() {
     const blockData = blockAtom ? globalStore.get(blockAtom) : null;
     const isAIFileDiff = blockData?.meta?.view === "aifilediff";
 
-    fireAndForget(layoutModel.closeFocusedNode.bind(layoutModel));
-
-    if (isAIFileDiff && isAIPanelOpen) {
-        setTimeout(() => WaveAIModel.getInstance().focusInput(), 50);
-    }
+    fireAndForget(async () => {
+        if (!(await confirmBlockClose(blockId))) {
+            return;
+        }
+        await layoutModel.closeFocusedNode();
+        if (isAIFileDiff && isAIPanelOpen) {
+            setTimeout(() => WaveAIModel.getInstance().focusInput(), 50);
+        }
+    });
 }
 
 function switchBlockByBlockNum(index: number) {

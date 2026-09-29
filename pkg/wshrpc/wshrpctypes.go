@@ -113,6 +113,8 @@ type WshRpcInterface interface {
 	FindGitBashCommand(ctx context.Context, rescan bool) (string, error)
 	ConnServerInitCommand(ctx context.Context, data CommandConnServerInitData) error
 	NotifySystemSuspendCommand(ctx context.Context, data CommandSystemPowerData) error
+	TabBusyCommand(ctx context.Context, tabId string) ([]BlockBusyInfo, error)
+	BlockBusyCommand(ctx context.Context, blockId string) (*BlockBusyInfo, error)
 	NotifySystemResumeCommand(ctx context.Context, data CommandSystemPowerData) error
 
 	// host inspector: runs in wavesrv over the connection's own SSH client, so it works without wsh
@@ -953,4 +955,13 @@ type CommandSystemPowerData struct {
 type ConnSleepDisconnectData struct {
 	Reason string   `json:"reason"`
 	Conns  []string `json:"conns"`
+}
+
+// a terminal that is running something other than an idle shell
+type BlockBusyInfo struct {
+	BlockId string `json:"blockid"`
+	Conn    string `json:"conn,omitempty"`
+	Command string `json:"command"`
+	// the command runs inside the terminal's tmux session on the remote host
+	Tmux bool `json:"tmux,omitempty"`
 }

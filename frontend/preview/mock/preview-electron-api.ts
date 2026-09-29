@@ -41,7 +41,9 @@ const previewElectronApi: ElectronApi = {
     deleteWorkspace: (_workspaceId: string) => {},
     setActiveTab: (_tabId: string) => {},
     createTab: () => {},
-    closeTab: (_workspaceId: string, _tabId: string, _confirmClose: boolean) => Promise.resolve(false),
+    closeTab: (_workspaceId: string, _tabId: string, _confirmClose: boolean, _busyDetail?: string) =>
+        Promise.resolve(false),
+    confirmCloseBusy: (_message: string, _detail: string) => Promise.resolve(true),
     setWindowInitStatus: (_status: "ready" | "wave-ready") => {},
     onWaveInit: (_callback: (initOpts: WaveInitOpts) => void) => {},
     onBuilderInit: (_callback: (initOpts: BuilderInitOpts) => void) => {},
@@ -50,6 +52,7 @@ const previewElectronApi: ElectronApi = {
     getPathForFile: (_file: File) => "",
     openNativePath: (_filePath: string) => {},
     openFileExternal: (_opts: OpenFileExternalOpts) => Promise.resolve(""),
+    onOpenFileExternalProgress: (_callback: (progress: OpenFileExternalProgress) => void) => {},
     getExternalEditor: (_configuredPath: string) => null,
     setUpdateSource: (_source: string) => {},
     captureScreenshot: (_rect: Electron.Rectangle) => Promise.resolve(""),

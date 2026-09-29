@@ -3,6 +3,7 @@
 
 import { Tooltip } from "@/app/element/tooltip";
 import { getTabBadgeAtom } from "@/app/store/badge";
+import { closeTabWithConfirm } from "@/app/store/closetab";
 import { getTabModelByTabId } from "@/app/store/tab-model";
 import { makeORef } from "@/app/store/wos";
 import { TabRpcClient } from "@/app/store/wshrpcutil";
@@ -376,7 +377,7 @@ export function VTabBar({ workspace, className }: VTabBarProps) {
                             hoverResetVersion={hoverResetVersion}
                             index={index}
                             onSelect={() => env.electron.setActiveTab(tabId)}
-                            onClose={() => fireAndForget(() => env.electron.closeTab(workspace.oid, tabId, false))}
+                            onClose={() => fireAndForget(() => closeTabWithConfirm(workspace.oid, tabId))}
                             onRename={(newName) =>
                                 fireAndForget(() => env.rpc.UpdateTabNameCommand(TabRpcClient, tabId, newName))
                             }

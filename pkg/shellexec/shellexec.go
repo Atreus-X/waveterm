@@ -44,6 +44,9 @@ type CommandOptsType struct {
 	ShellOpts   []string                  `json:"shellOpts,omitempty"`
 	SwapToken   *shellutil.TokenSwapEntry `json:"swapToken,omitempty"`
 	ForceJwt    bool                      `json:"forcejwt,omitempty"`
+	// SessionEnv is requested on no-wsh ssh sessions (SSH "env" requests); sshd only honors
+	// names its AcceptEnv allows, so a refusal is ignored
+	SessionEnv map[string]string `json:"-"`
 }
 
 type ShellProc struct {
@@ -325,6 +328,9 @@ func StartRemoteShellProcNoWsh(ctx context.Context, termSize waveobj.TermSize, c
 	session.Stdout = remoteStdoutWrite
 	session.Stderr = remoteStdoutWrite
 
+	for name, value := range cmdOpts.SessionEnv {
+		session.Setenv(name, value)
+	}
 	session.RequestPty("xterm-256color", termSize.Rows, termSize.Cols, nil)
 	sessionWrap := MakeSessionWrap(session, "", pipePty)
 	if sessionCmd != "" {

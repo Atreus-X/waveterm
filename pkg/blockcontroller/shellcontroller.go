@@ -538,16 +538,24 @@ func (bc *ShellController) startSshShellProcNoWsh(ctx context.Context, rc *RunSh
 			sessionCmd = makeTmuxAttachCmd(tmuxName, reconnectCmd, rc.TermSize)
 		} else {
 			initialInput = reconnectCmd
+			// tags the shell and everything it starts, so the busy check can find them (busy.go)
+			cmdOpts.SessionEnv = map[string]string{PlainShellMarkerVar: bc.BlockId}
 		}
 	}
 	shellProc, err := shellexec.StartRemoteShellProcNoWsh(ctx, rc.TermSize, cmdStr, cmdOpts, conn, sessionCmd)
 	if err != nil {
 		return nil, err
 	}
+	if cmdOpts.SessionEnv != nil {
+		registerPlainShell(bc.BlockId, conn)
+	}
 	bc.WithLock(func() {
 		bc.TmuxSession = tmuxName
 		bc.TmuxConn = conn
 	})
+	if tmuxName != "" {
+		registerTmuxSession(bc.BlockId, conn, tmuxName)
+	}
 	if initialInput != "" {
 		if _, err := shellProc.Cmd.Write([]byte(initialInput + "\r")); err != nil {
 			log.Printf("error writing reconnect cmd for block %s: %v\n", bc.BlockId, err)
