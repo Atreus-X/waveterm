@@ -94,7 +94,7 @@ svg [aria-label="tip"] g path {
 }
 
 .wide-scrollbar::-webkit-scrollbar {
-    width: 10px;
+    width: max(10px, var(--scrollbar-size, 0px));
 }
 
 /* Monaco editor scrollbar styling */
