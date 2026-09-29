@@ -5,7 +5,15 @@ import { RpcApi } from "@/app/store/wshclientapi";
 import { TabRpcClient } from "@/app/store/wshrpcutil";
 import { getSettingsKeyAtom } from "@/store/global";
 import { cn } from "@/util/util";
-import { autoUpdate, FloatingPortal, offset, useClick, useDismiss, useFloating, useInteractions } from "@floating-ui/react";
+import {
+    autoUpdate,
+    FloatingPortal,
+    offset,
+    useClick,
+    useDismiss,
+    useFloating,
+    useInteractions,
+} from "@floating-ui/react";
 import { useAtomValue } from "jotai";
 import { memo, useCallback, useEffect, useState } from "react";
 
@@ -33,10 +41,10 @@ function formatRemaining(resetAt: number, now: number): string {
     const days = Math.floor(mins / 1440);
     const hours = Math.floor((mins % 1440) / 60);
     if (days > 0) {
-        return `${days}d ${hours}h`;
+        return `${days}d${hours}h`;
     }
     if (hours > 0) {
-        return `${hours}h ${mins % 60}m`;
+        return `${hours}h${mins % 60}m`;
     }
     return `${mins}m`;
 }
@@ -52,7 +60,10 @@ function usageColor(ratio: number): string {
 }
 
 function parseTokens(text: string): number {
-    const m = text.trim().toLowerCase().match(/^(\d+(?:\.\d+)?)\s*([kmb]?)$/);
+    const m = text
+        .trim()
+        .toLowerCase()
+        .match(/^(\d+(?:\.\d+)?)\s*([kmb]?)$/);
     if (m == null) {
         return NaN;
     }
@@ -95,41 +106,43 @@ const WindowRow = memo(({ label, win, limit }: { label: string; win: AgentUsageW
 });
 WindowRow.displayName = "WindowRow";
 
-const LimitInput = memo(({ label, value, onCommit }: { label: string; value: number; onCommit: (v: number) => void }) => {
-    const [text, setText] = useState(value > 0 ? String(value) : "");
-    useEffect(() => {
-        setText(value > 0 ? String(value) : "");
-    }, [value]);
-    const commit = () => {
-        if (text.trim() === "") {
-            onCommit(0);
-            return;
-        }
-        const n = parseTokens(text);
-        if (isNaN(n)) {
+const LimitInput = memo(
+    ({ label, value, onCommit }: { label: string; value: number; onCommit: (v: number) => void }) => {
+        const [text, setText] = useState(value > 0 ? String(value) : "");
+        useEffect(() => {
             setText(value > 0 ? String(value) : "");
-            return;
-        }
-        onCommit(n);
-    };
-    return (
-        <label className="flex items-center justify-between gap-2 text-xs">
-            {label}
-            <input
-                className="w-28 px-1.5 py-0.5 rounded bg-black/30 border border-border text-right"
-                value={text}
-                placeholder="e.g. 5M"
-                onChange={(e) => setText(e.target.value)}
-                onBlur={commit}
-                onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                        (e.target as HTMLInputElement).blur();
-                    }
-                }}
-            />
-        </label>
-    );
-});
+        }, [value]);
+        const commit = () => {
+            if (text.trim() === "") {
+                onCommit(0);
+                return;
+            }
+            const n = parseTokens(text);
+            if (isNaN(n)) {
+                setText(value > 0 ? String(value) : "");
+                return;
+            }
+            onCommit(n);
+        };
+        return (
+            <label className="flex items-center justify-between gap-2 text-xs">
+                {label}
+                <input
+                    className="w-28 px-1.5 py-0.5 rounded bg-black/30 border border-border text-right"
+                    value={text}
+                    placeholder="e.g. 5M"
+                    onChange={(e) => setText(e.target.value)}
+                    onBlur={commit}
+                    onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                            (e.target as HTMLInputElement).blur();
+                        }
+                    }}
+                />
+            </label>
+        );
+    }
+);
 LimitInput.displayName = "LimitInput";
 
 const AgentUsageWidgetComponent = () => {
@@ -198,10 +211,6 @@ const AgentUsageWidgetComponent = () => {
         RpcApi.SetConfigCommand(TabRpcClient, settings as SettingsType);
     }, []);
 
-    const sessionRatio = sessionLimit > 0 && usage != null ? usage.session.total / sessionLimit : 0;
-    const dayRatio = dailyLimit > 0 && usage != null ? usage.today.total / dailyLimit : 0;
-    const weekRatio = weeklyLimit > 0 && usage != null ? usage.week.total / weeklyLimit : 0;
-    const sessionRemaining = usage != null ? formatRemaining(usage.session.resetat, Date.now()) : null;
     const connOptions = conn !== "" && !connList.includes(conn) ? [conn, ...connList] : connList;
 
     let meter: React.ReactNode;
@@ -211,20 +220,32 @@ const AgentUsageWidgetComponent = () => {
         meter = <i className="fa fa-triangle-exclamation text-yellow-500" />;
     } else if (usage == null) {
         meter = <span className="text-muted">…</span>;
-    } else if (sessionLimit > 0 || dailyLimit > 0 || weeklyLimit > 0) {
+    } else {
+        const now = Date.now();
+        const segments = [
+            { label: `${sessionHours}h`, win: usage.session, limit: sessionLimit },
+            { label: "7d", win: usage.week, limit: weeklyLimit },
+        ];
         meter = (
             <>
-                <span className="font-medium">{Math.round(Math.max(sessionRatio, dayRatio, weekRatio) * 100)}%</span>
-                {sessionRemaining != null && <span className="text-muted">{sessionRemaining}</span>}
-                <div className="flex flex-col gap-0.5 w-10">
-                    {sessionLimit > 0 && <UsageBar used={usage.session.total} limit={sessionLimit} />}
-                    {dailyLimit > 0 && <UsageBar used={usage.today.total} limit={dailyLimit} />}
-                    {weeklyLimit > 0 && <UsageBar used={usage.week.total} limit={weeklyLimit} />}
-                </div>
+                {segments.map((seg, i) => {
+                    const remaining = formatRemaining(seg.win.resetat, now);
+                    const value =
+                        seg.limit > 0
+                            ? `${Math.round((seg.win.total / seg.limit) * 100)}%`
+                            : formatTokens(seg.win.total);
+                    return (
+                        <span key={seg.label} className="whitespace-nowrap">
+                            {i > 0 && <span className="text-muted"> · </span>}
+                            <span className="font-medium">
+                                {seg.label} {value}
+                            </span>
+                            {remaining != null && <span className="text-muted"> (resets {remaining})</span>}
+                        </span>
+                    );
+                })}
             </>
         );
-    } else {
-        meter = <span className="font-medium">{formatTokens(usage.today.total)} today</span>;
     }
 
     return (
@@ -248,7 +269,11 @@ const AgentUsageWidgetComponent = () => {
                     >
                         {usage != null && (
                             <>
-                                <WindowRow label={`Session (${sessionHours}h)`} win={usage.session} limit={sessionLimit} />
+                                <WindowRow
+                                    label={`Session (${sessionHours}h)`}
+                                    win={usage.session}
+                                    limit={sessionLimit}
+                                />
                                 <WindowRow label="Today" win={usage.today} limit={dailyLimit} />
                                 <WindowRow label="Last 7 days" win={usage.week} limit={weeklyLimit} />
                             </>
