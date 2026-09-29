@@ -19,7 +19,6 @@ const (
 	ConfigKey_AppFocusFollowsCursor          = "app:focusfollowscursor"
 	ConfigKey_AppTabBar                      = "app:tabbar"
 	ConfigKey_AppTheme                       = "app:theme"
-	ConfigKey_AppScrollbarSize               = "app:scrollbarsize"
 
 	ConfigKey_FeatureWaveAppBuilder          = "feature:waveappbuilder"
 

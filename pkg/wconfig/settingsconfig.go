@@ -70,7 +70,6 @@ type SettingsType struct {
 	AppFocusFollowsCursor         string `json:"app:focusfollowscursor,omitempty" jsonschema:"enum=off,enum=on,enum=term"`
 	AppTabBar                     string `json:"app:tabbar,omitempty" jsonschema:"enum=top,enum=left"`
 	AppTheme                      string `json:"app:theme,omitempty"`
-	AppScrollbarSize              *int64 `json:"app:scrollbarsize,omitempty"`
 
 	FeatureWaveAppBuilder bool `json:"feature:waveappbuilder,omitempty"`
 

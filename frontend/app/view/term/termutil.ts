@@ -48,13 +48,6 @@ export function computeTheme(
             themeCopy.selectionBackground = applyTransparencyToColor(themeCopy.selectionBackground, termTransparency);
         }
     }
-    // xterm's built-in scrollbar has no visible default colors on a transparent terminal, so derive them from the foreground
-    const xtermTheme = themeCopy as any;
-    if (themeCopy.foreground && xtermTheme.scrollbarSliderBackground == null) {
-        xtermTheme.scrollbarSliderBackground = applyTransparencyToColor(themeCopy.foreground, 0.75);
-        xtermTheme.scrollbarSliderHoverBackground = applyTransparencyToColor(themeCopy.foreground, 0.5);
-        xtermTheme.scrollbarSliderActiveBackground = applyTransparencyToColor(themeCopy.foreground, 0.4);
-    }
     const bgcolor = themeCopy.background;
     themeCopy.background = "#00000000";
     return [themeCopy, bgcolor];

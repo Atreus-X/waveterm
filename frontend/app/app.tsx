@@ -143,19 +143,11 @@ function AppSettingsUpdater() {
     const windowSettings = useAtomValue(windowSettingsAtom);
     const fullConfig = useAtomValue(atoms.fullConfigAtom);
     const appThemeName = fullConfig?.settings?.["app:theme"];
-    const scrollbarSize = fullConfig?.settings?.["app:scrollbarsize"];
     const appTheme = appThemeName ? fullConfig?.termthemes?.[appThemeName] : null;
     useEffect(() => {
         // runs before the window effect below so window:bgcolor still wins over the theme background
         applyAppTheme(appTheme ?? null);
     }, [appTheme]);
-    useEffect(() => {
-        if (scrollbarSize == null || scrollbarSize <= 0) {
-            document.body.style.removeProperty("--scrollbar-size");
-            return;
-        }
-        document.body.style.setProperty("--scrollbar-size", `${util.boundNumber(scrollbarSize, 2, 24)}px`);
-    }, [scrollbarSize]);
     useEffect(() => {
         const isTransparentOrBlur =
             (windowSettings?.["window:transparent"] || windowSettings?.["window:blur"]) ?? false;
