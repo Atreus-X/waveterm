@@ -81,37 +81,51 @@ const UsageBar = memo(({ used, limit }: { used: number; limit: number }) => {
 });
 UsageBar.displayName = "UsageBar";
 
-const WindowRow = memo(({ label, win, limit }: { label: string; win: AgentUsageWindow; limit: number }) => {
-    const pct = limit > 0 ? Math.round((win.total / limit) * 100) : null;
-    const remaining = formatRemaining(win.resetat, Date.now());
-    return (
-        <div className="flex flex-col gap-1">
-            <div className="flex justify-between text-xs">
-                <span className="font-medium">
-                    {label}
-                    {remaining != null && <span className="font-normal text-muted"> ({remaining} until reset)</span>}
-                </span>
-                <span className="text-secondary">
-                    {formatTokens(win.total)}
-                    {win.planpct != null
-                        ? ` · ${Math.round(win.planpct)}% of plan`
-                        : limit > 0
-                          ? ` / ${formatTokens(limit)} (${pct}%)`
-                          : ""}
-                </span>
+const WindowRow = memo(
+    ({
+        label,
+        win,
+        limit = 0,
+        showReset = true,
+    }: {
+        label: string;
+        win: AgentUsageWindow;
+        limit?: number;
+        showReset?: boolean;
+    }) => {
+        const pct = limit > 0 ? Math.round((win.total / limit) * 100) : null;
+        const remaining = showReset ? formatRemaining(win.resetat, Date.now()) : null;
+        return (
+            <div className="flex flex-col gap-1">
+                <div className="flex justify-between text-xs">
+                    <span className="font-medium">
+                        {label}
+                        {remaining != null && (
+                            <span className="font-normal text-muted"> ({remaining} until reset)</span>
+                        )}
+                    </span>
+                    <span className="text-secondary">
+                        {formatTokens(win.total)}
+                        {win.planpct != null
+                            ? ` · ${Math.round(win.planpct)}% of plan`
+                            : limit > 0
+                              ? ` / ${formatTokens(limit)} (${pct}%)`
+                              : ""}
+                    </span>
+                </div>
+                {win.planpct != null ? (
+                    <UsageBar used={win.planpct} limit={100} />
+                ) : (
+                    limit > 0 && <UsageBar used={win.total} limit={limit} />
+                )}
+                <div className="text-[11px] text-muted">
+                    in {formatTokens(win.input)} · out {formatTokens(win.output)} · cache write{" "}
+                    {formatTokens(win.cachewrite)} · cache read {formatTokens(win.cacheread)} · {win.messages} msgs
+                </div>
             </div>
-            {win.planpct != null ? (
-                <UsageBar used={win.planpct} limit={100} />
-            ) : (
-                limit > 0 && <UsageBar used={win.total} limit={limit} />
-            )}
-            <div className="text-[11px] text-muted">
-                in {formatTokens(win.input)} · out {formatTokens(win.output)} · cache write{" "}
-                {formatTokens(win.cachewrite)} · cache read {formatTokens(win.cacheread)} · {win.messages} msgs
-            </div>
-        </div>
-    );
-});
+        );
+    }
+);
 WindowRow.displayName = "WindowRow";
 
 const LimitInput = memo(
@@ -156,7 +170,6 @@ LimitInput.displayName = "LimitInput";
 const AgentUsageWidgetComponent = () => {
     const agent = useAtomValue(getSettingsKeyAtom("agentusage:agent")) ?? "claude";
     const conn = useAtomValue(getSettingsKeyAtom("agentusage:conn")) ?? "";
-    const dailyLimit = useAtomValue(getSettingsKeyAtom("agentusage:dailylimit")) ?? 0;
     const weeklyLimit = useAtomValue(getSettingsKeyAtom("agentusage:weeklylimit")) ?? 0;
     const sessionLimit = useAtomValue(getSettingsKeyAtom("agentusage:sessionlimit")) ?? 0;
     const sessionHours = useAtomValue(getSettingsKeyAtom("agentusage:sessionhours")) ?? 5;
@@ -284,7 +297,7 @@ const AgentUsageWidgetComponent = () => {
                                     win={usage.session}
                                     limit={sessionLimit}
                                 />
-                                <WindowRow label="Today" win={usage.today} limit={dailyLimit} />
+                                <WindowRow label="Today" win={usage.today} showReset={false} />
                                 <WindowRow label="Last 7 days" win={usage.week} limit={weeklyLimit} />
                             </>
                         )}
@@ -348,11 +361,6 @@ const AgentUsageWidgetComponent = () => {
                                 label="Session limit (tokens)"
                                 value={sessionLimit}
                                 onCommit={(v) => setSetting({ "agentusage:sessionlimit": v })}
-                            />
-                            <LimitInput
-                                label="Daily limit (tokens)"
-                                value={dailyLimit}
-                                onCommit={(v) => setSetting({ "agentusage:dailylimit": v })}
                             />
                             <LimitInput
                                 label="Weekly limit (tokens)"

@@ -1739,7 +1739,6 @@ declare global {
         "agentusage:conn"?: string;
         "agentusage:sessionhours"?: number;
         "agentusage:sessionlimit"?: number;
-        "agentusage:dailylimit"?: number;
         "agentusage:weeklylimit"?: number;
         "tab:confirmcloserunning"?: boolean;
         "widget:*"?: boolean;

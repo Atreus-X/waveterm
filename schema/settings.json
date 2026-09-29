@@ -297,9 +297,6 @@
         "agentusage:sessionlimit": {
           "type": "integer"
         },
-        "agentusage:dailylimit": {
-          "type": "integer"
-        },
         "agentusage:weeklylimit": {
           "type": "integer"
         },
