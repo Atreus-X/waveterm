@@ -53,9 +53,6 @@
         "app:theme": {
           "type": "string"
         },
-        "app:scrollbarsize": {
-          "type": "integer"
-        },
         "feature:waveappbuilder": {
           "type": "boolean"
         },

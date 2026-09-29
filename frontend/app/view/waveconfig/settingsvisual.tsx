@@ -66,18 +66,6 @@ const SettingSections: SettingSection[] = [
                 options: (fc) => themeOptions(fc, "Follow app theme"),
             },
             {
-                key: "app:scrollbarsize",
-                tooltip:
-                    "How thick scrollbars are in pixels: the width of vertical ones and the height of horizontal ones, terminals included. Larger is easier to grab.",
-                label: "Scrollbar size",
-                description: "Pixels, 2 to 24.",
-                kind: "number",
-                min: 2,
-                max: 24,
-                step: 1,
-                placeholder: "4",
-            },
-            {
                 key: "app:tabbar",
                 tooltip: "Shows the tabs across the top of the window or down its left side.",
                 label: "Tab bar position",

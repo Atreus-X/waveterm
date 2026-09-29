@@ -27,8 +27,8 @@ body {
 }
 
 *::-webkit-scrollbar {
-    width: var(--scrollbar-size, 4px);
-    height: var(--scrollbar-size, 4px);
+    width: 4px;
+    height: 4px;
 }
 
 *::-webkit-scrollbar-track {
@@ -67,7 +67,6 @@ body {
     --os-handle-bg: var(--scrollbar-thumb-color);
     --os-handle-bg-hover: var(--scrollbar-thumb-hover-color);
     --os-handle-bg-active: var(--scrollbar-thumb-active-color);
-    --os-size: var(--scrollbar-size, 10px);
 }
 
 .scrollbar-hide-until-hover {
