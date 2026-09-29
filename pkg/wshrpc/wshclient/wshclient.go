@@ -71,6 +71,12 @@ func BadgeWatchPidCommand(w *wshutil.WshRpc, data wshrpc.CommandBadgeWatchPidDat
 	return err
 }
 
+// command "blockbusy", wshserver.BlockBusyCommand
+func BlockBusyCommand(w *wshutil.WshRpc, data string, opts *wshrpc.RpcOpts) (*wshrpc.BlockBusyInfo, error) {
+	resp, err := sendRpcRequestCallHelper[*wshrpc.BlockBusyInfo](w, "blockbusy", data, opts)
+	return resp, err
+}
+
 // command "blockinfo", wshserver.BlockInfoCommand
 func BlockInfoCommand(w *wshutil.WshRpc, data string, opts *wshrpc.RpcOpts) (*wshrpc.BlockInfoData, error) {
 	resp, err := sendRpcRequestCallHelper[*wshrpc.BlockInfoData](w, "blockinfo", data, opts)
@@ -970,6 +976,12 @@ func StreamDataAckCommand(w *wshutil.WshRpc, data wshrpc.CommandStreamAckData, o
 // command "streamtest", wshserver.StreamTestCommand
 func StreamTestCommand(w *wshutil.WshRpc, opts *wshrpc.RpcOpts) chan wshrpc.RespOrErrorUnion[int] {
 	return sendRpcRequestResponseStreamHelper[int](w, "streamtest", nil, opts)
+}
+
+// command "tabbusy", wshserver.TabBusyCommand
+func TabBusyCommand(w *wshutil.WshRpc, data string, opts *wshrpc.RpcOpts) ([]wshrpc.BlockBusyInfo, error) {
+	resp, err := sendRpcRequestCallHelper[[]wshrpc.BlockBusyInfo](w, "tabbusy", data, opts)
+	return resp, err
 }
 
 // command "termgetscrollbacklines", wshserver.TermGetScrollbackLinesCommand

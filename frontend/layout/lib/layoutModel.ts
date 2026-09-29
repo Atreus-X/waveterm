@@ -11,7 +11,8 @@ import { splitAtom } from "jotai/utils";
 import { createRef, CSSProperties } from "react";
 import { debounce } from "throttle-debounce";
 import { getLayoutStateAtomFromTab } from "./layoutAtom";
-import { balanceNode, findNode, newLayoutNode, walkNodes } from "./layoutNode";
+import { balanceNode, findNode, findParent, newLayoutNode, walkNodes } from "./layoutNode";
+import { applyPinnedSizes, isPinned } from "./layoutPin";
 import {
     clearTree,
     computeMoveNode,
@@ -830,6 +831,11 @@ export class LayoutModel {
         const nodeRect: Dimensions = node.id === this.treeState.rootNode.id ? boundingRect : additionalProps.rect;
         const nodeIsRow = node.flexDirection === FlexDirection.Row;
         const nodePixels = nodeIsRow ? nodeRect.width : nodeRect.height;
+        // pinned children keep their pixels; skipped while one of these children is being dragged
+        const resizingHere = resizeAction?.resizeOperations.some((op) => node.children.some((c) => c.id === op.nodeId));
+        if (!resizingHere) {
+            applyPinnedSizes(node.children, nodePixels, MinNodeSizePx);
+        }
         const totalChildrenSize = node.children.reduce((acc, child) => acc + getNodeSize(child), 0);
         const pixelToSizeRatio = totalChildrenSize / nodePixels;
 
@@ -1078,6 +1084,11 @@ export class LayoutModel {
                     const treeState = get(this.localTreeStateAtom);
                     return treeState.magnifiedNodeId != null;
                 }),
+                isPinned: atom((get) => {
+                    const treeState = get(this.localTreeStateAtom);
+                    return isPinned(findNode(treeState.rootNode, nodeid));
+                }),
+                togglePin: () => this.togglePinNode(nodeid),
                 isEphemeral: atom((get) => {
                     const ephemeralNode = get(this.ephemeralNode);
                     return ephemeralNode?.id === nodeid;
@@ -1482,9 +1493,42 @@ export class LayoutModel {
      */
     onResizeEnd() {
         if (this.resizeContext) {
+            // a dragged pinned block keeps its new size
+            const pending = this.getter(this.pendingTreeAction.currentValueAtom) as LayoutTreeResizeNodeAction;
+            const ratio = this.resizeContext.pixelToSizeRatio;
+            if (pending?.type === LayoutTreeActionType.ResizeNode && ratio > 0) {
+                for (const op of pending.resizeOperations ?? []) {
+                    const node = findNode(this.treeState.rootNode, op.nodeId);
+                    if (isPinned(node)) {
+                        node.pinnedPx = op.size / ratio;
+                    }
+                }
+            }
             this.resizeContext = undefined;
             this.treeReducer({ type: LayoutTreeActionType.CommitPendingAction });
         }
+    }
+
+    /**
+     * Pins (or unpins) a block's current pixel size along its parent's direction, so it keeps that
+     * size while the window resizes and its siblings take up the difference.
+     * @returns false when the node can't be pinned (not found, or the only block in the tab).
+     */
+    togglePinNode(nodeId: string): boolean {
+        const node = findNode(this.treeState.rootNode, nodeId);
+        const parent = findParent(this.treeState.rootNode, nodeId);
+        if (!node || !parent) return false;
+        if (isPinned(node)) {
+            delete node.pinnedPx;
+        } else {
+            const rect = this.getter(this.additionalProps)[nodeId]?.rect;
+            if (!rect) return false;
+            node.pinnedPx = parent.flexDirection === FlexDirection.Row ? rect.width : rect.height;
+        }
+        this.updateTree(false);
+        this.setter(this.localTreeStateAtom, { ...this.treeState });
+        this.persistToBackend();
+        return true;
     }
 
     /**

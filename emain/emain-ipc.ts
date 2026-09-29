@@ -252,6 +252,19 @@ export function initIpcHandlers() {
         event.sender.downloadURL(streamingUrl);
     });
 
+    electron.ipcMain.on("download-zip", (event, payload: { paths: string[]; name: string }) => {
+        const zipName = payload.name || "download.zip";
+        const url =
+            getWebServerEndpoint() +
+            "/wave/stream-zip/" +
+            encodeURIComponent(zipName) +
+            "?name=" +
+            encodeURIComponent(zipName) +
+            "&paths=" +
+            encodeURIComponent(JSON.stringify(payload.paths ?? []));
+        event.sender.downloadURL(url);
+    });
+
     electron.ipcMain.on("get-cursor-point", (event) => {
         const tabView = getWaveTabViewByWebContentsId(event.sender.id);
         if (tabView == null) {
@@ -394,7 +407,30 @@ export function initIpcHandlers() {
         }
     });
 
-    electron.ipcMain.handle("open-file-external", (_event, opts: OpenFileExternalOpts) => openFileExternal(opts));
+    // remote files download first: report progress to the page (file browser row) and the taskbar
+    electron.ipcMain.handle("open-file-external", async (event, opts: OpenFileExternalOpts) => {
+        const sender = event.sender;
+        const ww = getWaveWindowByWebContentsId(sender.id);
+        const send = (progress: OpenFileExternalProgress) => {
+            if (!sender.isDestroyed()) {
+                sender.send("open-file-external-progress", progress);
+            }
+        };
+        const setTaskbar = (value: number) => {
+            if (ww != null && !ww.isDestroyed()) {
+                ww.setProgressBar(value);
+            }
+        };
+        const base = { path: opts.path, connection: opts.connection ?? "" };
+        const rtn = await openFileExternal(opts, (phase, received, total) => {
+            send({ ...base, phase, received, total });
+            // an unknown size shows the taskbar's indeterminate state
+            setTaskbar(phase === "opening" ? 2 : total > 0 ? received / total : 2);
+        });
+        setTaskbar(-1);
+        send({ ...base, phase: rtn ? "error" : "done", received: 0, total: 0, error: rtn || undefined });
+        return rtn;
+    });
 
     electron.ipcMain.on("get-external-editor", (event, configuredPath: string) => {
         try {

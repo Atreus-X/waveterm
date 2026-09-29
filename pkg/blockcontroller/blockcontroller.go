@@ -143,16 +143,10 @@ func handleBlockCloseEvent(event *wps.WaveEvent) {
 		log.Printf("[blockclose] invalid event data type")
 		return
 	}
-	if sc, ok := getController(blockId).(*ShellController); ok {
-		var tmuxSession string
-		var tmuxConn *conncontroller.SSHConn
-		sc.WithLock(func() {
-			tmuxSession, tmuxConn = sc.TmuxSession, sc.TmuxConn
-		})
-		if tmuxSession != "" && tmuxConn != nil {
-			go killTmuxSession(tmuxConn, tmuxSession)
-		}
+	if ref, ok := takeTmuxSession(blockId); ok && ref.Conn != nil {
+		go killTmuxSession(ref.Conn, ref.Name)
 	}
+	takePlainShell(blockId)
 	go DestroyBlockController(blockId)
 }
 

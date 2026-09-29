@@ -482,7 +482,11 @@ func (bc *ShellController) setupAndStartShellProcess(logCtx context.Context, rc 
 			}
 			swapToken.RpcContext = &rpcContext
 			swapToken.Env[wshutil.WaveJwtTokenVarName] = jwtStr
+			tmuxName, initialInput := bc.applyTmuxToWshShell(&cmdOpts, cmdStr, rc, blockMeta, remoteName)
 			shellProc, err = shellexec.StartRemoteShellProc(ctx, logCtx, rc.TermSize, cmdStr, cmdOpts, conn)
+			if err == nil {
+				bc.finishWshShellStart(shellProc, conn, tmuxName, initialInput)
+			}
 			if err != nil {
 				conn.SetWshError(err)
 				conn.WshEnabled.Store(false)
@@ -526,6 +530,42 @@ func (bc *ShellController) setupAndStartShellProcess(logCtx context.Context, rc 
 	return shellProc, nil
 }
 
+// applyTmuxToWshShell applies term:tmux / term:reconnectcmd to a wsh ssh shell, the same
+// settings the no-wsh path honors. With tmux the wsh-integrated shell command becomes the
+// command of a new tmux session (re-attached on restart); a shell that survives in tmux keeps
+// the wsh environment it started with. Returns the tmux session name ("" without tmux) and,
+// without tmux, the reconnect command to type into the new shell.
+func (bc *ShellController) applyTmuxToWshShell(cmdOpts *shellexec.CommandOptsType, cmdStr string, rc *RunShellOpts, blockMeta waveobj.MetaMapType, connName string) (string, string) {
+	if bc.ControllerType != BlockController_Shell || cmdStr != "" {
+		return "", ""
+	}
+	reconnectCmd := getTermReconnectCmd(blockMeta, connName)
+	if !getTermTmux(blockMeta, connName) {
+		return "", reconnectCmd
+	}
+	tmuxName := tmuxSessionName(bc.BlockId)
+	termSize := rc.TermSize
+	cmdOpts.WrapCommand = func(shellCmd string) string {
+		return makeTmuxAttachCmd(tmuxName, reconnectCmd, termSize, shellCmd)
+	}
+	return tmuxName, ""
+}
+
+func (bc *ShellController) finishWshShellStart(shellProc *shellexec.ShellProc, conn *conncontroller.SSHConn, tmuxName string, initialInput string) {
+	bc.WithLock(func() {
+		bc.TmuxSession = tmuxName
+		bc.TmuxConn = conn
+	})
+	if tmuxName != "" {
+		registerTmuxSession(bc.BlockId, conn, tmuxName)
+	}
+	if initialInput != "" {
+		if _, err := shellProc.Cmd.Write([]byte(initialInput + "\r")); err != nil {
+			log.Printf("error writing reconnect cmd for block %s: %v\n", bc.BlockId, err)
+		}
+	}
+}
+
 // starts a no-wsh ssh shell, applying term:tmux and term:reconnectcmd.
 // with tmux, the reconnect command runs when the tmux session is (re)created;
 // without tmux, it is typed into every new shell.
@@ -535,19 +575,27 @@ func (bc *ShellController) startSshShellProcNoWsh(ctx context.Context, rc *RunSh
 		reconnectCmd := getTermReconnectCmd(blockMeta, connName)
 		if getTermTmux(blockMeta, connName) {
 			tmuxName = tmuxSessionName(bc.BlockId)
-			sessionCmd = makeTmuxAttachCmd(tmuxName, reconnectCmd, rc.TermSize)
+			sessionCmd = makeTmuxAttachCmd(tmuxName, reconnectCmd, rc.TermSize, "")
 		} else {
 			initialInput = reconnectCmd
+			// tags the shell and everything it starts, so the busy check can find them (busy.go)
+			cmdOpts.SessionEnv = map[string]string{PlainShellMarkerVar: bc.BlockId}
 		}
 	}
 	shellProc, err := shellexec.StartRemoteShellProcNoWsh(ctx, rc.TermSize, cmdStr, cmdOpts, conn, sessionCmd)
 	if err != nil {
 		return nil, err
 	}
+	if cmdOpts.SessionEnv != nil {
+		registerPlainShell(bc.BlockId, conn)
+	}
 	bc.WithLock(func() {
 		bc.TmuxSession = tmuxName
 		bc.TmuxConn = conn
 	})
+	if tmuxName != "" {
+		registerTmuxSession(bc.BlockId, conn, tmuxName)
+	}
 	if initialInput != "" {
 		if _, err := shellProc.Cmd.Write([]byte(initialInput + "\r")); err != nil {
 			log.Printf("error writing reconnect cmd for block %s: %v\n", bc.BlockId, err)

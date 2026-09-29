@@ -72,6 +72,12 @@ export class RpcApiType {
         return client.wshRpcCall("badgewatchpid", data, opts);
     }
 
+    // command "blockbusy" [call]
+    BlockBusyCommand(client: WshClient, data: string, opts?: RpcOpts): Promise<BlockBusyInfo> {
+        if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "blockbusy", data, opts);
+        return client.wshRpcCall("blockbusy", data, opts);
+    }
+
     // command "blockinfo" [call]
     BlockInfoCommand(client: WshClient, data: string, opts?: RpcOpts): Promise<BlockInfoData> {
         if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "blockinfo", data, opts);
@@ -976,6 +982,12 @@ export class RpcApiType {
 	StreamTestCommand(client: WshClient, opts?: RpcOpts): AsyncGenerator<number, void, boolean> {
         if (this.mockClient) return this.mockClient.mockWshRpcStream(client, "streamtest", null, opts);
         return client.wshRpcStream("streamtest", null, opts);
+    }
+
+    // command "tabbusy" [call]
+    TabBusyCommand(client: WshClient, data: string, opts?: RpcOpts): Promise<BlockBusyInfo[]> {
+        if (this.mockClient) return this.mockClient.mockWshRpcCall(client, "tabbusy", data, opts);
+        return client.wshRpcCall("tabbusy", data, opts);
     }
 
     // command "termgetscrollbacklines" [call]

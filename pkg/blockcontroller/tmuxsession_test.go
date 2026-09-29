@@ -33,7 +33,7 @@ func TestShSingleQuote(t *testing.T) {
 }
 
 func TestMakeTmuxAttachCmd(t *testing.T) {
-	cmd := makeTmuxAttachCmd("wave-abc", "cd ~/repos/ && echo 'hi'", waveobj.TermSize{Rows: 30, Cols: 100})
+	cmd := makeTmuxAttachCmd("wave-abc", "cd ~/repos/ && echo 'hi'", waveobj.TermSize{Rows: 30, Cols: 100}, "")
 	if !strings.HasPrefix(cmd, "sh -c '") {
 		t.Fatalf("expected sh -c wrapper, got %q", cmd)
 	}
@@ -46,7 +46,7 @@ func TestMakeTmuxAttachCmd(t *testing.T) {
 			t.Errorf("expected %q in %q", want, cmd)
 		}
 	}
-	noCmd := makeTmuxAttachCmd("wave-abc", "", waveobj.TermSize{})
+	noCmd := makeTmuxAttachCmd("wave-abc", "", waveobj.TermSize{}, "")
 	if strings.Contains(noCmd, "send-keys") || strings.Contains(noCmd, "-x ") {
 		t.Errorf("unexpected send-keys/size in %q", noCmd)
 	}

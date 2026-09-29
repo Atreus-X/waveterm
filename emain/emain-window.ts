@@ -764,27 +764,60 @@ ipcMain.on("set-waveai-open", (event, isOpen: boolean) => {
     }
 });
 
-ipcMain.handle("close-tab", async (event, workspaceId: string, tabId: string, confirmClose: boolean) => {
-    const ww = getWaveWindowByWorkspaceId(workspaceId);
-    if (ww == null) {
-        console.log(`close-tab: no window found for workspace ws=${workspaceId} tab=${tabId}`);
-        return false;
-    }
-    if (confirmClose) {
-        const choice = dialog.showMessageBoxSync(ww, {
-            type: "question",
-            defaultId: 1, // Enter activates "Close Tab"
-            cancelId: 0, // Esc activates "Cancel"
-            buttons: ["Cancel", "Close Tab"],
-            title: "Confirm",
-            message: "Are you sure you want to close this tab?",
-        });
-        if (choice === 0) {
+ipcMain.handle(
+    "close-tab",
+    async (event, workspaceId: string, tabId: string, confirmClose: boolean, busyDetail?: string) => {
+        const ww = getWaveWindowByWorkspaceId(workspaceId);
+        if (ww == null) {
+            console.log(`close-tab: no window found for workspace ws=${workspaceId} tab=${tabId}`);
             return false;
         }
+        if (busyDetail) {
+            // Cancel is the default here: this dialog exists to catch an accidental click
+            const choice = dialog.showMessageBoxSync(ww, {
+                type: "warning",
+                defaultId: 0,
+                cancelId: 0,
+                buttons: ["Cancel", "Close Tab"],
+                title: "Close Tab?",
+                message: "This tab is still running something. Close it anyway?",
+                detail: busyDetail,
+            });
+            if (choice === 0) {
+                return false;
+            }
+        } else if (confirmClose) {
+            const choice = dialog.showMessageBoxSync(ww, {
+                type: "question",
+                defaultId: 1, // Enter activates "Close Tab"
+                cancelId: 0, // Esc activates "Cancel"
+                buttons: ["Cancel", "Close Tab"],
+                title: "Confirm",
+                message: "Are you sure you want to close this tab?",
+            });
+            if (choice === 0) {
+                return false;
+            }
+        }
+        await ww.queueCloseTab(tabId);
+        return true;
     }
-    await ww.queueCloseTab(tabId);
-    return true;
+);
+
+// the same warning as closing a busy tab, for closing a single busy terminal
+ipcMain.handle("confirm-close-busy", async (event, message: string, detail: string) => {
+    const ww = getWaveWindowByWebContentsId(event.sender.id);
+    const opts: Electron.MessageBoxSyncOptions = {
+        type: "warning",
+        defaultId: 0,
+        cancelId: 0,
+        buttons: ["Cancel", "Close"],
+        title: "Close?",
+        message,
+        detail,
+    };
+    const choice = ww != null ? dialog.showMessageBoxSync(ww, opts) : dialog.showMessageBoxSync(opts);
+    return choice === 1;
 });
 
 ipcMain.on("switch-workspace", (event, workspaceId) => {

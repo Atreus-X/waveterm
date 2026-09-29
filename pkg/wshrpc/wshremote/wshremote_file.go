@@ -80,9 +80,7 @@ func remoteCopyFileInternal(srcUri, destUri string, srcPathCleaned, destPathClea
 	if srcFileStat.IsDir() {
 		return fmt.Errorf("copying directories is not supported")
 	}
-	if srcFileStat.Size() > RemoteFileTransferSizeLimit {
-		return fmt.Errorf("file %q size %d exceeds transfer limit of %d bytes", srcPathCleaned, srcFileStat.Size(), RemoteFileTransferSizeLimit)
-	}
+	// a same-host copy is a plain disk-to-disk io.Copy, so no transfer-size limit applies
 
 	destFilePath, err := prepareDestForCopy(destPathCleaned, filepath.Base(srcPathCleaned), destHasSlash, overwrite)
 	if err != nil {

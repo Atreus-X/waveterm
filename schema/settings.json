@@ -280,6 +280,9 @@
             "notes,snippets"
           ]
         },
+        "tab:confirmcloserunning": {
+          "type": "boolean"
+        },
         "widget:*": {
           "type": "boolean"
         },
