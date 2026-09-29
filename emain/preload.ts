@@ -53,7 +53,9 @@ contextBridge.exposeInMainWorld("api", {
     deleteWorkspace: (workspaceId) => ipcRenderer.send("delete-workspace", workspaceId),
     setActiveTab: (tabId) => ipcRenderer.send("set-active-tab", tabId),
     createTab: () => ipcRenderer.send("create-tab"),
-    closeTab: (workspaceId, tabId, confirmClose) => ipcRenderer.invoke("close-tab", workspaceId, tabId, confirmClose),
+    closeTab: (workspaceId, tabId, confirmClose, busyDetail) =>
+        ipcRenderer.invoke("close-tab", workspaceId, tabId, confirmClose, busyDetail),
+    confirmCloseBusy: (message, detail) => ipcRenderer.invoke("confirm-close-busy", message, detail),
     setWindowInitStatus: (status) => ipcRenderer.send("set-window-init-status", status),
     onWaveInit: (callback) => ipcRenderer.on("wave-init", (_event, initOpts) => callback(initOpts)),
     onBuilderInit: (callback) => ipcRenderer.on("builder-init", (_event, initOpts) => callback(initOpts)),
@@ -61,6 +63,8 @@ contextBridge.exposeInMainWorld("api", {
     onQuicklook: (filePath: string) => ipcRenderer.send("quicklook", filePath),
     openNativePath: (filePath: string) => ipcRenderer.send("open-native-path", filePath),
     openFileExternal: (opts: OpenFileExternalOpts) => ipcRenderer.invoke("open-file-external", opts),
+    onOpenFileExternalProgress: (callback) =>
+        ipcRenderer.on("open-file-external-progress", (_event, progress) => callback(progress)),
     getExternalEditor: (configuredPath: string) => ipcRenderer.sendSync("get-external-editor", configuredPath),
     setUpdateSource: (source: string) => ipcRenderer.send("set-update-source", source),
     captureScreenshot: (rect: Rectangle) => ipcRenderer.invoke("capture-screenshot", rect),

@@ -273,6 +273,9 @@
         "tab:background": {
           "type": "string"
         },
+        "tab:confirmcloserunning": {
+          "type": "boolean"
+        },
         "widget:*": {
           "type": "boolean"
         },

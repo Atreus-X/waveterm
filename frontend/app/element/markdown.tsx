@@ -3,6 +3,7 @@
 
 import { CopyButton } from "@/app/element/copybutton";
 import { createContentBlockPlugin } from "@/app/element/markdown-contentblock-plugin";
+import { makeTaskInput, rehypeTaskIndex } from "@/app/element/markdown-tasks";
 import {
     MarkdownContentBlockType,
     resolveRemoteFile,
@@ -304,6 +305,8 @@ type MarkdownProps = {
     rehype?: boolean;
     fontSizeOverride?: number;
     fixedFontSizeOverride?: number;
+    // makes GFM task-list checkboxes clickable; called with the task's index in document order
+    onTaskToggle?: (taskIndex: number) => void;
 };
 
 const Markdown = ({
@@ -319,6 +322,7 @@ const Markdown = ({
     scrollable = true,
     rehype = true,
     onClickExecute,
+    onTaskToggle,
 }: MarkdownProps) => {
     const textAtomValue = useAtomValueSafe<string>(textAtom);
     const tocRef = useRef<TocItem[]>([]);
@@ -367,6 +371,9 @@ const Markdown = ({
             <CodeBlock children={props.children} onClickExecute={onClickExecute} />
         ),
     };
+    if (onTaskToggle) {
+        markdownComponents.input = makeTaskInput(onTaskToggle);
+    }
     markdownComponents["waveblock"] = (props: any) => <WaveBlock {...props} blockmap={contentBlocksMap} />;
     markdownComponents["mermaidblock"] = (props: any) => {
         const getTextContent = (children: any): string => {
@@ -445,6 +452,9 @@ const Markdown = ({
                 }),
             () => rehypeSlug({ prefix: idPrefix }),
         ];
+    }
+    if (onTaskToggle) {
+        rehypePlugins = [...(rehypePlugins ?? []), rehypeTaskIndex];
     }
     const remarkPlugins: any = [
         remarkMermaidToTag,

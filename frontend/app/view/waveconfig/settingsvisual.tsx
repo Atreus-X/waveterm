@@ -253,6 +253,21 @@ const SettingSections: SettingSection[] = [
                 defaultValue: true,
             },
             {
+                key: "tab:confirmcloserunning",
+                tooltip:
+                    "Warns before a tab closes while one of its terminals is running a command (including inside a tmux session), and lists what would stop. Cancel is the default button.",
+                label: "Warn when closing a busy tab",
+                kind: "toggle",
+                defaultValue: true,
+            },
+            {
+                key: "tab:confirmclose",
+                tooltip: "Asks for confirmation before every tab close, even when nothing is running.",
+                label: "Confirm every tab close",
+                kind: "toggle",
+                defaultValue: false,
+            },
+            {
                 key: "app:focusfollowscursor",
                 tooltip:
                     "Moves keyboard focus to the block under the mouse pointer without clicking: in every block, or only in terminals.",

@@ -299,6 +299,8 @@ export interface LayoutNode {
     children?: LayoutNode[];
     flexDirection: FlexDirection;
     size: number;
+    // pinned: keeps this many pixels along the parent's direction as the window resizes (layoutPin.ts)
+    pinnedPx?: number;
 }
 
 export type LayoutTreeStateSetter = (value: LayoutState) => void;
@@ -392,6 +394,9 @@ export interface NodeModel {
     isFocused: Atom<boolean>;
     isMagnified: Atom<boolean>;
     anyMagnified: Atom<boolean>;
+    // pinned: keeps its pixel size as the window resizes (layoutPin.ts)
+    isPinned: Atom<boolean>;
+    togglePin: () => boolean;
     isEphemeral: Atom<boolean>;
     ready: Atom<boolean>;
     disablePointerEvents: Atom<boolean>;
