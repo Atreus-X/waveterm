@@ -6,6 +6,19 @@ sidebar_position: 200
 
 # Release Notes
 
+### v0.16.0 (Atreus fork) &mdash; Sep 29, 2026
+
+Bigger transfers, safer tab closing, and a friendlier file browser and Library.
+
+- **File Browser** - Select several files and folders at once and **Download as Zip**. Uploads and cross-host copies now stream, so the 32 MB limit is gone and folders work on SFTP hosts
+- **Open Remote Files** - Files over 32 MB now open in external apps, remote `.exe`/installer files open correctly, and a progress indicator shows while a remote file downloads
+- **Safer Tab Closing** - Closing a tab whose terminals are running something asks first and ends its tmux sessions (`tab:confirmcloserunning`, on by default)
+- **tmux on `wsh` Connections** - `term:tmux` and `term:reconnectcmd` now also apply to connections that use `wsh`
+- **Library** - Swappable Snippets/Notes tabs (`library:taborder`), resizable list dividers, and checkboxes plus a formatting toolbar in notes
+- **Pin Block Size** - Pin a block's size so it holds as the window is resized
+- **Scrollbars** - Visible scrollbars in the Host Inspector, Fleet and Library blocks
+- [build] Release script gained `--windows-only` test builds, and build-only runs no longer fail on feed files
+
 ### v0.15.5 (Atreus fork) &mdash; Sep 27, 2026
 
 See inside your servers, watch them live, keep snippets and notes at hand, and come back cleanly from sleep. Everything works over plain SSH — nothing is installed on the remote host.
