@@ -255,6 +255,9 @@ func CollectFrom(ctx context.Context, data wshrpc.CommandAgentUsageData, src Fil
 		sessionHours = DefaultSessionHours
 	}
 	rtn.Session = currentSession(kept, now, time.Duration(sessionHours)*time.Hour)
+	if data.Agent == wshrpc.AgentUsage_Claude {
+		applyPlanLimits(rtn, src, now)
+	}
 	return rtn, nil
 }
 

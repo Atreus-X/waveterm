@@ -93,10 +93,18 @@ const WindowRow = memo(({ label, win, limit }: { label: string; win: AgentUsageW
                 </span>
                 <span className="text-secondary">
                     {formatTokens(win.total)}
-                    {limit > 0 ? ` / ${formatTokens(limit)} (${pct}%)` : ""}
+                    {win.planpct != null
+                        ? ` · ${Math.round(win.planpct)}% of plan`
+                        : limit > 0
+                          ? ` / ${formatTokens(limit)} (${pct}%)`
+                          : ""}
                 </span>
             </div>
-            {limit > 0 && <UsageBar used={win.total} limit={limit} />}
+            {win.planpct != null ? (
+                <UsageBar used={win.planpct} limit={100} />
+            ) : (
+                limit > 0 && <UsageBar used={win.total} limit={limit} />
+            )}
             <div className="text-[11px] text-muted">
                 in {formatTokens(win.input)} · out {formatTokens(win.output)} · cache write{" "}
                 {formatTokens(win.cachewrite)} · cache read {formatTokens(win.cacheread)} · {win.messages} msgs
@@ -230,10 +238,12 @@ const AgentUsageWidgetComponent = () => {
             <>
                 {segments.map((seg, i) => {
                     const remaining = formatRemaining(seg.win.resetat, now);
-                    const value =
-                        seg.limit > 0
-                            ? `${Math.round((seg.win.total / seg.limit) * 100)}%`
-                            : formatTokens(seg.win.total);
+                    let value = formatTokens(seg.win.total);
+                    if (seg.win.planpct != null) {
+                        value = `${Math.round(seg.win.planpct)}%`;
+                    } else if (seg.limit > 0) {
+                        value = `${Math.round((seg.win.total / seg.limit) * 100)}%`;
+                    }
                     return (
                         <span key={seg.label} className="whitespace-nowrap">
                             {i > 0 && <span className="text-muted"> · </span>}
@@ -285,8 +295,9 @@ const AgentUsageWidgetComponent = () => {
                         )}
                         {error != null && <div className="text-xs text-red-400 break-words">{error}</div>}
                         <div className="text-[11px] text-muted">
-                            Counts input + output + cache-write tokens read from the agent's local logs; the plan's real
-                            limits aren't in them, so set your own budgets below.
+                            Counts input + output + cache-write tokens read from the agent's local logs. For Claude
+                            Code, plan percentages and reset times come from ~/.claude/rate-limits.json when its
+                            statusline script saves them (see the docs); otherwise the budgets below are used.
                         </div>
                         <div className="flex flex-col gap-2 pt-2 border-t border-border">
                             <label className="flex items-center justify-between gap-2 text-xs">

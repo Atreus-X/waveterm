@@ -99,6 +99,7 @@ declare global {
         messages: number;
         firstts: number;
         resetat: number;
+        planpct?: number;
     };
 
     // wshrpc.AiMessageData
