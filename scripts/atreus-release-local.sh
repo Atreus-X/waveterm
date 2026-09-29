@@ -7,6 +7,7 @@
 #   scripts/atreus-release-local.sh              # build only, artifacts in make/
 #   scripts/atreus-release-local.sh --publish    # build, then publish to the update feed + GitHub release
 #   --skip-upstream-check                        # publish anyway (upstream commits reviewed and not taken)
+#   --windows-only                               # test builds: Windows installer only (not with --publish)
 #
 # Before building, upstream (wavetermdev/waveterm main, remote "upstream") is fetched; if it has
 # commits that aren't in HEAD, --publish stops and lists them (a build-only run just warns). Review
@@ -36,6 +37,7 @@ FEED_URL=${FEED_URL:-https://www.atreusproject.com/updater/waveterm}
 GH_REPO=${GH_REPO:-Atreus-X/waveterm}
 
 PUBLISH=0
+WINDOWS_ONLY=0
 SKIP_UPSTREAM_CHECK=${SKIP_UPSTREAM_CHECK:-0}
 UPSTREAM_REMOTE=${UPSTREAM_REMOTE:-upstream}
 UPSTREAM_BRANCH=${UPSTREAM_BRANCH:-main}
@@ -43,10 +45,16 @@ for arg in "$@"; do
     case "$arg" in
         --publish) PUBLISH=1 ;;
         --skip-upstream-check) SKIP_UPSTREAM_CHECK=1 ;;
-        -h|--help) sed -n '2,22p' "$0"; exit 0 ;;
+        --windows-only) WINDOWS_ONLY=1 ;;
+        -h|--help) sed -n '2,23p' "$0"; exit 0 ;;
         *) echo "unknown argument: $arg" >&2; exit 2 ;;
     esac
 done
+
+if [ "$PUBLISH" = 1 ] && [ "$WINDOWS_ONLY" = 1 ]; then
+    echo "--windows-only is for test builds; a release needs the Linux installers too" >&2
+    exit 2
+fi
 
 cd "$(dirname "$0")/.."
 
@@ -115,8 +123,15 @@ echo "== npm ci"
 rm -rf node_modules
 npm ci --no-audit --no-fund
 
-echo "== linux: task package (AppImage, deb)"
-WAVE_LINUX_TARGETS=AppImage,deb task package
+if [ "$WINDOWS_ONLY" = 1 ]; then
+    # task package also builds the frontend and binaries the Windows step reuses; the "dir"
+    # target skips the slow Linux packaging
+    echo "== task package (Linux unpacked only; --windows-only)"
+    WAVE_LINUX_TARGETS=dir task package
+else
+    echo "== linux: task package (AppImage, deb)"
+    WAVE_LINUX_TARGETS=AppImage,deb task package
+fi
 
 # task package only builds wavesrv for the host OS; cross-compile the Windows one (as the
 # Windows CI job does, with zig as the C compiler for sqlite's cgo)
@@ -130,19 +145,28 @@ rm -f dist/bin/wavesrv.x64
 echo "== windows: electron-builder (nsis x64)"
 WAVE_WIN_TARGETS=nsis npm exec electron-builder -- -c electron-builder.config.cjs -p never --win --x64
 
-INSTALLERS=(make/*.AppImage make/*.deb make/*.exe)
+shopt -s nullglob
+if [ "$WINDOWS_ONLY" = 1 ]; then
+    INSTALLERS=(make/*"$VERSION".exe)
+else
+    INSTALLERS=(make/*"$VERSION".AppImage make/*"$VERSION".deb make/*"$VERSION".exe)
+fi
 BLOCKMAPS=(make/*.blockmap)
-FEEDFILES=(make/latest.yml make/latest-linux.yml)
-for f in "${INSTALLERS[@]}" "${FEEDFILES[@]}"; do
-    [ -f "$f" ] || { echo "expected artifact missing: $f" >&2; exit 1; }
-done
+[ "${#INSTALLERS[@]}" -gt 0 ] || { echo "no installers for $VERSION in make/" >&2; exit 1; }
 echo "== built in $(( $(date +%s) - start ))s"
-ls -la "${INSTALLERS[@]}" "${BLOCKMAPS[@]}" "${FEEDFILES[@]}"
+ls -la "${INSTALLERS[@]}"
 
 if [ "$PUBLISH" = 0 ]; then
     echo "build only; rerun with --publish to release $TAG"
     exit 0
 fi
+
+# electron-updater feed files; pre-release versions write beta.yml instead, so only a release has these
+FEEDFILES=(make/latest.yml make/latest-linux.yml)
+for f in "${INSTALLERS[@]}" "${FEEDFILES[@]}"; do
+    [ -f "$f" ] || { echo "expected artifact missing: $f" >&2; exit 1; }
+done
+[ "${#INSTALLERS[@]}" -eq 3 ] || { echo "expected AppImage, deb and exe for $VERSION" >&2; exit 1; }
 
 # installers first, feed files last, so clients never see a feed pointing at a missing file
 echo "== publishing to update feed"
