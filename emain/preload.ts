@@ -60,6 +60,8 @@ contextBridge.exposeInMainWorld("api", {
     onQuicklook: (filePath: string) => ipcRenderer.send("quicklook", filePath),
     openNativePath: (filePath: string) => ipcRenderer.send("open-native-path", filePath),
     openFileExternal: (opts: OpenFileExternalOpts) => ipcRenderer.invoke("open-file-external", opts),
+    onOpenFileExternalProgress: (callback) =>
+        ipcRenderer.on("open-file-external-progress", (_event, progress) => callback(progress)),
     getExternalEditor: (configuredPath: string) => ipcRenderer.sendSync("get-external-editor", configuredPath),
     setUpdateSource: (source: string) => ipcRenderer.send("set-update-source", source),
     captureScreenshot: (rect: Rectangle) => ipcRenderer.invoke("capture-screenshot", rect),
