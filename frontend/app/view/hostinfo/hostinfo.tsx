@@ -119,7 +119,7 @@ const RailResizeHandle = memo(({ model }: { model: HostInfoViewModel }) => {
         const startWidth = globalStore.get(model.railWidthAtom);
         const onMove = (ev: PointerEvent) => {
             const next = Math.min(RailMaxWidth, Math.max(RailMinWidth, startWidth + ev.clientX - startX));
-            globalStore.set(model.railWidthAtom, next);
+            model.setRailWidth(next);
         };
         const onUp = () => {
             window.removeEventListener("pointermove", onMove);
@@ -131,7 +131,7 @@ const RailResizeHandle = memo(({ model }: { model: HostInfoViewModel }) => {
     return (
         <div
             onPointerDown={onPointerDown}
-            onDoubleClick={() => globalStore.set(model.railWidthAtom, RailDefaultWidth)}
+            onDoubleClick={() => model.setRailWidth(RailDefaultWidth)}
             className="absolute -right-1 top-0 z-10 h-full w-2 cursor-col-resize transition-colors hover:bg-accent/40"
         />
     );
@@ -143,7 +143,7 @@ const SectionRail = memo(({ model, data }: { model: HostInfoViewModel; data: Hos
     const changes = useAtomValue(model.changesAtom);
     const collapsed = useAtomValue(model.railCollapsedAtom);
     const width = useAtomValue(model.railWidthAtom);
-    const toggle = () => globalStore.set(model.railCollapsedAtom, !collapsed);
+    const toggle = () => model.setRailCollapsed(!collapsed);
     return (
         <nav
             className="relative flex shrink-0 flex-col gap-0.5 border-r border-border p-1.5"
