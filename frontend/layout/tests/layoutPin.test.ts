@@ -4,7 +4,7 @@
 import { describe, expect, it } from "vitest";
 import { newLayoutNode } from "../lib/layoutNode";
 import { adjustInsertForPinned, applyPinnedSizes } from "../lib/layoutPin";
-import { insertNode } from "../lib/layoutTree";
+import { insertNode, insertNodeAtIndex } from "../lib/layoutTree";
 import { FlexDirection, LayoutNode, LayoutTreeActionType, LayoutTreeState } from "../lib/types";
 
 function leaf(id: string, size: number, pinnedPx?: number): LayoutNode {
@@ -97,9 +97,41 @@ describe("new blocks and pinned blocks", () => {
         expect(order(state.rootNode)).toEqual(["side", "main", "new"]);
     });
 
+    it("splitting from a pinned block on the right edge lands left of it", () => {
+        const state: LayoutTreeState = {
+            rootNode: newLayoutNode(FlexDirection.Row, 100, [block("main"), block("side", 400)]),
+        } as LayoutTreeState;
+        insertNodeAtIndex(state, {
+            type: LayoutTreeActionType.InsertNodeAtIndex,
+            node: block("new"),
+            indexArr: [1],
+            magnified: false,
+            focused: false,
+        });
+        expect(order(state.rootNode)).toEqual(["main", "new", "side"]);
+    });
+
     it("never splits a pinned block to make room", () => {
         const pinned = block("side", 400);
         const root = newLayoutNode(FlexDirection.Row, 100, [block("main"), pinned]);
         expect(adjustInsertForPinned(root, { node: pinned, index: 1 })).toEqual({ node: root, index: 1 });
+    });
+
+    it("lands left of a right-edge column that holds a pinned block", () => {
+        const column = newLayoutNode(FlexDirection.Column, 100, [block("inspector", 400), block("files")]);
+        const state: LayoutTreeState = {
+            rootNode: newLayoutNode(FlexDirection.Row, 100, [block("main"), column]),
+        } as LayoutTreeState;
+        insert(state, "new");
+        expect(order(state.rootNode)).toEqual(["main", "new", "[inspector,files]"]);
+    });
+
+    it("a column without a pinned block is unaffected", () => {
+        const column = newLayoutNode(FlexDirection.Column, 100, [block("a"), block("b")]);
+        const state: LayoutTreeState = {
+            rootNode: newLayoutNode(FlexDirection.Row, 100, [block("main"), column]),
+        } as LayoutTreeState;
+        insert(state, "new");
+        expect(order(state.rootNode)).not.toEqual(["main", "new", "[a,b]"]);
     });
 });
