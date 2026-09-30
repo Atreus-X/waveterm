@@ -19,6 +19,10 @@ export type HostInfoEnv = WaveEnvSubset<{
     getBlockMetaKeyAtom: MetaKeyAtomFnType<"connection">;
 }>;
 
+export const RailDefaultWidth = 192;
+export const RailMinWidth = 120;
+export const RailMaxWidth = 360;
+
 // how often each backend section refreshes while its tab is on screen (system also feeds the vitals strip)
 const RefreshMs: Record<string, number> = {
     system: 5000,
@@ -71,6 +75,8 @@ export class HostInfoViewModel implements ViewModel {
     errorAtom = jotai.atom<string>(null) as jotai.PrimitiveAtom<string>;
     loadingAtom = jotai.atom<boolean>(true) as jotai.PrimitiveAtom<boolean>;
     pausedAtom = jotai.atom<boolean>(false) as jotai.PrimitiveAtom<boolean>;
+    railCollapsedAtom = jotai.atom<boolean>(false) as jotai.PrimitiveAtom<boolean>;
+    railWidthAtom = jotai.atom<number>(RailDefaultWidth) as jotai.PrimitiveAtom<number>;
     dockerStatsAtom = jotai.atom<boolean>(false) as jotai.PrimitiveAtom<boolean>;
     updatedAtAtom = jotai.atom<Record<string, number>>({}) as jotai.PrimitiveAtom<Record<string, number>>;
     actionAtom = jotai.atom<HostActionState>(null) as jotai.PrimitiveAtom<HostActionState>;
