@@ -43,14 +43,26 @@ function getUpdateChannel(settings: SettingsType): string {
     let retVal = settingsChannel;
 
     // If the user setting doesn't exist yet, set it to the value of the updater config.
-    // If the user was previously on the `latest` channel and has downloaded a `beta` version, update their configured channel to `beta` to prevent downgrading.
-    if (!settingsChannel || (settingsChannel == "latest" && updaterChannel == "beta")) {
+    // A beta build must not force the setting back to `beta`: this fork never publishes beta.yml, so that would strand
+    // the build with no way to reach a release. autoUpdater.allowDowngrade = false already prevents downgrades.
+    if (!settingsChannel) {
         console.log("Update channel setting does not exist, setting to value from updater config.");
         RpcApi.SetConfigCommand(ElectronWshClient, { "autoupdate:channel": updaterChannel });
         retVal = updaterChannel;
     }
     console.log("Update channel:", retVal);
     return retVal;
+}
+
+// The channel is otherwise read only when the Updater is constructed, so a settings change would need a restart.
+async function refreshUpdateChannel() {
+    const settings = (await RpcApi.GetFullConfigCommand(ElectronWshClient)).settings;
+    const channel = settings["autoupdate:channel"];
+    if (!channel || channel == autoUpdater.channel) {
+        return;
+    }
+    console.log("Update channel changed:", autoUpdater.channel, "->", channel);
+    autoUpdater.channel = channel;
 }
 
 export class Updater {
@@ -176,6 +188,7 @@ export class Updater {
             (this.autoCheckInterval &&
                 (!this.lastUpdateCheck || Math.abs(now.getTime() - this.lastUpdateCheck.getTime()) > this.intervalms))
         ) {
+            await refreshUpdateChannel();
             const result = await autoUpdater.checkForUpdates();
 
             // If the user requested this check and we do not have an available update, let them know with a popup dialog. No need to tell them if there is an update, because we show a banner once the update is ready to install.
