@@ -14,6 +14,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/wavetermdev/waveterm/pkg/agentusage"
 	"github.com/wavetermdev/waveterm/pkg/baseds"
 	"github.com/wavetermdev/waveterm/pkg/panichandler"
 	"github.com/wavetermdev/waveterm/pkg/suggestion"
@@ -84,6 +85,10 @@ func (impl *ServerImpl) StreamTestCommand(ctx context.Context) chan wshrpc.RespO
 		}
 	}()
 	return ch
+}
+
+func (*ServerImpl) RemoteAgentUsageCommand(ctx context.Context, data wshrpc.CommandAgentUsageData) (*wshrpc.AgentUsageData, error) {
+	return agentusage.Collect(ctx, data)
 }
 
 func (*ServerImpl) RemoteGetInfoCommand(ctx context.Context) (wshrpc.RemoteInfo, error) {

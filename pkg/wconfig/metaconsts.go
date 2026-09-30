@@ -100,6 +100,13 @@ const (
 
 	ConfigKey_LibraryTabOrder                = "library:taborder"
 
+	ConfigKey_AgentUsageAgent                = "agentusage:agent"
+	ConfigKey_AgentUsageConn                 = "agentusage:conn"
+	ConfigKey_AgentUsageSessionHours         = "agentusage:sessionhours"
+	ConfigKey_AgentUsageSessionLimit         = "agentusage:sessionlimit"
+	ConfigKey_AgentUsageDailyLimit           = "agentusage:dailylimit"
+	ConfigKey_AgentUsageWeeklyLimit          = "agentusage:weeklylimit"
+
 	ConfigKey_TabConfirmCloseRunning         = "tab:confirmcloserunning"
 
 	ConfigKey_WidgetClear                    = "widget:*"
