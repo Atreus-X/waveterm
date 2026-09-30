@@ -8,6 +8,7 @@
 #   scripts/atreus-release-local.sh --publish    # build, then publish to the update feed + GitHub release
 #   --skip-upstream-check                        # publish anyway (upstream commits reviewed and not taken)
 #   --windows-only                               # test builds: Windows installer only (not with --publish)
+#   --skip-checks                                # skip scripts/atreus-check.sh (otherwise a failing check stops the build)
 #
 # Before building, upstream (wavetermdev/waveterm main, remote "upstream") is fetched; if it has
 # commits that aren't in HEAD, --publish stops and lists them (a build-only run just warns). Review
@@ -38,6 +39,7 @@ GH_REPO=${GH_REPO:-Atreus-X/waveterm}
 
 PUBLISH=0
 WINDOWS_ONLY=0
+SKIP_CHECKS=0
 SKIP_UPSTREAM_CHECK=${SKIP_UPSTREAM_CHECK:-0}
 UPSTREAM_REMOTE=${UPSTREAM_REMOTE:-upstream}
 UPSTREAM_BRANCH=${UPSTREAM_BRANCH:-main}
@@ -46,6 +48,7 @@ for arg in "$@"; do
         --publish) PUBLISH=1 ;;
         --skip-upstream-check) SKIP_UPSTREAM_CHECK=1 ;;
         --windows-only) WINDOWS_ONLY=1 ;;
+        --skip-checks) SKIP_CHECKS=1 ;;
         -h|--help) sed -n '2,23p' "$0"; exit 0 ;;
         *) echo "unknown argument: $arg" >&2; exit 2 ;;
     esac
@@ -122,6 +125,12 @@ start=$(date +%s)
 echo "== npm ci"
 rm -rf node_modules
 npm ci --no-audit --no-fund
+
+# test builds are gated too: a beta with a known failure isn't worth the build time
+if [ "$SKIP_CHECKS" != 1 ]; then
+    echo "== scripts/atreus-check.sh"
+    scripts/atreus-check.sh || { echo "checks failed; fix them or rerun with --skip-checks" >&2; exit 1; }
+fi
 
 if [ "$WINDOWS_ONLY" = 1 ]; then
     # task package also builds the frontend and binaries the Windows step reuses; the "dir"
