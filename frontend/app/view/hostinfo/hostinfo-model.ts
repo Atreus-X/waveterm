@@ -19,6 +19,30 @@ export type HostInfoEnv = WaveEnvSubset<{
     getBlockMetaKeyAtom: MetaKeyAtomFnType<"connection">;
 }>;
 
+export const RailDefaultWidth = 192;
+export const RailMinWidth = 120;
+export const RailMaxWidth = 360;
+const RailPrefsKey = "hostinfo:rail";
+
+type RailPrefs = { collapsed: boolean; width: number };
+
+// shared by every Host Inspector block; localStorage can be unavailable or hold junk, so fall back to defaults
+function loadRailPrefs(): RailPrefs {
+    const prefs = { collapsed: false, width: RailDefaultWidth };
+    try {
+        const raw = JSON.parse(localStorage.getItem(RailPrefsKey));
+        if (typeof raw?.collapsed === "boolean") prefs.collapsed = raw.collapsed;
+        if (typeof raw?.width === "number") prefs.width = Math.min(RailMaxWidth, Math.max(RailMinWidth, raw.width));
+    } catch (_) {}
+    return prefs;
+}
+
+function saveRailPrefs(prefs: RailPrefs) {
+    try {
+        localStorage.setItem(RailPrefsKey, JSON.stringify(prefs));
+    } catch (_) {}
+}
+
 // how often each backend section refreshes while its tab is on screen (system also feeds the vitals strip)
 const RefreshMs: Record<string, number> = {
     system: 5000,
@@ -71,6 +95,8 @@ export class HostInfoViewModel implements ViewModel {
     errorAtom = jotai.atom<string>(null) as jotai.PrimitiveAtom<string>;
     loadingAtom = jotai.atom<boolean>(true) as jotai.PrimitiveAtom<boolean>;
     pausedAtom = jotai.atom<boolean>(false) as jotai.PrimitiveAtom<boolean>;
+    railCollapsedAtom: jotai.PrimitiveAtom<boolean>;
+    railWidthAtom: jotai.PrimitiveAtom<number>;
     dockerStatsAtom = jotai.atom<boolean>(false) as jotai.PrimitiveAtom<boolean>;
     updatedAtAtom = jotai.atom<Record<string, number>>({}) as jotai.PrimitiveAtom<Record<string, number>>;
     actionAtom = jotai.atom<HostActionState>(null) as jotai.PrimitiveAtom<HostActionState>;
@@ -90,6 +116,9 @@ export class HostInfoViewModel implements ViewModel {
         this.viewType = "hostinfo";
         this.blockId = blockId;
         this.env = waveEnv;
+        const railPrefs = loadRailPrefs();
+        this.railCollapsedAtom = jotai.atom(railPrefs.collapsed) as jotai.PrimitiveAtom<boolean>;
+        this.railWidthAtom = jotai.atom(railPrefs.width) as jotai.PrimitiveAtom<number>;
 
         this.connection = jotai.atom((get) => {
             const connValue = get(this.env.getBlockMetaKeyAtom(blockId, "connection"));
@@ -227,6 +256,17 @@ export class HostInfoViewModel implements ViewModel {
     refreshNow(section?: HostSectionId) {
         const sec = section ?? globalStore.get(this.sectionAtom);
         this.fetch(["system", backendSection(sec)], false);
+    }
+
+    setRailCollapsed(collapsed: boolean) {
+        globalStore.set(this.railCollapsedAtom, collapsed);
+        saveRailPrefs({ collapsed, width: globalStore.get(this.railWidthAtom) });
+    }
+
+    setRailWidth(width: number) {
+        const next = Math.min(RailMaxWidth, Math.max(RailMinWidth, width));
+        globalStore.set(this.railWidthAtom, next);
+        saveRailPrefs({ collapsed: globalStore.get(this.railCollapsedAtom), width: next });
     }
 
     setSection(id: HostSectionId) {
