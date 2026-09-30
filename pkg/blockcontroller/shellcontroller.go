@@ -581,6 +581,14 @@ func (bc *ShellController) startSshShellProcNoWsh(ctx context.Context, rc *RunSh
 			// tags the shell and everything it starts, so the busy check can find them (busy.go)
 			cmdOpts.SessionEnv = map[string]string{PlainShellMarkerVar: bc.BlockId}
 		}
+	} else if bc.ControllerType == BlockController_Cmd {
+		// without wsh nothing else runs the command: session.Shell() would just open an idle prompt
+		// the trailing exec keeps the terminal open at a prompt once the command finishes
+		// (newlines, not ";", so a trailing comment or multi-line snippet can't swallow it)
+		sessionCmd = cmdStr + "\n" + `exec "${SHELL:-sh}" -l`
+		if cmdOpts.Cwd != "" {
+			sessionCmd = "cd " + utilfn.ShellQuote(cmdOpts.Cwd, false, -1) + "\n" + sessionCmd
+		}
 	}
 	shellProc, err := shellexec.StartRemoteShellProcNoWsh(ctx, rc.TermSize, cmdStr, cmdOpts, conn, sessionCmd)
 	if err != nil {
