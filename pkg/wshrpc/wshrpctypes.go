@@ -128,6 +128,7 @@ type WshRpcInterface interface {
 	LibraryNoteReadCommand(ctx context.Context, data CommandLibraryNoteRefData) (*LibraryNoteData, error)
 	LibraryNoteWriteCommand(ctx context.Context, data CommandLibraryNoteWriteData) (*LibraryNoteData, error)
 	LibraryNoteDeleteCommand(ctx context.Context, data CommandLibraryNoteRefData) error
+	LibraryNoteRenameCommand(ctx context.Context, data CommandLibraryNoteRenameData) error
 
 	// agent usage: token totals scanned from the local Claude Code / Codex session logs
 	AgentUsageCommand(ctx context.Context, data CommandAgentUsageData) (*AgentUsageData, error)

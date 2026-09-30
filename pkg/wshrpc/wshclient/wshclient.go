@@ -640,6 +640,12 @@ func LibraryNoteReadCommand(w *wshutil.WshRpc, data wshrpc.CommandLibraryNoteRef
 	return resp, err
 }
 
+// command "librarynoterename", wshserver.LibraryNoteRenameCommand
+func LibraryNoteRenameCommand(w *wshutil.WshRpc, data wshrpc.CommandLibraryNoteRenameData, opts *wshrpc.RpcOpts) error {
+	_, err := sendRpcRequestCallHelper[any](w, "librarynoterename", data, opts)
+	return err
+}
+
 // command "librarynotewrite", wshserver.LibraryNoteWriteCommand
 func LibraryNoteWriteCommand(w *wshutil.WshRpc, data wshrpc.CommandLibraryNoteWriteData, opts *wshrpc.RpcOpts) (*wshrpc.LibraryNoteData, error) {
 	resp, err := sendRpcRequestCallHelper[*wshrpc.LibraryNoteData](w, "librarynotewrite", data, opts)

@@ -667,6 +667,10 @@ func (ws *WshServer) LibraryNoteWriteCommand(ctx context.Context, data wshrpc.Co
 	return library.WriteNote(data)
 }
 
+func (ws *WshServer) LibraryNoteRenameCommand(ctx context.Context, data wshrpc.CommandLibraryNoteRenameData) error {
+	return library.RenameNote(data)
+}
+
 func (ws *WshServer) LibraryNoteDeleteCommand(ctx context.Context, data wshrpc.CommandLibraryNoteRefData) error {
 	return library.DeleteNote(data)
 }
