@@ -1166,6 +1166,10 @@ function DirectoryPreview({ model }: DirectoryPreviewProps) {
                 className="dir-table-container relative"
                 onChangeCapture={(e) => {
                     const event = e as React.ChangeEvent<HTMLInputElement>;
+                    // the hidden upload picker's change event bubbles here too and isn't a search
+                    if (event.target.type === "file") {
+                        return;
+                    }
                     if (!entryManagerProps) {
                         setSearchText(event.target.value.toLowerCase());
                     }
