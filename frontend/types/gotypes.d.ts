@@ -80,6 +80,28 @@ declare global {
         conn?: {[key: string]: number};
     };
 
+    // wshrpc.AgentUsageData
+    type AgentUsageData = {
+        agent: string;
+        available: boolean;
+        session: AgentUsageWindow;
+        today: AgentUsageWindow;
+        week: AgentUsageWindow;
+    };
+
+    // wshrpc.AgentUsageWindow
+    type AgentUsageWindow = {
+        input: number;
+        output: number;
+        cachewrite: number;
+        cacheread: number;
+        total: number;
+        messages: number;
+        firstts: number;
+        resetat: number;
+        planpct?: number;
+    };
+
     // wshrpc.AiMessageData
     type AiMessageData = {
         message?: string;
@@ -232,6 +254,13 @@ declare global {
     type CloseTabRtnType = {
         closewindow?: boolean;
         newactivetabid?: string;
+    };
+
+    // wshrpc.CommandAgentUsageData
+    type CommandAgentUsageData = {
+        agent: string;
+        conn?: string;
+        sessionhours?: number;
     };
 
     // wshrpc.CommandAuthenticateJobManagerData
@@ -501,6 +530,14 @@ declare global {
     type CommandLibraryNoteRefData = {
         name?: string;
         host?: string;
+    };
+
+    // wshrpc.CommandLibraryNoteRenameData
+    type CommandLibraryNoteRenameData = {
+        name?: string;
+        host?: string;
+        newname?: string;
+        newheader?: string;
     };
 
     // wshrpc.CommandLibraryNoteWriteData
@@ -1638,6 +1675,7 @@ declare global {
         "app:focusfollowscursor"?: string;
         "app:tabbar"?: string;
         "app:theme"?: string;
+        "app:scrollbarsize"?: number;
         "feature:waveappbuilder"?: boolean;
         "ai:*"?: boolean;
         "ai:preset"?: string;
@@ -1706,6 +1744,11 @@ declare global {
         "tab:confirmclose"?: boolean;
         "tab:background"?: string;
         "library:taborder"?: string;
+        "agentusage:agent"?: string;
+        "agentusage:conn"?: string;
+        "agentusage:sessionhours"?: number;
+        "agentusage:sessionlimit"?: number;
+        "agentusage:weeklylimit"?: number;
         "tab:confirmcloserunning"?: boolean;
         "widget:*"?: boolean;
         "widget:showhelp"?: boolean;

@@ -140,6 +140,11 @@ export class LibraryModel {
         return rtn;
     }
 
+    async renameNote(data: CommandLibraryNoteRenameData) {
+        await RpcApi.LibraryNoteRenameCommand(TabRpcClient, data);
+        await this.refreshNotes();
+    }
+
     async deleteNote(ref: CommandLibraryNoteRefData) {
         await RpcApi.LibraryNoteDeleteCommand(TabRpcClient, ref);
         await this.refreshNotes();
@@ -156,7 +161,10 @@ export class LibraryModel {
             RpcApi.ControllerInputCommand(TabRpcClient, { blockid: target, inputdata64: stringToBase64("\r") });
         }
         globalStore.set(this.lastTermBlockIdAtom, target);
-        vm.giveFocus?.();
+        // deferred until the click that triggered this has bubbled: Library's own block click handler re-focuses
+        // Library when focus is elsewhere, and focusing the terminal first makes the two blocks fight over focus
+        // until React gives up with "maximum update depth exceeded" (#185)
+        setTimeout(() => vm.giveFocus?.(), 0);
         return true;
     }
 }

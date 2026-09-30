@@ -407,6 +407,8 @@ const NotesTab = memo(({ model }: { model: LibraryViewModel }) => {
     const selected = jotai.useAtomValue(model.selectedNoteAtom);
     const [newName, setNewName] = useState<string>(null);
     const [confirmDelete, setConfirmDelete] = useState(false);
+    const [renameTo, setRenameTo] = useState<string>(null);
+    const [editorVer, setEditorVer] = useState(0);
     const [error, setError] = useState<string>(null);
     const general = notes.filter((n) => !n.host);
     const hosts = notes.filter((n) => n.host);
@@ -422,6 +424,32 @@ const NotesTab = memo(({ model }: { model: LibraryViewModel }) => {
             setError(String(e?.message ?? e));
         }
     };
+    const selectedInfo = selected
+        ? notes.find((n) => sameNote(selected, n.host ? { host: n.host } : { name: n.name }))
+        : null;
+    const commitTitle = async () => {
+        const next = (renameTo ?? "").trim();
+        setRenameTo(null);
+        if (!selected || !next || next === selected.name) return;
+        try {
+            await model.lib.renameNote({ name: selected.name, newname: next });
+            globalStore.set(model.selectedNoteAtom, { name: next });
+            setError(null);
+        } catch (e) {
+            setError(String(e?.message ?? e));
+        }
+    };
+    const commitDescription = async (value: string) => {
+        const next = value.trim();
+        if (!selected || !next || next === (selectedInfo?.header ?? "")) return;
+        try {
+            await model.lib.renameNote({ ...selected, newheader: next });
+            setEditorVer((v) => v + 1);
+            setError(null);
+        } catch (e) {
+            setError(String(e?.message ?? e));
+        }
+    };
     const renderItem = (n: LibraryNoteInfo) => {
         const ref = n.host ? { host: n.host } : { name: n.name };
         return (
@@ -429,6 +457,8 @@ const NotesTab = memo(({ model }: { model: LibraryViewModel }) => {
                 key={n.host ? `h:${n.host}` : `n:${n.name}`}
                 onClick={() => {
                     setConfirmDelete(false);
+                    setRenameTo(null);
+                    setError(null);
                     globalStore.set(model.selectedNoteAtom, ref);
                 }}
                 className={cn(
@@ -449,7 +479,10 @@ const NotesTab = memo(({ model }: { model: LibraryViewModel }) => {
                 <div className="flex items-center gap-2 border-b border-border p-2">
                     {newName == null ? (
                         <button
-                            onClick={() => setNewName("")}
+                            onClick={() => {
+                                setError(null);
+                                setNewName("");
+                            }}
                             className="flex-1 cursor-pointer rounded border border-border px-2 py-1 text-xs text-secondary transition-colors hover:bg-hoverbg hover:text-primary"
                         >
                             <i className="fa-solid fa-plus mr-1.5" />
@@ -459,10 +492,16 @@ const NotesTab = memo(({ model }: { model: LibraryViewModel }) => {
                         <input
                             autoFocus
                             value={newName}
-                            onChange={(e) => setNewName(e.target.value)}
+                            onChange={(e) => {
+                                setError(null);
+                                setNewName(e.target.value);
+                            }}
                             onKeyDown={(e) => {
                                 if (e.key === "Enter") createNote();
-                                if (e.key === "Escape") setNewName(null);
+                                if (e.key === "Escape") {
+                                    setError(null);
+                                    setNewName(null);
+                                }
                             }}
                             onBlur={() => !newName && setNewName(null)}
                             placeholder="Note name, then Enter"
@@ -493,7 +532,43 @@ const NotesTab = memo(({ model }: { model: LibraryViewModel }) => {
                     <>
                         <div className="flex items-center gap-2">
                             <i className={cn("fa-solid text-muted", selected.host ? "fa-server" : "fa-note-sticky")} />
-                            <span className="truncate text-sm font-semibold">{selected.host ?? selected.name}</span>
+                            {renameTo != null ? (
+                                <input
+                                    autoFocus
+                                    value={renameTo}
+                                    onChange={(e) => {
+                                        setError(null);
+                                        setRenameTo(e.target.value);
+                                    }}
+                                    onKeyDown={(e) => {
+                                        if (e.key === "Enter") commitTitle();
+                                        if (e.key === "Escape") {
+                                            setError(null);
+                                            setRenameTo(null);
+                                        }
+                                    }}
+                                    onBlur={commitTitle}
+                                    className={cn(inputCls, "min-w-0 flex-1")}
+                                />
+                            ) : (
+                                <>
+                                    <span className="truncate text-sm font-semibold">
+                                        {selected.host ?? selected.name}
+                                    </span>
+                                    {!selected.host && (
+                                        <button
+                                            title="Rename"
+                                            onClick={() => {
+                                                setError(null);
+                                                setRenameTo(selected.name);
+                                            }}
+                                            className="cursor-pointer rounded px-1 text-xs text-muted hover:bg-hoverbg hover:text-primary"
+                                        >
+                                            <i className="fa-solid fa-pen" />
+                                        </button>
+                                    )}
+                                </>
+                            )}
                             <span className="flex-1" />
                             {confirmDelete ? (
                                 <>
@@ -502,6 +577,7 @@ const NotesTab = memo(({ model }: { model: LibraryViewModel }) => {
                                             await model.lib.deleteNote(selected);
                                             globalStore.set(model.selectedNoteAtom, null);
                                             setConfirmDelete(false);
+                                            setError(null);
                                         }}
                                         className="cursor-pointer rounded bg-error/20 px-2 py-0.5 text-xs text-error hover:bg-error/30"
                                     >
@@ -523,7 +599,18 @@ const NotesTab = memo(({ model }: { model: LibraryViewModel }) => {
                                 </button>
                             )}
                         </div>
-                        <NoteEditor key={selected.host ?? `n:${selected.name}`} noteRef={selected} />
+                        <input
+                            key={`d:${selected.host ?? selected.name}:${selectedInfo?.header ?? ""}`}
+                            defaultValue={selectedInfo?.header ?? ""}
+                            placeholder="Description (the note's first line)"
+                            onChange={() => setError(null)}
+                            onKeyDown={(e) => {
+                                if (e.key === "Enter") e.currentTarget.blur();
+                            }}
+                            onBlur={(e) => commitDescription(e.target.value)}
+                            className={cn(inputCls, "w-full")}
+                        />
+                        <NoteEditor key={`${selected.host ?? `n:${selected.name}`}:${editorVer}`} noteRef={selected} />
                     </>
                 ) : (
                     <div className="py-10 text-center text-xs text-muted">

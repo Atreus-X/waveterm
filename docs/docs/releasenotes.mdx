@@ -6,6 +6,20 @@ sidebar_position: 200
 
 # Release Notes
 
+### v0.17.0 (Atreus fork) &mdash; Sep 30, 2026
+
+Usage meters, a tidier Host Inspector and Library, and progress you can see when moving files.
+
+- **Agent Usage Meter** - An AI agent usage meter in the tab bar, with an SFTP fallback for hosts without `wsh`
+- **Scrollbar Size** - New `app:scrollbarsize` setting, and terminals get visible scrollbars
+- **File Browser** - Downloads and uploads show a progress bar at the bottom left of the block, and the right-click menu has **Upload Files...**
+- **Host Inspector** - A collapsible icon-only sidebar with a resizable divider, and a narrow inspector now scrolls sideways
+- **Library** - Rename a note's title and description; list bullets and numbered lists no longer clip or lose their numbers; toggling a checkbox keeps your scroll position; PageUp/PageDown in the note editor no longer scrolls the whole block off screen; a stale error message clears when you switch notes
+- **Plain-SSH Hosts** - `cmd` blocks now run on hosts without `wsh`
+- **Pinned Blocks** - Splitting from a pinned right-edge block now lands to its left
+- Fixed the Library Insert button looping on focus
+- [build] `scripts/atreus-check.sh` gates local builds, and the dev-only preview mocks type-check cleanly
+
 ### v0.16.0 (Atreus fork) &mdash; Sep 29, 2026
 
 Bigger transfers, safer tab closing, and a friendlier file browser and Library.

@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/skratchdot/open-golang/open"
+	"github.com/wavetermdev/waveterm/pkg/agentusage"
 	"github.com/wavetermdev/waveterm/pkg/aiusechat"
 	"github.com/wavetermdev/waveterm/pkg/aiusechat/chatstore"
 	"github.com/wavetermdev/waveterm/pkg/aiusechat/uctypes"
@@ -37,6 +38,7 @@ import (
 	"github.com/wavetermdev/waveterm/pkg/panichandler"
 	"github.com/wavetermdev/waveterm/pkg/remote"
 	"github.com/wavetermdev/waveterm/pkg/remote/conncontroller"
+	"github.com/wavetermdev/waveterm/pkg/remote/fileshare/sftpfs"
 	"github.com/wavetermdev/waveterm/pkg/remote/fileshare/wshfs"
 	"github.com/wavetermdev/waveterm/pkg/secretstore"
 	"github.com/wavetermdev/waveterm/pkg/suggestion"
@@ -55,6 +57,7 @@ import (
 	"github.com/wavetermdev/waveterm/pkg/wcore"
 	"github.com/wavetermdev/waveterm/pkg/wps"
 	"github.com/wavetermdev/waveterm/pkg/wshrpc"
+	"github.com/wavetermdev/waveterm/pkg/wshrpc/wshclient"
 	"github.com/wavetermdev/waveterm/pkg/wshutil"
 	"github.com/wavetermdev/waveterm/pkg/wsl"
 	"github.com/wavetermdev/waveterm/pkg/wslconn"
@@ -62,7 +65,10 @@ import (
 	"github.com/wavetermdev/waveterm/tsunami/build"
 )
 
-var InvalidWslDistroNames = []string{"docker-desktop", "docker-desktop-data"}
+// kept well under the frontend's timeout so a dead wsh route still leaves time for the SFTP fallback
+const AgentUsageWshTimeoutMs = 8000
+
+var InvalidWslDistroNames =[]string{"docker-desktop", "docker-desktop-data"}
 
 type WshServer struct{}
 
@@ -615,6 +621,32 @@ func (ws *WshServer) HostActionCommand(ctx context.Context, data wshrpc.CommandH
 	return hostinfo.RunAction(ctx, data)
 }
 
+func (ws *WshServer) AgentUsageCommand(ctx context.Context, data wshrpc.CommandAgentUsageData) (*wshrpc.AgentUsageData, error) {
+	if data.Conn == "" || conncontroller.IsLocalConnName(data.Conn) {
+		return agentusage.Collect(ctx, data)
+	}
+	if err := conncontroller.EnsureConnection(ctx, data.Conn); err != nil {
+		return nil, fmt.Errorf("connecting to %q: %w", data.Conn, err)
+	}
+	var wshErr error
+	if sftpfs.ConnHasWsh(data.Conn) {
+		rtn, err := wshclient.RemoteAgentUsageCommand(wshfs.RpcClient, data, &wshrpc.RpcOpts{Timeout: AgentUsageWshTimeoutMs, Route: wshutil.MakeConnectionRouteId(data.Conn)})
+		if err == nil {
+			return rtn, nil
+		}
+		wshErr = err
+	}
+	// hosts without wsh (or where its route failed) are read over plain SFTP
+	src, err := sftpfs.AgentUsageSource(data.Conn)
+	if err != nil {
+		if wshErr != nil {
+			return nil, wshErr
+		}
+		return nil, err
+	}
+	return agentusage.CollectFrom(ctx, data, src, agentusage.CacheForHost(data.Conn))
+}
+
 func (ws *WshServer) LibraryReadCommand(ctx context.Context) (*wshrpc.LibraryData, error) {
 	return library.ReadLibrary()
 }
@@ -633,6 +665,10 @@ func (ws *WshServer) LibraryNoteReadCommand(ctx context.Context, data wshrpc.Com
 
 func (ws *WshServer) LibraryNoteWriteCommand(ctx context.Context, data wshrpc.CommandLibraryNoteWriteData) (*wshrpc.LibraryNoteData, error) {
 	return library.WriteNote(data)
+}
+
+func (ws *WshServer) LibraryNoteRenameCommand(ctx context.Context, data wshrpc.CommandLibraryNoteRenameData) error {
+	return library.RenameNote(data)
 }
 
 func (ws *WshServer) LibraryNoteDeleteCommand(ctx context.Context, data wshrpc.CommandLibraryNoteRefData) error {

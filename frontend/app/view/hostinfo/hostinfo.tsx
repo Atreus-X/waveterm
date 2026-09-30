@@ -2,10 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { ScrollArea } from "@/app/element/scrollarea";
+import { Tooltip } from "@/app/element/tooltip";
+import { globalStore } from "@/app/store/jotaiStore";
 import { cn } from "@/util/util";
 import { useAtomValue } from "jotai";
 import { memo } from "react";
-import type { HostInfoViewModel } from "./hostinfo-model";
+import { RailDefaultWidth, RailMaxWidth, RailMinWidth, type HostInfoViewModel } from "./hostinfo-model";
 import {
     DockerSection,
     NetworkSection,
@@ -16,6 +18,8 @@ import {
     UsageBar,
 } from "./hostinfo-sections";
 import { changeCount, fmtDuration, groupPorts, HostChanges, HostSectionId, HostSections, pct } from "./hostinfo-util";
+
+const RailCollapsedWidth = 44;
 
 type Badge = { text: string; tone: "muted" | "crit" | "warn" };
 
@@ -108,50 +112,102 @@ const VitalsStrip = memo(({ model, data }: { model: HostInfoViewModel; data: Hos
 });
 VitalsStrip.displayName = "VitalsStrip";
 
+const RailResizeHandle = memo(({ model }: { model: HostInfoViewModel }) => {
+    const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+        e.preventDefault();
+        const startX = e.clientX;
+        const startWidth = globalStore.get(model.railWidthAtom);
+        const onMove = (ev: PointerEvent) => {
+            const next = Math.min(RailMaxWidth, Math.max(RailMinWidth, startWidth + ev.clientX - startX));
+            model.setRailWidth(next);
+        };
+        const onUp = () => {
+            window.removeEventListener("pointermove", onMove);
+            window.removeEventListener("pointerup", onUp);
+        };
+        window.addEventListener("pointermove", onMove);
+        window.addEventListener("pointerup", onUp);
+    };
+    return (
+        <div
+            onPointerDown={onPointerDown}
+            onDoubleClick={() => model.setRailWidth(RailDefaultWidth)}
+            className="absolute -right-1 top-0 z-10 h-full w-2 cursor-col-resize transition-colors hover:bg-accent/40"
+        />
+    );
+});
+RailResizeHandle.displayName = "RailResizeHandle";
+
 const SectionRail = memo(({ model, data }: { model: HostInfoViewModel; data: HostInfoData }) => {
     const active = useAtomValue(model.sectionAtom);
     const changes = useAtomValue(model.changesAtom);
+    const collapsed = useAtomValue(model.railCollapsedAtom);
+    const width = useAtomValue(model.railWidthAtom);
+    const toggle = () => model.setRailCollapsed(!collapsed);
     return (
-        <nav className="flex w-48 shrink-0 flex-col gap-0.5 border-r border-border p-1.5">
+        <nav
+            className="relative flex shrink-0 flex-col gap-0.5 border-r border-border p-1.5"
+            style={{ width: collapsed ? RailCollapsedWidth : width }}
+        >
+            <Tooltip content={collapsed ? "Show sidebar" : "Hide sidebar labels"} placement="right">
+                <button
+                    onClick={toggle}
+                    className={cn(
+                        "flex w-full cursor-pointer items-center rounded px-2 py-1 text-xs text-muted transition-colors hover:bg-hoverbg hover:text-primary",
+                        collapsed ? "justify-center" : "justify-end"
+                    )}
+                >
+                    <i className={`fa-solid fa-angles-${collapsed ? "right" : "left"} fa-fw`} />
+                </button>
+            </Tooltip>
             {HostSections.map((s) => {
                 const badge = data ? sectionBadge(s.id, data) : null;
                 const changed = sectionChanged(s.id, changes);
+                const tip = [s.label, badge?.text, changed ? "changed since baseline" : null]
+                    .filter((t) => t != null)
+                    .join(" · ");
                 return (
-                    <button
-                        key={s.id}
-                        onClick={() => model.setSection(s.id)}
-                        className={cn(
-                            "flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-left text-xs transition-colors",
-                            active === s.id
-                                ? "bg-accent/20 text-primary"
-                                : "text-secondary hover:bg-hoverbg hover:text-primary"
-                        )}
-                    >
-                        <i className={`fa-solid fa-${s.icon} fa-fw text-muted`} />
-                        <span className="flex-1 truncate">{s.label}</span>
-                        {changed && (
-                            <span
-                                className="h-1.5 w-1.5 shrink-0 rounded-full bg-accent"
-                                title="Changed since baseline"
-                            />
-                        )}
-                        {badge && (
-                            <span
-                                className={cn(
-                                    "shrink-0 tabular-nums text-[11px]",
-                                    badge.tone === "crit"
-                                        ? "text-error"
-                                        : badge.tone === "warn"
-                                          ? "text-warning"
-                                          : "text-muted"
-                                )}
-                            >
-                                {badge.text}
-                            </span>
-                        )}
-                    </button>
+                    <Tooltip key={s.id} content={tip} placement="right" disable={!collapsed}>
+                        <button
+                            onClick={() => model.setSection(s.id)}
+                            className={cn(
+                                "relative flex w-full cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-left text-xs transition-colors",
+                                collapsed && "justify-center",
+                                active === s.id
+                                    ? "bg-accent/20 text-primary"
+                                    : "text-secondary hover:bg-hoverbg hover:text-primary"
+                            )}
+                        >
+                            <i className={`fa-solid fa-${s.icon} fa-fw text-muted`} />
+                            {!collapsed && <span className="flex-1 truncate">{s.label}</span>}
+                            {changed && (
+                                <span
+                                    className={cn(
+                                        "h-1.5 w-1.5 shrink-0 rounded-full bg-accent",
+                                        collapsed && "absolute right-1 top-1"
+                                    )}
+                                    title={collapsed ? undefined : "Changed since baseline"}
+                                />
+                            )}
+                            {badge && !collapsed && (
+                                <span
+                                    className={cn(
+                                        "shrink-0 tabular-nums text-[11px]",
+                                        badge.tone === "crit"
+                                            ? "text-error"
+                                            : badge.tone === "warn"
+                                              ? "text-warning"
+                                              : "text-muted"
+                                    )}
+                                >
+                                    {badge.text}
+                                </span>
+                            )}
+                        </button>
+                    </Tooltip>
                 );
             })}
+            {!collapsed && <RailResizeHandle model={model} />}
         </nav>
     );
 });
@@ -250,7 +306,7 @@ const SectionBody = memo(({ model, data }: { model: HostInfoViewModel; data: Hos
     const props = { model, data, changes };
     return (
         <ScrollArea className="min-w-0 flex-1" horizontal>
-            <div className="p-3">
+            <div className="min-w-[640px] p-3">
                 {sectionError && <div className="mb-2 text-xs text-error">{sectionError}</div>}
                 {active === "overview" && <OverviewSection {...props} />}
                 {active === "network" && <NetworkSection {...props} />}
@@ -305,7 +361,7 @@ export const HostInfoView = memo(({ model }: ViewComponentProps<HostInfoViewMode
         );
     }
     return (
-        <div className="flex h-full min-h-0 flex-col">
+        <div className="flex h-full w-full min-h-0 min-w-0 flex-col">
             <VitalsStrip model={model} data={data} />
             <ActionStrip model={model} />
             {(error || notConnected || paused) && (

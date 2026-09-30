@@ -313,7 +313,11 @@ export function insertNodeAtIndex(layoutState: LayoutTreeState, action: LayoutTr
             console.error("insertNodeAtIndex unable to find insert location");
             return;
         }
-        addChildAt(insertLoc.node, insertLoc.index + 1, action.node);
+        const adjustedLoc = adjustInsertForPinned(layoutState.rootNode, {
+            node: insertLoc.node,
+            index: insertLoc.index + 1,
+        });
+        addChildAt(adjustedLoc.node, adjustedLoc.index, action.node);
         if (action.magnified) {
             layoutState.magnifiedNodeId = action.node.id;
             layoutState.focusedNodeId = action.node.id;

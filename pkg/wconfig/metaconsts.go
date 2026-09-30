@@ -19,6 +19,7 @@ const (
 	ConfigKey_AppFocusFollowsCursor          = "app:focusfollowscursor"
 	ConfigKey_AppTabBar                      = "app:tabbar"
 	ConfigKey_AppTheme                       = "app:theme"
+	ConfigKey_AppScrollbarSize               = "app:scrollbarsize"
 
 	ConfigKey_FeatureWaveAppBuilder          = "feature:waveappbuilder"
 
@@ -98,6 +99,12 @@ const (
 	ConfigKey_TabBackground                  = "tab:background"
 
 	ConfigKey_LibraryTabOrder                = "library:taborder"
+
+	ConfigKey_AgentUsageAgent                = "agentusage:agent"
+	ConfigKey_AgentUsageConn                 = "agentusage:conn"
+	ConfigKey_AgentUsageSessionHours         = "agentusage:sessionhours"
+	ConfigKey_AgentUsageSessionLimit         = "agentusage:sessionlimit"
+	ConfigKey_AgentUsageWeeklyLimit          = "agentusage:weeklylimit"
 
 	ConfigKey_TabConfirmCloseRunning         = "tab:confirmcloserunning"
 

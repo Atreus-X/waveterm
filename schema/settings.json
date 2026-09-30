@@ -53,6 +53,9 @@
         "app:theme": {
           "type": "string"
         },
+        "app:scrollbarsize": {
+          "type": "integer"
+        },
         "feature:waveappbuilder": {
           "type": "boolean"
         },
@@ -279,6 +282,26 @@
             "snippets,notes",
             "notes,snippets"
           ]
+        },
+        "agentusage:agent": {
+          "type": "string",
+          "enum": [
+            "claude",
+            "codex",
+            "off"
+          ]
+        },
+        "agentusage:conn": {
+          "type": "string"
+        },
+        "agentusage:sessionhours": {
+          "type": "integer"
+        },
+        "agentusage:sessionlimit": {
+          "type": "integer"
+        },
+        "agentusage:weeklylimit": {
+          "type": "integer"
         },
         "tab:confirmcloserunning": {
           "type": "boolean"

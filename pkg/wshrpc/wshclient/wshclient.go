@@ -23,6 +23,12 @@ func ActivityCommand(w *wshutil.WshRpc, data wshrpc.ActivityUpdate, opts *wshrpc
 	return err
 }
 
+// command "agentusage", wshserver.AgentUsageCommand
+func AgentUsageCommand(w *wshutil.WshRpc, data wshrpc.CommandAgentUsageData, opts *wshrpc.RpcOpts) (*wshrpc.AgentUsageData, error) {
+	resp, err := sendRpcRequestCallHelper[*wshrpc.AgentUsageData](w, "agentusage", data, opts)
+	return resp, err
+}
+
 // command "aisendmessage", wshserver.AiSendMessageCommand
 func AiSendMessageCommand(w *wshutil.WshRpc, data wshrpc.AiMessageData, opts *wshrpc.RpcOpts) error {
 	_, err := sendRpcRequestCallHelper[any](w, "aisendmessage", data, opts)
@@ -634,6 +640,12 @@ func LibraryNoteReadCommand(w *wshutil.WshRpc, data wshrpc.CommandLibraryNoteRef
 	return resp, err
 }
 
+// command "librarynoterename", wshserver.LibraryNoteRenameCommand
+func LibraryNoteRenameCommand(w *wshutil.WshRpc, data wshrpc.CommandLibraryNoteRenameData, opts *wshrpc.RpcOpts) error {
+	_, err := sendRpcRequestCallHelper[any](w, "librarynoterename", data, opts)
+	return err
+}
+
 // command "librarynotewrite", wshserver.LibraryNoteWriteCommand
 func LibraryNoteWriteCommand(w *wshutil.WshRpc, data wshrpc.CommandLibraryNoteWriteData, opts *wshrpc.RpcOpts) (*wshrpc.LibraryNoteData, error) {
 	resp, err := sendRpcRequestCallHelper[*wshrpc.LibraryNoteData](w, "librarynotewrite", data, opts)
@@ -734,6 +746,12 @@ func ReadAppFileCommand(w *wshutil.WshRpc, data wshrpc.CommandReadAppFileData, o
 func RecordTEventCommand(w *wshutil.WshRpc, data telemetrydata.TEvent, opts *wshrpc.RpcOpts) error {
 	_, err := sendRpcRequestCallHelper[any](w, "recordtevent", data, opts)
 	return err
+}
+
+// command "remoteagentusage", wshserver.RemoteAgentUsageCommand
+func RemoteAgentUsageCommand(w *wshutil.WshRpc, data wshrpc.CommandAgentUsageData, opts *wshrpc.RpcOpts) (*wshrpc.AgentUsageData, error) {
+	resp, err := sendRpcRequestCallHelper[*wshrpc.AgentUsageData](w, "remoteagentusage", data, opts)
+	return resp, err
 }
 
 // command "remotedisconnectfromjobmanager", wshserver.RemoteDisconnectFromJobManagerCommand
