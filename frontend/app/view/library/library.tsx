@@ -479,7 +479,10 @@ const NotesTab = memo(({ model }: { model: LibraryViewModel }) => {
                 <div className="flex items-center gap-2 border-b border-border p-2">
                     {newName == null ? (
                         <button
-                            onClick={() => setNewName("")}
+                            onClick={() => {
+                                setError(null);
+                                setNewName("");
+                            }}
                             className="flex-1 cursor-pointer rounded border border-border px-2 py-1 text-xs text-secondary transition-colors hover:bg-hoverbg hover:text-primary"
                         >
                             <i className="fa-solid fa-plus mr-1.5" />
@@ -489,10 +492,16 @@ const NotesTab = memo(({ model }: { model: LibraryViewModel }) => {
                         <input
                             autoFocus
                             value={newName}
-                            onChange={(e) => setNewName(e.target.value)}
+                            onChange={(e) => {
+                                setError(null);
+                                setNewName(e.target.value);
+                            }}
                             onKeyDown={(e) => {
                                 if (e.key === "Enter") createNote();
-                                if (e.key === "Escape") setNewName(null);
+                                if (e.key === "Escape") {
+                                    setError(null);
+                                    setNewName(null);
+                                }
                             }}
                             onBlur={() => !newName && setNewName(null)}
                             placeholder="Note name, then Enter"
@@ -568,6 +577,7 @@ const NotesTab = memo(({ model }: { model: LibraryViewModel }) => {
                                             await model.lib.deleteNote(selected);
                                             globalStore.set(model.selectedNoteAtom, null);
                                             setConfirmDelete(false);
+                                            setError(null);
                                         }}
                                         className="cursor-pointer rounded bg-error/20 px-2 py-0.5 text-xs text-error hover:bg-error/30"
                                     >
