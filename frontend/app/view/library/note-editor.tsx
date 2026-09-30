@@ -29,6 +29,26 @@ function refKey(r: CommandLibraryNoteRefData): string {
     return r.host ? `host:${r.host}` : `name:${r.name}`;
 }
 
+// PageUp/PageDown in a textarea that can't scroll any further chains to the nearest scrollable ancestor, and
+// an overflow:hidden ancestor (the block itself) still scrolls programmatically, pushing the block's top edge
+// off screen with no way to scroll it back. Put any such ancestor back where it was.
+function pinAncestorScroll(ta: HTMLTextAreaElement) {
+    const saved: [HTMLElement, number][] = [];
+    for (let el = ta.parentElement; el != null; el = el.parentElement) {
+        saved.push([el, el.scrollTop]);
+    }
+    const restore = () => {
+        for (const [el, top] of saved) {
+            if (el.scrollTop !== top) el.scrollTop = top;
+        }
+    };
+    document.addEventListener("scroll", restore, true);
+    setTimeout(() => {
+        document.removeEventListener("scroll", restore, true);
+        restore();
+    }, 250);
+}
+
 // Applies an edit through the browser's insertText so Ctrl+Z still works: only the changed middle
 // part is replaced, then the selection is set. Falls back to setting the value directly.
 function applyEdit(ta: HTMLTextAreaElement, edit: TextEdit, setValue: (v: string) => void) {
@@ -174,6 +194,10 @@ export const NoteEditor = memo(({ noteRef, placeholder, compact }: NoteEditorPro
     const onKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
         const ta = e.currentTarget;
         const mod = e.ctrlKey || e.metaKey;
+        if (e.key === "PageUp" || e.key === "PageDown") {
+            pinAncestorScroll(ta);
+            return;
+        }
         if (mod && e.key.toLowerCase() === "s") {
             e.preventDefault();
             save(false);
