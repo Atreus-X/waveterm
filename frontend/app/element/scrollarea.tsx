@@ -19,10 +19,16 @@ export function ScrollArea({
 }) {
     return (
         <OverlayScrollbarsComponent
-            className={cn("min-h-0", className)}
+            className={cn(
+                "min-h-0",
+                // the default 15% handle is nearly invisible on a dark panel, and a bar that only shows on
+                // hover is easy to miss when the content is wider than the block
+                horizontal && "scrollarea-strong",
+                className
+            )}
             options={{
                 overflow: { x: horizontal ? "scroll" : "hidden", y: "scroll" },
-                scrollbars: { autoHide: "leave", autoHideDelay: 800, clickScroll: true },
+                scrollbars: { autoHide: horizontal ? "never" : "leave", autoHideDelay: 800, clickScroll: true },
             }}
             defer
         >
