@@ -659,16 +659,36 @@ function TableRow({
     );
 }
 
+type UploadProgress = { name: string; done: number; total: number };
+
 // shown at the bottom left of the block while remote files download to open in an external app
-const OpenProgressList = React.memo(({ connection, dirPath }: { connection: string; dirPath: string }) => {
+const OpenProgressList = React.memo(({ connection, upload }: { connection: string; upload: UploadProgress }) => {
     const progressMap = useAtomValue(OpenExternalProgressModel.getInstance().progressAtom);
-    const prefix = openProgressKey(connection, dirPath ?? "");
-    const items = Object.values(progressMap).filter((p) => openProgressKey(p.connection, p.path).startsWith(prefix));
-    if (items.length === 0) {
+    // matched by connection only: the opened file's path and this block's folder path aren't always written the
+    // same way (separators, "~"), which silently hid the bar
+    const items = Object.values(progressMap).filter((p) => (p.connection ?? "") === (connection ?? ""));
+    if (items.length === 0 && upload == null) {
         return null;
     }
     return (
         <div className="pointer-events-none absolute bottom-2 left-2 z-10 flex max-w-[90%] flex-col gap-1">
+            {upload != null && (
+                <div className="rounded bg-panel/90 px-2 py-1 text-[11px]">
+                    <div className="truncate text-accent" title={upload.name}>
+                        Uploading {upload.name}
+                        {upload.total > 1 ? ` (${upload.done + 1} of ${upload.total})` : ""}
+                    </div>
+                    <div className="mt-1 h-[2px] overflow-hidden rounded bg-white/10">
+                        <div
+                            className={clsx(
+                                "h-full bg-accent transition-[width] duration-150",
+                                upload.total <= 1 && "w-1/3 animate-pulse"
+                            )}
+                            style={upload.total > 1 ? { width: `${(upload.done / upload.total) * 100}%` } : undefined}
+                        />
+                    </div>
+                </div>
+            )}
             {items.map((p) => {
                 const frac = openProgressFraction(p);
                 const isError = p.phase === "error";
@@ -965,6 +985,8 @@ function DirectoryPreview({ model }: DirectoryPreviewProps) {
         [model.refreshCallback]
     );
 
+    const [uploadProgress, setUploadProgress] = useState<UploadProgress>(null);
+
     const uploadLocalFiles = useCallback(
         async (files: File[]) => {
             const localPaths = files.map((file) => env.electron.getPathForFile(file)).filter((p) => !!p);
@@ -975,18 +997,23 @@ function DirectoryPreview({ model }: DirectoryPreviewProps) {
             const conflicts: CommandFileCopyData[] = [];
             const failures: string[] = [];
             const copyAll = async (items: CommandFileCopyData[]) => {
-                for (const data of items) {
-                    try {
-                        await env.rpc.FileCopyCommand(TabRpcClient, data, { timeout: data.opts.timeout });
-                    } catch (e) {
-                        const copyError = `${e}`;
-                        const name = data.srcuri.split("/").at(-1);
-                        if (copyError.includes(overwriteError) || copyError.includes(mergeError)) {
-                            conflicts.push(data);
-                        } else {
-                            failures.push(`${name}: ${copyError}`);
+                try {
+                    for (const [i, data] of items.entries()) {
+                        setUploadProgress({ name: data.srcuri.split("/").at(-1), done: i, total: items.length });
+                        try {
+                            await env.rpc.FileCopyCommand(TabRpcClient, data, { timeout: data.opts.timeout });
+                        } catch (e) {
+                            const copyError = `${e}`;
+                            const name = data.srcuri.split("/").at(-1);
+                            if (copyError.includes(overwriteError) || copyError.includes(mergeError)) {
+                                conflicts.push(data);
+                            } else {
+                                failures.push(`${name}: ${copyError}`);
+                            }
                         }
                     }
+                } finally {
+                    setUploadProgress(null);
                 }
             };
             const timeoutYear = 31536000000;
@@ -1191,7 +1218,7 @@ function DirectoryPreview({ model }: DirectoryPreviewProps) {
                     newFile={newFile}
                     newDirectory={newDirectory}
                 />
-                <OpenProgressList connection={conn} dirPath={dirPath} />
+                <OpenProgressList connection={conn} upload={uploadProgress} />
                 <input
                     ref={uploadInputRef}
                     type="file"
