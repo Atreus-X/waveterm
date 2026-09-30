@@ -81,29 +81,51 @@ const UsageBar = memo(({ used, limit }: { used: number; limit: number }) => {
 });
 UsageBar.displayName = "UsageBar";
 
-const WindowRow = memo(({ label, win, limit }: { label: string; win: AgentUsageWindow; limit: number }) => {
-    const pct = limit > 0 ? Math.round((win.total / limit) * 100) : null;
-    const remaining = formatRemaining(win.resetat, Date.now());
-    return (
-        <div className="flex flex-col gap-1">
-            <div className="flex justify-between text-xs">
-                <span className="font-medium">
-                    {label}
-                    {remaining != null && <span className="font-normal text-muted"> ({remaining} until reset)</span>}
-                </span>
-                <span className="text-secondary">
-                    {formatTokens(win.total)}
-                    {limit > 0 ? ` / ${formatTokens(limit)} (${pct}%)` : ""}
-                </span>
+const WindowRow = memo(
+    ({
+        label,
+        win,
+        limit = 0,
+        showReset = true,
+    }: {
+        label: string;
+        win: AgentUsageWindow;
+        limit?: number;
+        showReset?: boolean;
+    }) => {
+        const pct = limit > 0 ? Math.round((win.total / limit) * 100) : null;
+        const remaining = showReset ? formatRemaining(win.resetat, Date.now()) : null;
+        return (
+            <div className="flex flex-col gap-1">
+                <div className="flex justify-between text-xs">
+                    <span className="font-medium">
+                        {label}
+                        {remaining != null && (
+                            <span className="font-normal text-muted"> ({remaining} until reset)</span>
+                        )}
+                    </span>
+                    <span className="text-secondary">
+                        {formatTokens(win.total)}
+                        {win.planpct != null
+                            ? ` · ${Math.round(win.planpct)}% of plan`
+                            : limit > 0
+                              ? ` / ${formatTokens(limit)} (${pct}%)`
+                              : ""}
+                    </span>
+                </div>
+                {win.planpct != null ? (
+                    <UsageBar used={win.planpct} limit={100} />
+                ) : (
+                    limit > 0 && <UsageBar used={win.total} limit={limit} />
+                )}
+                <div className="text-[11px] text-muted">
+                    in {formatTokens(win.input)} · out {formatTokens(win.output)} · cache write{" "}
+                    {formatTokens(win.cachewrite)} · cache read {formatTokens(win.cacheread)} · {win.messages} msgs
+                </div>
             </div>
-            {limit > 0 && <UsageBar used={win.total} limit={limit} />}
-            <div className="text-[11px] text-muted">
-                in {formatTokens(win.input)} · out {formatTokens(win.output)} · cache write{" "}
-                {formatTokens(win.cachewrite)} · cache read {formatTokens(win.cacheread)} · {win.messages} msgs
-            </div>
-        </div>
-    );
-});
+        );
+    }
+);
 WindowRow.displayName = "WindowRow";
 
 const LimitInput = memo(
@@ -148,7 +170,6 @@ LimitInput.displayName = "LimitInput";
 const AgentUsageWidgetComponent = () => {
     const agent = useAtomValue(getSettingsKeyAtom("agentusage:agent")) ?? "claude";
     const conn = useAtomValue(getSettingsKeyAtom("agentusage:conn")) ?? "";
-    const dailyLimit = useAtomValue(getSettingsKeyAtom("agentusage:dailylimit")) ?? 0;
     const weeklyLimit = useAtomValue(getSettingsKeyAtom("agentusage:weeklylimit")) ?? 0;
     const sessionLimit = useAtomValue(getSettingsKeyAtom("agentusage:sessionlimit")) ?? 0;
     const sessionHours = useAtomValue(getSettingsKeyAtom("agentusage:sessionhours")) ?? 5;
@@ -168,7 +189,7 @@ const AgentUsageWidgetComponent = () => {
     useEffect(() => {
         setUsage(null);
         setError(null);
-        if (agent === "") {
+        if (agent === "off") {
             return;
         }
         let cancelled = false;
@@ -177,7 +198,7 @@ const AgentUsageWidgetComponent = () => {
                 const data = await RpcApi.AgentUsageCommand(
                     TabRpcClient,
                     { agent, conn: conn === "" ? undefined : conn, sessionhours: sessionHours },
-                    { timeout: 30000 }
+                    { timeout: 90000 }
                 );
                 if (cancelled) {
                     return;
@@ -214,7 +235,7 @@ const AgentUsageWidgetComponent = () => {
     const connOptions = conn !== "" && !connList.includes(conn) ? [conn, ...connList] : connList;
 
     let meter: React.ReactNode;
-    if (agent === "") {
+    if (agent === "off") {
         meter = <i className="fa fa-gauge-high" />;
     } else if (error != null) {
         meter = <i className="fa fa-triangle-exclamation text-yellow-500" />;
@@ -230,10 +251,12 @@ const AgentUsageWidgetComponent = () => {
             <>
                 {segments.map((seg, i) => {
                     const remaining = formatRemaining(seg.win.resetat, now);
-                    const value =
-                        seg.limit > 0
-                            ? `${Math.round((seg.win.total / seg.limit) * 100)}%`
-                            : formatTokens(seg.win.total);
+                    let value = formatTokens(seg.win.total);
+                    if (seg.win.planpct != null) {
+                        value = `${Math.round(seg.win.planpct)}%`;
+                    } else if (seg.limit > 0) {
+                        value = `${Math.round((seg.win.total / seg.limit) * 100)}%`;
+                    }
                     return (
                         <span key={seg.label} className="whitespace-nowrap">
                             {i > 0 && <span className="text-muted"> · </span>}
@@ -255,7 +278,7 @@ const AgentUsageWidgetComponent = () => {
                 {...getReferenceProps()}
                 className="flex items-center gap-1.5 px-2 mb-1 h-[22px] text-xs rounded-sm cursor-pointer hover:bg-hover transition-colors"
                 style={{ WebkitAppRegion: "no-drag" } as any}
-                title={agent === "" ? "AI agent usage" : `${AgentLabels[agent] ?? agent} usage`}
+                title={agent === "off" ? "AI agent usage" : `${AgentLabels[agent] ?? agent} usage`}
             >
                 {meter}
             </div>
@@ -274,7 +297,7 @@ const AgentUsageWidgetComponent = () => {
                                     win={usage.session}
                                     limit={sessionLimit}
                                 />
-                                <WindowRow label="Today" win={usage.today} limit={dailyLimit} />
+                                <WindowRow label="Today" win={usage.today} showReset={false} />
                                 <WindowRow label="Last 7 days" win={usage.week} limit={weeklyLimit} />
                             </>
                         )}
@@ -285,8 +308,9 @@ const AgentUsageWidgetComponent = () => {
                         )}
                         {error != null && <div className="text-xs text-red-400 break-words">{error}</div>}
                         <div className="text-[11px] text-muted">
-                            Counts input + output + cache-write tokens read from the agent's local logs; the plan's real
-                            limits aren't in them, so set your own budgets below.
+                            Counts input + output + cache-write tokens read from the agent's local logs. For Claude
+                            Code, plan percentages and reset times come from ~/.claude/rate-limits.json when its
+                            statusline script saves them (see the docs); otherwise the budgets below are used.
                         </div>
                         <div className="flex flex-col gap-2 pt-2 border-t border-border">
                             <label className="flex items-center justify-between gap-2 text-xs">
@@ -296,7 +320,7 @@ const AgentUsageWidgetComponent = () => {
                                     value={agent}
                                     onChange={(e) => setSetting({ "agentusage:agent": e.target.value })}
                                 >
-                                    <option value="">Off</option>
+                                    <option value="off">Off</option>
                                     <option value="claude">Claude Code</option>
                                     <option value="codex">Codex</option>
                                 </select>
@@ -339,18 +363,13 @@ const AgentUsageWidgetComponent = () => {
                                 onCommit={(v) => setSetting({ "agentusage:sessionlimit": v })}
                             />
                             <LimitInput
-                                label="Daily limit (tokens)"
-                                value={dailyLimit}
-                                onCommit={(v) => setSetting({ "agentusage:dailylimit": v })}
-                            />
-                            <LimitInput
                                 label="Weekly limit (tokens)"
                                 value={weeklyLimit}
                                 onCommit={(v) => setSetting({ "agentusage:weeklylimit": v })}
                             />
                             {conn !== "" && (
                                 <div className="text-[11px] text-muted">
-                                    Remote hosts need wsh installed on the connection.
+                                    Remote hosts are read through wsh when it is installed, otherwise over SFTP.
                                 </div>
                             )}
                         </div>

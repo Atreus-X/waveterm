@@ -287,7 +287,8 @@
           "type": "string",
           "enum": [
             "claude",
-            "codex"
+            "codex",
+            "off"
           ]
         },
         "agentusage:conn": {
@@ -297,9 +298,6 @@
           "type": "integer"
         },
         "agentusage:sessionlimit": {
-          "type": "integer"
-        },
-        "agentusage:dailylimit": {
           "type": "integer"
         },
         "agentusage:weeklylimit": {

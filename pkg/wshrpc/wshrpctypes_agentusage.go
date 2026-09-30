@@ -28,13 +28,15 @@ type AgentUsageWindow struct {
 	FirstTs int64 `json:"firstts"`
 	// unix millis when the window next frees capacity: next local midnight for today, the oldest message aging out for the week; 0 when there is no usage to expire
 	ResetAt int64 `json:"resetat"`
+	// percent of the plan limit used, as reported by the agent itself; nil when unavailable, in which case resetat is only an estimate
+	PlanPct *float64 `json:"planpct,omitempty"`
 }
 
 type AgentUsageData struct {
-	Agent     string           `json:"agent"`
-	Available bool             `json:"available"`
+	Agent     string `json:"agent"`
+	Available bool   `json:"available"`
 	// the currently open plan session; empty (resetat 0) when no session is active
-	Session   AgentUsageWindow `json:"session"`
-	Today     AgentUsageWindow `json:"today"`
-	Week      AgentUsageWindow `json:"week"`
+	Session AgentUsageWindow `json:"session"`
+	Today   AgentUsageWindow `json:"today"`
+	Week    AgentUsageWindow `json:"week"`
 }
