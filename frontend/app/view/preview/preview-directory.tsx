@@ -601,8 +601,6 @@ function TableRow({
     const dirPath = useAtomValue(model.statFilePath);
     const connection = useAtomValue(model.connection);
     const doubleClickOpen = useAtomValue(env.getSettingsKeyAtom("preview:doubleclickopen")) ?? "external";
-    const openProgressMap = useAtomValue(OpenExternalProgressModel.getInstance().progressAtom);
-    const openProgress = openProgressMap[openProgressKey(connection, row.getValue("path") as string)];
 
     const dragItem: DraggedFile = {
         relName: row.getValue("name") as string,
@@ -657,40 +655,51 @@ function TableRow({
                     {flexRender(cell.column.columnDef.cell, cell.getContext())}
                 </div>
             ))}
-            {openProgress != null && <OpenProgressOverlay progress={openProgress} />}
         </div>
     );
 }
 
-// shown on a row while its remote file downloads to open in an external app
-const OpenProgressOverlay = React.memo(({ progress }: { progress: OpenFileExternalProgress }) => {
-    const frac = openProgressFraction(progress);
-    const isError = progress.phase === "error";
+// shown at the bottom left of the block while remote files download to open in an external app
+const OpenProgressList = React.memo(({ connection, dirPath }: { connection: string; dirPath: string }) => {
+    const progressMap = useAtomValue(OpenExternalProgressModel.getInstance().progressAtom);
+    const prefix = openProgressKey(connection, dirPath ?? "");
+    const items = Object.values(progressMap).filter((p) => openProgressKey(p.connection, p.path).startsWith(prefix));
+    if (items.length === 0) {
+        return null;
+    }
     return (
-        <>
-            <div className="pointer-events-none absolute right-0 bottom-0 left-0 h-[2px] overflow-hidden rounded bg-white/10">
-                <div
-                    className={clsx(
-                        "h-full transition-[width] duration-150",
-                        isError ? "bg-error" : "bg-accent",
-                        frac == null && !isError && "w-1/3 animate-pulse"
-                    )}
-                    style={frac != null || isError ? { width: `${isError ? 100 : frac * 100}%` } : undefined}
-                />
-            </div>
-            <span
-                className={clsx(
-                    "pointer-events-none absolute top-1/2 right-2 max-w-[60%] -translate-y-1/2 truncate rounded bg-panel/90 px-1.5 text-[11px]",
-                    isError ? "text-error" : "text-accent"
-                )}
-                title={openProgressLabel(progress)}
-            >
-                {openProgressLabel(progress)}
-            </span>
-        </>
+        <div className="pointer-events-none absolute bottom-2 left-2 z-10 flex max-w-[90%] flex-col gap-1">
+            {items.map((p) => {
+                const frac = openProgressFraction(p);
+                const isError = p.phase === "error";
+                const label = openProgressLabel(p);
+                return (
+                    <div
+                        key={openProgressKey(p.connection, p.path)}
+                        className="rounded bg-panel/90 px-2 py-1 text-[11px]"
+                    >
+                        <div className={clsx("truncate", isError ? "text-error" : "text-accent")} title={label}>
+                            {p.path.split("/").pop()}: {label}
+                        </div>
+                        <div className="mt-1 h-[2px] overflow-hidden rounded bg-white/10">
+                            <div
+                                className={clsx(
+                                    "h-full transition-[width] duration-150",
+                                    isError ? "bg-error" : "bg-accent",
+                                    frac == null && !isError && "w-1/3 animate-pulse"
+                                )}
+                                style={
+                                    frac != null || isError ? { width: `${isError ? 100 : frac * 100}%` } : undefined
+                                }
+                            />
+                        </div>
+                    </div>
+                );
+            })}
+        </div>
     );
 });
-OpenProgressOverlay.displayName = "OpenProgressOverlay";
+OpenProgressList.displayName = "OpenProgressList";
 
 const MemoizedTableBody = React.memo(
     TableBody,
@@ -1027,6 +1036,8 @@ function DirectoryPreview({ model }: DirectoryPreviewProps) {
         [dirPath, model.formatRemoteUri, model.refreshCallback]
     );
 
+    const uploadInputRef = useRef<HTMLInputElement>(null);
+
     const [{ isNativeFileOver }, drop] = useDrop(
         () => ({
             accept: ["FILE_ITEM", NativeTypes.FILE],
@@ -1134,6 +1145,10 @@ function DirectoryPreview({ model }: DirectoryPreviewProps) {
                     },
                 },
                 {
+                    label: "Upload Files...",
+                    click: () => uploadInputRef.current?.click(),
+                },
+                {
                     type: "separator",
                 },
             ];
@@ -1141,7 +1156,7 @@ function DirectoryPreview({ model }: DirectoryPreviewProps) {
 
             ContextMenuModel.getInstance().showContextMenu(menu, e);
         },
-        [setRefreshVersion, conn, newFile, newDirectory, dirPath]
+        [setRefreshVersion, conn, newFile, newDirectory, dirPath, uploadInputRef]
     );
 
     return (
@@ -1171,6 +1186,18 @@ function DirectoryPreview({ model }: DirectoryPreviewProps) {
                     entryManagerOverlayPropsAtom={entryManagerPropsAtom}
                     newFile={newFile}
                     newDirectory={newDirectory}
+                />
+                <OpenProgressList connection={conn} dirPath={dirPath} />
+                <input
+                    ref={uploadInputRef}
+                    type="file"
+                    multiple
+                    className="hidden"
+                    onChange={(e) => {
+                        const files = Array.from(e.target.files ?? []);
+                        e.target.value = "";
+                        fireAndForget(() => uploadLocalFiles(files));
+                    }}
                 />
                 {isNativeFileOver && (
                     <div className="absolute inset-1 z-10 flex items-center justify-center rounded-md border-2 border-dashed border-accent bg-accent/10 pointer-events-none">
