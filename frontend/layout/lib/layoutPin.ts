@@ -25,10 +25,38 @@ export function adjustInsertForPinned(root: LayoutNode, loc: InsertLocation): In
         return adjustInsertForPinned(root, { node: parent, index: parent.children.indexOf(loc.node) });
     }
     let index = Math.min(loc.index, loc.node.children.length);
-    while (index > 0 && loc.node.children.slice(index - 1).every(isPinned)) {
+    while (index > 0 && loc.node.children.slice(index - 1).every(containsPinned)) {
         index--;
     }
-    return { node: loc.node, index };
+    return hoistOutOfPinnedBranch(root, { node: loc.node, index });
+}
+
+// A pinned block often sits inside a column at the edge (e.g. an inspector above a file browser). The
+// column isn't pinned itself, so climb to the outermost container whose trailing children all hold
+// a pinned block and insert before that branch.
+function hoistOutOfPinnedBranch(root: LayoutNode, loc: InsertLocation): InsertLocation {
+    const path = findPath(root, loc.node.id);
+    if (!path) return loc;
+    for (let i = 0; i < path.length - 1; i++) {
+        const idx = path[i].children.indexOf(path[i + 1]);
+        if (path[i].children.slice(idx).every(containsPinned)) {
+            return { node: path[i], index: idx };
+        }
+    }
+    return loc;
+}
+
+function containsPinned(node: LayoutNode): boolean {
+    return isPinned(node) || !!node.children?.some(containsPinned);
+}
+
+function findPath(node: LayoutNode, id: string): LayoutNode[] {
+    if (node.id === id) return [node];
+    for (const child of node.children ?? []) {
+        const sub = findPath(child, id);
+        if (sub) return [node, ...sub];
+    }
+    return undefined;
 }
 
 function findParentNode(node: LayoutNode, id: string): LayoutNode {

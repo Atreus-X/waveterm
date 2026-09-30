@@ -116,4 +116,22 @@ describe("new blocks and pinned blocks", () => {
         const root = newLayoutNode(FlexDirection.Row, 100, [block("main"), pinned]);
         expect(adjustInsertForPinned(root, { node: pinned, index: 1 })).toEqual({ node: root, index: 1 });
     });
+
+    it("lands left of a right-edge column that holds a pinned block", () => {
+        const column = newLayoutNode(FlexDirection.Column, 100, [block("inspector", 400), block("files")]);
+        const state: LayoutTreeState = {
+            rootNode: newLayoutNode(FlexDirection.Row, 100, [block("main"), column]),
+        } as LayoutTreeState;
+        insert(state, "new");
+        expect(order(state.rootNode)).toEqual(["main", "new", "[inspector,files]"]);
+    });
+
+    it("a column without a pinned block is unaffected", () => {
+        const column = newLayoutNode(FlexDirection.Column, 100, [block("a"), block("b")]);
+        const state: LayoutTreeState = {
+            rootNode: newLayoutNode(FlexDirection.Row, 100, [block("main"), column]),
+        } as LayoutTreeState;
+        insert(state, "new");
+        expect(order(state.rootNode)).not.toEqual(["main", "new", "[a,b]"]);
+    });
 });
