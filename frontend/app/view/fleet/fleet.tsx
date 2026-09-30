@@ -286,7 +286,7 @@ export const FleetView = memo(({ model }: ViewComponentProps<FleetViewModel>) =>
     const [query, setQuery] = useState("");
     const shown = hosts.filter((h) => !query || h.toLowerCase().includes(query.toLowerCase()));
     return (
-        <div className="flex h-full min-h-0 flex-col">
+        <div className="flex h-full w-full min-h-0 min-w-0 flex-col">
             <div className="flex flex-wrap items-center gap-3 border-b border-border px-3 py-2">
                 <div className="relative">
                     <i className="fa-solid fa-magnifying-glass pointer-events-none absolute top-1/2 left-2 -translate-y-1/2 text-[11px] text-muted" />

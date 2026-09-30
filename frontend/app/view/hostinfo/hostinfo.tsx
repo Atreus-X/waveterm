@@ -305,7 +305,7 @@ export const HostInfoView = memo(({ model }: ViewComponentProps<HostInfoViewMode
         );
     }
     return (
-        <div className="flex h-full min-h-0 flex-col">
+        <div className="flex h-full w-full min-h-0 min-w-0 flex-col">
             <VitalsStrip model={model} data={data} />
             <ActionStrip model={model} />
             {(error || notConnected || paused) && (
