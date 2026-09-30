@@ -69,6 +69,11 @@ body {
     --os-handle-bg-active: var(--scrollbar-thumb-active-color);
 }
 
+/* unlayered, so it beats Tailwind utilities; a utility class can't override the rule above */
+.scrollarea-strong .os-scrollbar {
+    --os-handle-bg: var(--scrollbar-thumb-hover-color);
+}
+
 .scrollbar-hide-until-hover {
     *::-webkit-scrollbar-thumb,
     *::-webkit-scrollbar-track {

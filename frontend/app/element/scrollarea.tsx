@@ -23,7 +23,7 @@ export function ScrollArea({
                 "min-h-0",
                 // the default 15% handle is nearly invisible on a dark panel, and a bar that only shows on
                 // hover is easy to miss when the content is wider than the block
-                horizontal && "[&_.os-scrollbar]:[--os-handle-bg:var(--scrollbar-thumb-hover-color)]",
+                horizontal && "scrollarea-strong",
                 className
             )}
             options={{
