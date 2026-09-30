@@ -463,7 +463,9 @@ const Markdown = ({
         [createContentBlockPlugin, { blocks: contentBlocksMap }],
     ];
 
-    const ScrollableMarkdown = () => {
+    // these are called as functions, not used as <Components>: a component declared inside render gets a new
+    // identity every render, which remounts the scroll container and jumps to the top on every edit
+    const renderScrollableMarkdown = () => {
         return (
             <OverlayScrollbarsComponent
                 ref={contentsOsRef}
@@ -481,7 +483,7 @@ const Markdown = ({
         );
     };
 
-    const NonScrollableMarkdown = () => {
+    const renderNonScrollableMarkdown = () => {
         return (
             <div className={cn("content non-scrollable", contentClassName)}>
                 <ReactMarkdown
@@ -504,7 +506,7 @@ const Markdown = ({
     }
     return (
         <div className={clsx("markdown", className)} style={mergedStyle}>
-            {scrollable ? <ScrollableMarkdown /> : <NonScrollableMarkdown />}
+            {scrollable ? renderScrollableMarkdown() : renderNonScrollableMarkdown()}
             {toc && (
                 <OverlayScrollbarsComponent className="toc mt-1" options={{ scrollbars: { autoHide: "leave" } }}>
                     <div className="toc-inner">
