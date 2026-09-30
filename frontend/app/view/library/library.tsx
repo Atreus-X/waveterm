@@ -458,6 +458,7 @@ const NotesTab = memo(({ model }: { model: LibraryViewModel }) => {
                 onClick={() => {
                     setConfirmDelete(false);
                     setRenameTo(null);
+                    setError(null);
                     globalStore.set(model.selectedNoteAtom, ref);
                 }}
                 className={cn(
@@ -526,10 +527,16 @@ const NotesTab = memo(({ model }: { model: LibraryViewModel }) => {
                                 <input
                                     autoFocus
                                     value={renameTo}
-                                    onChange={(e) => setRenameTo(e.target.value)}
+                                    onChange={(e) => {
+                                        setError(null);
+                                        setRenameTo(e.target.value);
+                                    }}
                                     onKeyDown={(e) => {
                                         if (e.key === "Enter") commitTitle();
-                                        if (e.key === "Escape") setRenameTo(null);
+                                        if (e.key === "Escape") {
+                                            setError(null);
+                                            setRenameTo(null);
+                                        }
                                     }}
                                     onBlur={commitTitle}
                                     className={cn(inputCls, "min-w-0 flex-1")}
@@ -542,7 +549,10 @@ const NotesTab = memo(({ model }: { model: LibraryViewModel }) => {
                                     {!selected.host && (
                                         <button
                                             title="Rename"
-                                            onClick={() => setRenameTo(selected.name)}
+                                            onClick={() => {
+                                                setError(null);
+                                                setRenameTo(selected.name);
+                                            }}
                                             className="cursor-pointer rounded px-1 text-xs text-muted hover:bg-hoverbg hover:text-primary"
                                         >
                                             <i className="fa-solid fa-pen" />
@@ -583,6 +593,7 @@ const NotesTab = memo(({ model }: { model: LibraryViewModel }) => {
                             key={`d:${selected.host ?? selected.name}:${selectedInfo?.header ?? ""}`}
                             defaultValue={selectedInfo?.header ?? ""}
                             placeholder="Description (the note's first line)"
+                            onChange={() => setError(null)}
                             onKeyDown={(e) => {
                                 if (e.key === "Enter") e.currentTarget.blur();
                             }}
