@@ -581,6 +581,12 @@ func (bc *ShellController) startSshShellProcNoWsh(ctx context.Context, rc *RunSh
 			// tags the shell and everything it starts, so the busy check can find them (busy.go)
 			cmdOpts.SessionEnv = map[string]string{PlainShellMarkerVar: bc.BlockId}
 		}
+	} else if bc.ControllerType == BlockController_Cmd {
+		// without wsh nothing else runs the command: session.Shell() would just open an idle prompt
+		sessionCmd = cmdStr
+		if cmdOpts.Cwd != "" {
+			sessionCmd = "cd " + utilfn.ShellQuote(cmdOpts.Cwd, false, -1) + " && " + cmdStr
+		}
 	}
 	shellProc, err := shellexec.StartRemoteShellProcNoWsh(ctx, rc.TermSize, cmdStr, cmdOpts, conn, sessionCmd)
 	if err != nil {
