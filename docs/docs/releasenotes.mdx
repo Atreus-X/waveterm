@@ -6,6 +6,16 @@ sidebar_position: 200
 
 # Release Notes
 
+### v0.17.1 (Atreus fork) &mdash; Oct 1, 2026
+
+Double-click opens text files in a preview, a Host Inspector that fits its block, and update-channel and build fixes.
+
+- **Double-click Previews Text Files** - Double-clicking a text file in the file browser now opens a preview in a new block (works on local, `wsh` and plain-SSH hosts); other files still open in the OS default application and folders still open in the file browser. New default `"auto"` for `preview:doubleclickopen`; `"external"` and `"preview"` behave as before
+- **Host Inspector** - The tables now shrink to the block's width instead of scrolling sideways, until the block gets very narrow
+- **Updates** - A beta install can switch to the `latest` channel and check for updates without restarting, and keeps the channel you chose
+- [deps] Electron 41.10.6 and security bumps to `brace-expansion`, `ip-address` and `fast-uri`; Dependabot now also watches the tsunami Go module
+- [build] Release binaries no longer embed the builder's home directory, and release builds always rebuild the Go binaries so a stale cache can't ship an installer without `wsh`
+
 ### v0.17.0 (Atreus fork) &mdash; Sep 30, 2026
 
 Usage meters, a tidier Host Inspector and Library, and progress you can see when moving files.
