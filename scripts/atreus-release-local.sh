@@ -68,6 +68,8 @@ if [ -s "${NVM_DIR:-$HOME/.nvm}/nvm.sh" ]; then
 fi
 export PATH="$HOME/.local/bin:$HOME/.local/go/bin:$PATH"
 export NODE_OPTIONS=--max-old-space-size=4096
+# without this every Go binary embeds the builder's home directory in its file paths
+export GOFLAGS="${GOFLAGS:+$GOFLAGS }-trimpath"
 
 need() { command -v "$1" >/dev/null || { echo "missing required tool: $1" >&2; exit 1; }; }
 for t in node npm go zig task zip mksquashfs wine gh; do need "$t"; done
@@ -121,6 +123,10 @@ if [ "$PUBLISH" = 1 ] && gh release view "$TAG" --repo "$GH_REPO" >/dev/null 2>&
 fi
 echo "== building $TAG from $SHA ($(node -v), $(go version | cut -d' ' -f3), zig $(zig version))"
 start=$(date +%s)
+
+# task fingerprints sources, not GOFLAGS or the dist/ it deletes, so a second run in a row skips build:wsh
+# and build:server and the installer ships without the wsh binaries
+rm -rf .task
 
 echo "== npm ci"
 rm -rf node_modules
