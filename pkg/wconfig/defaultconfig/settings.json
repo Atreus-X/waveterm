@@ -49,5 +49,5 @@
     "waveai:defaultmode": "waveai@balanced",
     "preview:defaultsort": "name",
     "preview:dirsfirst": true,
-    "preview:doubleclickopen": "external"
+    "preview:doubleclickopen": "auto"
 }
