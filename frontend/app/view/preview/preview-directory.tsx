@@ -9,7 +9,8 @@ import { TabRpcClient } from "@/app/store/wshrpcutil";
 import { useWaveEnv } from "@/app/waveenv/waveenv";
 import { checkKeyPressed, isCharacterKeyEvent } from "@/util/keyutil";
 import { PLATFORM, PlatformMacOS } from "@/util/platformutil";
-import { addOpenMenuItems, openFileExternally } from "@/util/previewutil";
+import { addOpenMenuItems, openFileExternally, openPreviewInNewBlock } from "@/util/previewutil";
+import { isTextCapableFile } from "@/util/textfiles";
 import { fireAndForget } from "@/util/util";
 import { formatRemoteUri } from "@/util/waveutil";
 import { offset, useDismiss, useFloating, useInteractions } from "@floating-ui/react";
@@ -600,7 +601,7 @@ function TableRow({
     const env = useWaveEnv<PreviewEnv>();
     const dirPath = useAtomValue(model.statFilePath);
     const connection = useAtomValue(model.connection);
-    const doubleClickOpen = useAtomValue(env.getSettingsKeyAtom("preview:doubleclickopen")) ?? "external";
+    const doubleClickOpen = useAtomValue(env.getSettingsKeyAtom("preview:doubleclickopen")) ?? "auto";
 
     const dragItem: DraggedFile = {
         relName: row.getValue("name") as string,
@@ -630,6 +631,14 @@ function TableRow({
             data-rowindex={idx}
             onDoubleClick={() => {
                 const newFileName = row.getValue("path") as string;
+                if (!row.original.isdir && doubleClickOpen === "auto") {
+                    if (isTextCapableFile(row.original.name, row.original.mimetype)) {
+                        openPreviewInNewBlock(newFileName, connection);
+                        return;
+                    }
+                    openFileExternally(newFileName, connection, "default");
+                    return;
+                }
                 if (!row.original.isdir && doubleClickOpen === "external") {
                     openFileExternally(newFileName, connection, "default");
                     return;
