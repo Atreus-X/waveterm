@@ -124,6 +124,10 @@ fi
 echo "== building $TAG from $SHA ($(node -v), $(go version | cut -d' ' -f3), zig $(zig version))"
 start=$(date +%s)
 
+# task fingerprints sources, not GOFLAGS or the dist/ it deletes, so a second run in a row skips build:wsh
+# and build:server and the installer ships without the wsh binaries
+rm -rf .task
+
 echo "== npm ci"
 rm -rf node_modules
 npm ci --no-audit --no-fund
