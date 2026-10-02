@@ -229,7 +229,10 @@ export const OverviewSection = memo(({ model, data }: SectionProps) => {
                     Browse files
                 </button>
             </div>
-            <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(230px, 1fr))" }}>
+            <div
+                className="grid gap-3"
+                style={{ gridTemplateColumns: "repeat(auto-fill, minmax(min(230px, 100%), 1fr))" }}
+            >
                 <Card title="Processor">
                     <div className="mb-1 flex items-baseline gap-2">
                         <span className="text-2xl font-semibold tabular-nums">{sys.cpupct.toFixed(0)}%</span>
@@ -294,7 +297,9 @@ export const OverviewSection = memo(({ model, data }: SectionProps) => {
                             <div
                                 key={d.mount}
                                 className="grid items-center gap-3 text-xs"
-                                style={{ gridTemplateColumns: "minmax(120px,1.2fr) 2fr 150px 28px" }}
+                                style={{
+                                    gridTemplateColumns: "minmax(80px,1.2fr) minmax(60px,2fr) minmax(70px,150px) 28px",
+                                }}
                             >
                                 <div className="min-w-0">
                                     <div className="truncate" title={d.mount}>
@@ -344,7 +349,8 @@ OverviewSection.displayName = "OverviewSection";
 
 // ---- network ----
 
-const NetCols = "minmax(90px,0.8fr) minmax(160px,2fr) 90px 90px 90px 90px";
+const NetCols =
+    "minmax(60px,0.8fr) minmax(100px,2fr) minmax(40px,90px) minmax(40px,90px) minmax(40px,90px) minmax(40px,90px)";
 
 export const NetworkSection = memo(({ data }: SectionProps) => {
     const [showAll, setShowAll] = useState(false);
@@ -392,7 +398,7 @@ NetworkSection.displayName = "NetworkSection";
 
 // ---- ports ----
 
-const PortCols = "70px 60px minmax(140px,1.5fr) minmax(120px,1.5fr) 70px";
+const PortCols = "minmax(40px,70px) minmax(36px,60px) minmax(80px,1.5fr) minmax(70px,1.5fr) minmax(40px,70px)";
 
 export const PortsSection = memo(({ model, data, changes }: SectionProps) => {
     const [query, setQuery] = useState("");
@@ -474,7 +480,8 @@ PortsSection.displayName = "PortsSection";
 
 // ---- processes ----
 
-const ProcCols = "64px minmax(110px,1fr) 90px 64px 64px 80px 80px 84px";
+const ProcCols =
+    "minmax(40px,64px) minmax(70px,1fr) minmax(48px,90px) minmax(36px,64px) minmax(36px,64px) minmax(44px,80px) minmax(44px,80px) minmax(52px,84px)";
 type ProcSort = "cpu" | "mem";
 
 export const ProcessesSection = memo(({ model, data }: SectionProps) => {
@@ -557,7 +564,7 @@ ProcessesSection.displayName = "ProcessesSection";
 
 // ---- services ----
 
-const SvcCols = "minmax(140px,1.2fr) 150px 80px minmax(160px,2fr) 124px";
+const SvcCols = "minmax(80px,1.2fr) minmax(70px,150px) minmax(48px,80px) minmax(90px,2fr) minmax(70px,124px)";
 type SvcFilter = "all" | "running" | "failed" | "inactive";
 
 function serviceTone(s: HostServiceInfo): Tone {
@@ -721,8 +728,8 @@ export const DockerSection = memo(({ model, data, changes }: SectionProps) => {
         );
     }
     const cols = liveStats
-        ? "minmax(120px,1.2fr) minmax(120px,1.2fr) 150px 70px 130px 140px"
-        : "minmax(120px,1.2fr) minmax(120px,1.4fr) 150px minmax(100px,1fr) 140px";
+        ? "minmax(70px,1.2fr) minmax(70px,1.2fr) minmax(70px,150px) minmax(40px,70px) minmax(60px,130px) minmax(60px,140px)"
+        : "minmax(70px,1.2fr) minmax(70px,1.4fr) minmax(70px,150px) minmax(60px,1fr) minmax(60px,140px)";
     const header = liveStats
         ? ["Container", "Image", "State", "CPU", "Memory", ""]
         : ["Container", "Image", "State", "Ports", ""];

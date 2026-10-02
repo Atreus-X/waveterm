@@ -15,6 +15,17 @@ export function openFileExternally(path: string, conn: string, mode: OpenExterna
     );
 }
 
+export function openPreviewInNewBlock(path: string, conn: string) {
+    const blockDef: BlockDef = {
+        meta: {
+            view: "preview",
+            file: path,
+            connection: conn,
+        },
+    };
+    fireAndForget(() => createBlock(blockDef));
+}
+
 function addExternalOpenItems(menu: ContextMenuItem[], conn: string, finfo: FileInfo) {
     const remoteSuffix = conn ? " (edit locally)" : "";
     menu.push({
@@ -73,17 +84,7 @@ export function addOpenMenuItems(menu: ContextMenuItem[], conn: string, finfo: F
     if (!finfo.isdir) {
         menu.push({
             label: "Open Preview in New Block",
-            click: () =>
-                fireAndForget(async () => {
-                    const blockDef: BlockDef = {
-                        meta: {
-                            view: "preview",
-                            file: finfo.path,
-                            connection: conn,
-                        },
-                    };
-                    await createBlock(blockDef);
-                }),
+            click: () => openPreviewInNewBlock(finfo.path, conn),
         });
     }
     menu.push({
