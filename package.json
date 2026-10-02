@@ -98,7 +98,7 @@
         "immer": "^10.2.0",
         "jotai": "2.9.3",
         "mermaid": "^11.17.2",
-        "monaco-editor": "^0.57.0",
+        "monaco-editor": "^0.55.1",
         "monaco-yaml": "^5.5.1",
         "overlayscrollbars": "^2.16.0",
         "overlayscrollbars-react": "^0.5.6",
