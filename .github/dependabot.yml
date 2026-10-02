@@ -2,6 +2,11 @@ version: 2
 updates:
     - package-ecosystem: "npm"
       directory: "/"
+      open-pull-requests-limit: 2
+      ignore:
+          - dependency-name: "*"
+            update-types:
+                - "version-update:semver-major"
       schedule:
           interval: "weekly"
           day: "friday"
@@ -145,6 +150,7 @@ updates:
                   - "major"
     - package-ecosystem: "gomod"
       directory: "/"
+      open-pull-requests-limit: 2
       schedule:
           interval: "weekly"
           day: "friday"
@@ -152,6 +158,7 @@ updates:
           timezone: "America/Los_Angeles"
     - package-ecosystem: "gomod"
       directory: "/tsunami"
+      open-pull-requests-limit: 2
       schedule:
           interval: "weekly"
           day: "friday"
@@ -159,6 +166,7 @@ updates:
           timezone: "America/Los_Angeles"
     - package-ecosystem: "github-actions"
       directory: "/.github/workflows"
+      open-pull-requests-limit: 2
       schedule:
           interval: "weekly"
           day: "friday"
