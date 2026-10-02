@@ -356,11 +356,35 @@ const SettingSections: SettingSection[] = [
                 ],
             },
             {
+                key: "autoupdate:channel",
+                tooltip:
+                    "Which release stream to follow. The Atreus fork only publishes Stable, so Beta finds nothing there; Beta is for Official Wave. Applies on the next check.",
+                label: "Update channel",
+                description: "Atreus fork releases are all Stable.",
+                kind: "select",
+                defaultValue: "latest",
+                options: [
+                    { value: "latest", label: "Stable" },
+                    { value: "beta", label: "Beta" },
+                ],
+            },
+            {
                 key: "autoupdate:enabled",
                 tooltip: "Checks for a new version when Wave starts and then every hour.",
                 label: "Check for updates",
                 kind: "toggle",
                 defaultValue: true,
+            },
+            {
+                key: "autoupdate:intervalms",
+                tooltip:
+                    "How often Wave checks for a new version while it's running, in milliseconds. Read when Wave starts, so a change needs a restart.",
+                label: "Check interval (ms)",
+                description: "Applies after a restart. 3600000 is one hour.",
+                kind: "number",
+                min: 60000,
+                step: 60000,
+                placeholder: "3600000",
             },
             {
                 key: "autoupdate:installonquit",
@@ -486,8 +510,12 @@ const SettingRow = memo(
                 break;
             }
             case "select": {
-                const options = typeof field.options === "function" ? field.options(fullConfig) : field.options;
+                const baseOptions = typeof field.options === "function" ? field.options(fullConfig) : field.options;
                 const value = rawValue == null ? UnsetValue : String(rawValue);
+                // a value set by hand in settings.json may not be one we list; show it rather than silently displaying the first option
+                const options = baseOptions.some((opt) => opt.value === value)
+                    ? baseOptions
+                    : [...baseOptions, { value, label: `${value} (unrecognized)` }];
                 control = (
                     <select
                         value={value}
