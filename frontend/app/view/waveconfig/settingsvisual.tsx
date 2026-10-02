@@ -20,6 +20,8 @@ type SettingField = {
     description?: string;
     tooltip: string;
     defaultValue?: any;
+    // unset means the change applies immediately
+    applies?: "restart" | "terminal";
 } & (
     | { kind: "toggle"; invert?: boolean }
     | { kind: "select"; options: SelectOption[] | ((fullConfig: FullConfigType) => SelectOption[]) }
@@ -28,6 +30,11 @@ type SettingField = {
 );
 
 type SettingSection = { title: string; fields: SettingField[] };
+
+const AppliesText: Record<NonNullable<SettingField["applies"]>, { badge: string; detail: string }> = {
+    restart: { badge: "Restart required", detail: "Takes effect after you restart Wave." },
+    terminal: { badge: "Reopen terminals", detail: "Only terminals opened after the change use it." },
+};
 
 // select value used for "key not set" (the empty string can't round-trip through the settings file)
 const UnsetValue = "";
@@ -93,6 +100,7 @@ const SettingSections: SettingSection[] = [
                 tooltip:
                     "Makes the window background see-through, as solid as Window opacity says. It may only apply to windows opened after the change.",
                 label: "Transparent window",
+                applies: "restart",
                 kind: "toggle",
             },
             {
@@ -113,6 +121,7 @@ const SettingSections: SettingSection[] = [
                     "Shows the File / Edit / View menu bar in each window. Windows and Linux only; macOS always shows its menu bar.",
                 label: "Show menu bar",
                 description: "Windows and Linux only.",
+                applies: "restart",
                 kind: "toggle",
             },
         ],
@@ -169,6 +178,7 @@ const SettingSections: SettingSection[] = [
                 tooltip:
                     "How many lines of output each terminal keeps for scrolling back, up to 50,000. More lines use more memory.",
                 label: "Scrollback lines",
+                applies: "terminal",
                 kind: "number",
                 min: 0,
                 max: 50000,
@@ -194,6 +204,7 @@ const SettingSections: SettingSection[] = [
                 tooltip:
                     "Draws terminals without graphics-card acceleration. Turn this on only if terminals flicker, show glitches or stay blank.",
                 label: "Disable WebGL rendering",
+                applies: "terminal",
                 kind: "toggle",
             },
         ],
@@ -302,6 +313,7 @@ const SettingSections: SettingSection[] = [
                 tooltip:
                     "When Wave starts, connects the SSH connections used in your tabs and starts their terminals, re-attaching tmux sessions. Retries if the network isn't up yet.",
                 label: "Reconnect automatically",
+                applies: "restart",
                 kind: "toggle",
                 defaultValue: true,
             },
@@ -356,11 +368,35 @@ const SettingSections: SettingSection[] = [
                 ],
             },
             {
+                key: "autoupdate:channel",
+                tooltip:
+                    "Which release stream to follow. Only Official Wave has more than one; the Atreus fork only publishes Stable, so it ignores this. Applies on the next check.",
+                label: "Update channel",
+                description: "Only used with Official Wave.",
+                kind: "select",
+                defaultValue: "latest",
+                options: [
+                    { value: "latest", label: "Stable" },
+                    { value: "beta", label: "Beta" },
+                ],
+            },
+            {
                 key: "autoupdate:enabled",
                 tooltip: "Checks for a new version when Wave starts and then every hour.",
                 label: "Check for updates",
                 kind: "toggle",
                 defaultValue: true,
+            },
+            {
+                key: "autoupdate:intervalms",
+                tooltip:
+                    "How often Wave checks for a new version while it's running, in milliseconds. Wave looks at the clock every 10 minutes, so shorter values still check at most that often.",
+                label: "Check interval (ms)",
+                description: "3600000 is one hour.",
+                kind: "number",
+                min: 60000,
+                step: 60000,
+                placeholder: "3600000",
             },
             {
                 key: "autoupdate:installonquit",
@@ -395,6 +431,7 @@ function defaultText(field: SettingField, fullConfig: FullConfigType): string {
 const SettingTooltip = memo(({ field, fullConfig }: { field: SettingField; fullConfig: FullConfigType }) => (
     <div className="flex max-w-xs flex-col gap-1 py-0.5">
         <div>{field.tooltip}</div>
+        {field.applies && <div>{AppliesText[field.applies].detail}</div>}
         <div className="text-muted">Default: {defaultText(field, fullConfig)}</div>
         <div className="font-mono text-muted">settings.json: {field.key}</div>
     </div>
@@ -486,8 +523,12 @@ const SettingRow = memo(
                 break;
             }
             case "select": {
-                const options = typeof field.options === "function" ? field.options(fullConfig) : field.options;
+                const baseOptions = typeof field.options === "function" ? field.options(fullConfig) : field.options;
                 const value = rawValue == null ? UnsetValue : String(rawValue);
+                // a value set by hand in settings.json may not be one we list; show it rather than silently displaying the first option
+                const options = baseOptions.some((opt) => opt.value === value)
+                    ? baseOptions
+                    : [...baseOptions, { value, label: `${value} (unrecognized)` }];
                 control = (
                     <select
                         value={value}
@@ -542,6 +583,11 @@ const SettingRow = memo(
                         >
                             <i className="fa-solid fa-circle-info text-xs" aria-label={`About ${field.label}`} />
                         </Tooltip>
+                        {field.applies && (
+                            <span className="rounded border border-border px-1.5 text-xs text-muted">
+                                {AppliesText[field.applies].badge}
+                            </span>
+                        )}
                     </div>
                     {field.description && <div className="text-xs text-muted">{field.description}</div>}
                 </div>

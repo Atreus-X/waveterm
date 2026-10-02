@@ -34,6 +34,16 @@ function getUpdateFeedUrl(settings: SettingsType): string {
     return url;
 }
 
+// The Atreus feed only publishes latest.yml, so any other channel (a stale or hand-edited value, or Beta picked in the
+// settings GUI) would 404 on every check. Only the official feed has other channels.
+function resolveUpdateChannel(settings: SettingsType, channel: string): string {
+    const source = settings["autoupdate:source"] ?? DefaultUpdateSource;
+    if (source == DefaultUpdateSource || UpdateFeeds[source] == null) {
+        return "latest";
+    }
+    return channel;
+}
+
 function getUpdateChannel(settings: SettingsType): string {
     const updaterConfigPath = path.join(process.resourcesPath!, "app-update.yml");
     const updaterConfig = YAML.parse(readFileSync(updaterConfigPath, { encoding: "utf8" }).toString());
@@ -50,19 +60,9 @@ function getUpdateChannel(settings: SettingsType): string {
         RpcApi.SetConfigCommand(ElectronWshClient, { "autoupdate:channel": updaterChannel });
         retVal = updaterChannel;
     }
+    retVal = resolveUpdateChannel(settings, retVal);
     console.log("Update channel:", retVal);
     return retVal;
-}
-
-// The channel is otherwise read only when the Updater is constructed, so a settings change would need a restart.
-async function refreshUpdateChannel() {
-    const settings = (await RpcApi.GetFullConfigCommand(ElectronWshClient)).settings;
-    const channel = settings["autoupdate:channel"];
-    if (!channel || channel == autoUpdater.channel) {
-        return;
-    }
-    console.log("Update channel changed:", autoUpdater.channel, "->", channel);
-    autoUpdater.channel = channel;
 }
 
 export class Updater {
@@ -155,12 +155,30 @@ export class Updater {
      * Check for updates and start the background update check, if configured.
      */
     async start() {
-        if (this.autoCheckEnabled) {
-            console.log("starting updater");
-            this.autoCheckInterval = setInterval(() => {
-                fireAndForget(() => this.checkForUpdates(false));
-            }, 600000); // intervals are unreliable when an app is suspended so we will check every 10 mins if the interval has passed.
-            await this.checkForUpdates(false);
+        console.log("starting updater");
+        // The timer runs even when auto-check is off so that turning it on in the settings takes effect without a restart;
+        // checkForUpdates skips the work while it is off.
+        this.autoCheckInterval = setInterval(() => {
+            fireAndForget(() => this.checkForUpdates(false));
+        }, 600000); // intervals are unreliable when an app is suspended so we will check every 10 mins if the interval has passed.
+        await this.checkForUpdates(false);
+    }
+
+    // The settings GUI writes settings.json while the app runs, so re-read what a check depends on instead of
+    // trusting the values captured at construction. A failed read keeps the current values.
+    async refreshSettings() {
+        try {
+            const settings = (await RpcApi.GetFullConfigCommand(ElectronWshClient)).settings;
+            this.autoCheckEnabled = settings["autoupdate:enabled"] ?? this.autoCheckEnabled;
+            this.intervalms = settings["autoupdate:intervalms"] ?? this.intervalms;
+            autoUpdater.autoInstallOnAppQuit = settings["autoupdate:installonquit"] ?? autoUpdater.autoInstallOnAppQuit;
+            const channel = resolveUpdateChannel(settings, settings["autoupdate:channel"] || autoUpdater.channel);
+            if (channel != autoUpdater.channel) {
+                console.log("Update channel changed:", autoUpdater.channel, "->", channel);
+                autoUpdater.channel = channel;
+            }
+        } catch (e) {
+            console.log("could not refresh updater settings", e.toString());
         }
     }
 
@@ -181,14 +199,15 @@ export class Updater {
      */
     async checkForUpdates(userInput: boolean) {
         const now = new Date();
+        await this.refreshSettings();
 
-        // Run an update check always if the user requests it, otherwise only if there's an active update check interval and enough time has elapsed.
+        // Run an update check always if the user requests it, otherwise only if auto-check is on, there's an active update check interval and enough time has elapsed.
         if (
             userInput ||
-            (this.autoCheckInterval &&
+            (this.autoCheckEnabled &&
+                this.autoCheckInterval &&
                 (!this.lastUpdateCheck || Math.abs(now.getTime() - this.lastUpdateCheck.getTime()) > this.intervalms))
         ) {
-            await refreshUpdateChannel();
             const result = await autoUpdater.checkForUpdates();
 
             // If the user requested this check and we do not have an available update, let them know with a popup dialog. No need to tell them if there is an update, because we show a banner once the update is ready to install.
