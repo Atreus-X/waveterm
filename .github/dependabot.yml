@@ -4,6 +4,8 @@ updates:
       directory: "/"
       open-pull-requests-limit: 2
       ignore:
+          - dependency-name: "monaco-editor"
+            versions: [">=0.56.0"]
           - dependency-name: "*"
             update-types:
                 - "version-update:semver-major"
