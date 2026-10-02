@@ -6,6 +6,17 @@ sidebar_position: 200
 
 # Release Notes
 
+### v0.17.2 (Atreus fork) &mdash; Oct 2, 2026
+
+Update settings in the settings GUI that apply without a restart, and a fix for stuck update checks.
+
+- **Update Settings** - The settings GUI now has the update channel and check interval next to the update source, enabled and install-on-quit options
+- **Applied Live** - Changing the update settings in the app takes effect on the next check without restarting; turning auto-check off now actually stops it, and turning it on works too
+- **Update Checks** - With the Atreus update source, a stale or hand-edited channel such as `main` no longer makes every check fail; the channel only matters for the official Wave source
+- **Restart Badges** - Settings that don't apply immediately now say so in the settings GUI: "Restart required" (Transparent window, Show menu bar, Reconnect automatically) or "Reopen terminals" (Scrollback lines, Disable WebGL)
+- A select setting holding an unknown value now shows it as "(unrecognized)" instead of the first option
+- [build] Synced with upstream Wave: TestDriver.ai removed, Go 1.26.8, and svgo and fast-uri bumps
+
 ### v0.17.1 (Atreus fork) &mdash; Oct 1, 2026
 
 Double-click opens text files in a preview, a Host Inspector that fits its block, and update-channel and build fixes.
