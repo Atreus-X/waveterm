@@ -10,7 +10,7 @@ Fork-specific. Where these conflict with the generic Wave rules imported above, 
 - **Local builds only.** The only GitHub Action is CodeQL. Releases are built locally with `scripts/atreus-release-local.sh`.
 - **Test builds are Windows-only** (`--windows-only`); only the `.exe` is kept. Releases build all platforms.
 - **Upstream gate.** Releases stop when `upstream/main` is ahead. Run `scripts/upstream-review.sh`, report what changed, and wait for the user's go-ahead before syncing.
-- **Releases and merges are the user's call.** Release only when asked, never deploy unprompted, and do not run `gh pr merge` here. Creating PRs is fine.
+- **Releases are the user's call; merges are Claude's.** Release only when asked and never deploy unprompted. Claude may merge PRs (`gh pr merge`, merge commit) once they are clean and mergeable, including the release PR after a release the user asked for. Report what was merged. Never push to `main` directly or force-push.
 
 ## Completion format
 
