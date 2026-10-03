@@ -190,7 +190,10 @@
                         align-items: center;
 
                         .input-wrapper {
-                            flex-grow: 1;
+                            flex: 1 1 0;
+                            // without this the input keeps its intrinsic width and is clipped away when the header
+                            // is crowded (e.g. by a remote connection chip)
+                            min-width: 0;
 
                             input {
                                 background-color: transparent;
