@@ -49,42 +49,49 @@ function CSVViewPreview({ model, parentRef }: SpecializedViewProps) {
 
 const OpenButtonClass = "px-3 py-1.5 rounded border border-border hover:bg-hover transition-colors cursor-pointer";
 
-const UnsupportedPreview = memo(({ model, message }: { model: PreviewModel; message: string }) => {
-    const path = useAtomValue(model.statFilePath);
-    const conn = useAtomValue(model.connectionImmediate);
-    const editorSetting = useAtomValue(getSettingsKeyAtom("preview:externaleditor"));
-    const editor = getApi().getExternalEditor(editorSetting ?? "");
-    const remoteSuffix = isBlank(conn) ? "" : " (edit locally)";
+const UnsupportedPreview = memo(
+    ({ model, message, noText }: { model: PreviewModel; message: string; noText?: boolean }) => {
+        const path = useAtomValue(model.statFilePath);
+        const conn = useAtomValue(model.connectionImmediate);
+        const editorSetting = useAtomValue(getSettingsKeyAtom("preview:externaleditor"));
+        const editor = getApi().getExternalEditor(editorSetting ?? "");
+        const remoteSuffix = isBlank(conn) ? "" : " (edit locally)";
 
-    return (
-        <div className="flex flex-col items-center justify-center gap-3 h-full p-4 text-center">
-            <div className="text-secondary">{message}</div>
-            <div className="text-sm text-secondary">Choose how to open it:</div>
-            <div className="flex flex-wrap items-center justify-center gap-2">
-                <button
-                    className={cn(OpenButtonClass, "bg-accent/80 text-primary border-transparent hover:bg-accent")}
-                    onClick={() => globalStore.set(model.textOverridePath, path)}
-                >
-                    Open as Text
-                </button>
-                <button className={OpenButtonClass} onClick={() => openFileExternally(path, conn, "default")}>
-                    Default Application{remoteSuffix}
-                </button>
-                {editor != null && (
-                    <button className={OpenButtonClass} onClick={() => openFileExternally(path, conn, "editor")}>
-                        {editor.name}
-                        {remoteSuffix}
+        return (
+            <div className="flex flex-col items-center justify-center gap-3 h-full p-4 text-center">
+                <div className="text-secondary">{message}</div>
+                <div className="text-sm text-secondary">Choose how to open it:</div>
+                <div className="flex flex-wrap items-center justify-center gap-2">
+                    {!noText && (
+                        <button
+                            className={cn(
+                                OpenButtonClass,
+                                "bg-accent/80 text-primary border-transparent hover:bg-accent"
+                            )}
+                            onClick={() => globalStore.set(model.textOverridePath, path)}
+                        >
+                            Open as Text
+                        </button>
+                    )}
+                    <button className={OpenButtonClass} onClick={() => openFileExternally(path, conn, "default")}>
+                        Default Application{remoteSuffix}
                     </button>
-                )}
-                {isWindows() && (
-                    <button className={OpenButtonClass} onClick={() => openFileExternally(path, conn, "openwith")}>
-                        Open With…{remoteSuffix}
-                    </button>
-                )}
+                    {editor != null && (
+                        <button className={OpenButtonClass} onClick={() => openFileExternally(path, conn, "editor")}>
+                            {editor.name}
+                            {remoteSuffix}
+                        </button>
+                    )}
+                    {isWindows() && (
+                        <button className={OpenButtonClass} onClick={() => openFileExternally(path, conn, "openwith")}>
+                            Open With…{remoteSuffix}
+                        </button>
+                    )}
+                </div>
             </div>
-        </div>
-    );
-});
+        );
+    }
+);
 UnsupportedPreview.displayName = "UnsupportedPreview";
 
 const SpecializedView = memo(({ parentRef, model }: SpecializedViewProps) => {
@@ -98,7 +105,7 @@ const SpecializedView = memo(({ parentRef, model }: SpecializedViewProps) => {
     }, [mimeType, setCanPreview]);
 
     if (specializedView.unsupported) {
-        return <UnsupportedPreview model={model} message={specializedView.errorStr} />;
+        return <UnsupportedPreview model={model} message={specializedView.errorStr} noText={specializedView.noText} />;
     }
     if (specializedView.errorStr != null) {
         return <CenteredDiv>{specializedView.errorStr}</CenteredDiv>;
