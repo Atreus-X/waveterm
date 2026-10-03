@@ -120,6 +120,7 @@ const (
 	ConfigKey_WindowReducedMotion            = "window:reducedmotion"
 	ConfigKey_WindowTileGapSize              = "window:tilegapsize"
 	ConfigKey_WindowShowMenuBar              = "window:showmenubar"
+	ConfigKey_WindowShowVersion              = "window:showversion"
 	ConfigKey_WindowNativeTitleBar           = "window:nativetitlebar"
 	ConfigKey_WindowDisableHardwareAcceleration = "window:disablehardwareacceleration"
 	ConfigKey_WindowMaxTabCacheSize          = "window:maxtabcachesize"

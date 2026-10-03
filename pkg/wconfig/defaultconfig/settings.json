@@ -29,6 +29,7 @@
     "window:tilegapsize": 3,
     "window:maxtabcachesize": 10,
     "window:nativetitlebar": true,
+    "window:showversion": "always",
     "window:magnifiedblockopacity": 0.6,
     "window:magnifiedblocksize": 0.95,
     "window:magnifiedblockblurprimarypx": 10,

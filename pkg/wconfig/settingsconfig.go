@@ -177,6 +177,7 @@ type SettingsType struct {
 	WindowReducedMotion                 bool     `json:"window:reducedmotion,omitempty"`
 	WindowTileGapSize                   *int64   `json:"window:tilegapsize,omitempty"`
 	WindowShowMenuBar                   bool     `json:"window:showmenubar,omitempty"`
+	WindowShowVersion                   string   `json:"window:showversion,omitempty" jsonschema:"enum=off,enum=test,enum=always"`
 	WindowNativeTitleBar                bool     `json:"window:nativetitlebar,omitempty"`
 	WindowDisableHardwareAcceleration   bool     `json:"window:disablehardwareacceleration,omitempty"`
 	WindowMaxTabCacheSize               int      `json:"window:maxtabcachesize,omitempty"`
