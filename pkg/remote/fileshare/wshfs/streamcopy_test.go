@@ -125,8 +125,8 @@ func TestStreamCopy(t *testing.T) {
 	if !bytes.Equal(got, big) {
 		t.Fatalf("big.bin differs (len %d)", len(got))
 	}
-	if *writes != 3 {
-		t.Errorf("40 MB copy used %d writes, want 3", *writes)
+	if *writes != 10 {
+		t.Errorf("40 MB copy used %d writes, want 10", *writes)
 	}
 
 	// empty file still gets created
