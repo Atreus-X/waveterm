@@ -132,7 +132,9 @@ export class PreviewModel implements ViewModel {
     previewTextRef: React.RefObject<HTMLDivElement>;
     editMode: Atom<boolean>;
     canPreview: PrimitiveAtom<boolean>;
-    specializedView: Atom<Promise<{ specializedView?: string; errorStr?: string }>>;
+    specializedView: Atom<Promise<{ specializedView?: string; errorStr?: string; unsupported?: boolean }>>;
+    // set when the user picks "Open as Text" for a file whose mimetype has no preview; scoped to that path
+    textOverridePath: PrimitiveAtom<string> = atom(null) as PrimitiveAtom<string>;
     loadableSpecializedView: Atom<Loadable<{ specializedView?: string; errorStr?: string }>>;
     manageConnection: Atom<boolean>;
     connStatus: Atom<ConnStatus>;
@@ -481,9 +483,11 @@ export class PreviewModel implements ViewModel {
         this.fullFile = fullFileAtom;
         this.fileContent = fileContentAtom;
 
-        this.specializedView = atom<Promise<{ specializedView?: string; errorStr?: string }>>(async (get) => {
-            return this.getSpecializedView(get);
-        });
+        this.specializedView = atom<Promise<{ specializedView?: string; errorStr?: string; unsupported?: boolean }>>(
+            async (get) => {
+                return this.getSpecializedView(get);
+            }
+        );
         this.loadableSpecializedView = loadable(this.specializedView);
         this.canPreview = atom(false);
         this.loadableFileInfo = loadable(this.statFile);
@@ -505,7 +509,9 @@ export class PreviewModel implements ViewModel {
         return PreviewView;
     }
 
-    async getSpecializedView(getFn: Getter): Promise<{ specializedView?: string; errorStr?: string }> {
+    async getSpecializedView(
+        getFn: Getter
+    ): Promise<{ specializedView?: string; errorStr?: string; unsupported?: boolean }> {
         const mimeType = await getFn(this.fileMimeType);
         const fileInfo = await getFn(this.statFile);
         const fileName = fileInfo?.name;
@@ -522,8 +528,12 @@ export class PreviewModel implements ViewModel {
         if (fileInfo?.notfound) {
             return { specializedView: "codeedit" };
         }
+        const textOverride = getFn(this.textOverridePath) == fileInfo.path;
         if (mimeType == null) {
-            return { errorStr: `Unable to determine mimetype for: ${fileInfo.path}` };
+            if (textOverride) {
+                return { specializedView: "codeedit" };
+            }
+            return { errorStr: `Unable to determine mimetype for: ${fileInfo.path}`, unsupported: true };
         }
         if (isStreamingType(mimeType)) {
             return { specializedView: "streaming" };
@@ -556,7 +566,10 @@ export class PreviewModel implements ViewModel {
         if (isTextFile(mimeType) || fileInfo.size == 0) {
             return { specializedView: "codeedit" };
         }
-        return { errorStr: `Preview (${mimeType})` };
+        if (textOverride) {
+            return { specializedView: "codeedit" };
+        }
+        return { errorStr: `No preview available for ${mimeType}`, unsupported: true };
     }
 
     updateOpenFileModalAndError(isOpen, errorMsg = null) {
