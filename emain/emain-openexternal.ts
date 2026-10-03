@@ -358,14 +358,16 @@ async function openRemoteFile(
     }
     let sess = remoteEditSessions.get(remoteUri);
     if (sess != null) {
-        // reuse the local copy; refresh it from the remote only if there are no unsynced local edits
-        const localBytes = await fs.promises.readFile(sess.localPath).catch(() => null);
-        const clean = localBytes != null && hashBytes(localBytes) === sess.lastSyncedHash && !sess.uploading;
-        if (clean) {
-            const { hash, modTime } = await downloadRemote(remoteUri, sess.localPath, onProgress);
-            sess.lastSyncedHash = hash;
-            sess.remoteModTime = modTime;
+        // the remote is the source of truth on every open: unsynced local edits are discarded, and a pending
+        // upload of them is cancelled so it can't overwrite the remote with stale content
+        if (sess.debounceTimer != null) {
+            clearTimeout(sess.debounceTimer);
+            sess.debounceTimer = null;
         }
+        sess.uploadPending = false;
+        const { hash, modTime } = await downloadRemote(remoteUri, sess.localPath, onProgress);
+        sess.lastSyncedHash = hash;
+        sess.remoteModTime = modTime;
         return openLocalFile(sess.localPath, mode, editorPath);
     }
     const dir = path.join(remoteEditRoot(), crypto.createHash("sha256").update(remoteUri).digest("hex").slice(0, 16));
