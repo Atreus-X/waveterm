@@ -740,9 +740,12 @@ const MemoizedTableBody = React.memo(
 const DirectoryPathBar = React.memo(({ model }: { model: PreviewModel }) => {
     const displayPath = useAtomValue(model.displayPath);
     const pathDraft = useAtomValue(model.pathDraft);
+    const suggestions = useAtomValue(model.pathSuggestions);
+    const suggestIndex = useAtomValue(model.pathSuggestIndex);
+    const pathError = useAtomValue(model.pathError);
     const editing = pathDraft != null;
     return (
-        <div className="shrink-0 border-b border-border px-2 py-[3px]">
+        <div className="relative shrink-0 border-b border-border px-2 py-[3px]">
             <input
                 ref={model.pathInputRef}
                 className={cn(
@@ -753,12 +756,35 @@ const DirectoryPathBar = React.memo(({ model }: { model: PreviewModel }) => {
                 // rtl keeps the end of a long path visible; the leading LRM stops it reordering the leading "/"
                 style={editing ? undefined : { direction: "rtl", textAlign: "left" }}
                 value={pathDraft ?? "\u200e" + displayPath}
-                onChange={(e) => globalStore.set(model.pathDraft, e.target.value)}
+                onChange={(e) => model.handlePathChange(e.target.value)}
                 onKeyDown={(e) => model.handlePathKeyDown(e)}
                 onFocus={(e) => model.handlePathFocus(e)}
-                onBlur={() => globalStore.set(model.pathDraft, null)}
+                onBlur={() => model.handlePathBlur()}
                 onClick={(e) => e.stopPropagation()}
             />
+            {pathError != null && <div className="px-0.5 pt-[2px] text-[11px] text-error">{pathError}</div>}
+            {editing && suggestions.length > 0 && (
+                <div
+                    className="absolute left-2 right-2 top-full z-20 max-h-60 overflow-y-auto rounded border border-border bg-panel py-1 shadow-lg"
+                    // keeps focus in the input so a click doesn't trigger the blur that closes the list
+                    onMouseDown={(e) => e.preventDefault()}
+                >
+                    {suggestions.map((s, i) => (
+                        <div
+                            key={s.name}
+                            ref={i == suggestIndex ? (el) => el?.scrollIntoView({ block: "nearest" }) : undefined}
+                            className={cn(
+                                "flex items-center gap-2 px-2 py-[2px] font-mono text-[11px] cursor-pointer hover:bg-hover",
+                                i == suggestIndex && "bg-hover"
+                            )}
+                            onClick={() => model.acceptPathSuggestion(s)}
+                        >
+                            <i className={cn("fa-solid w-3 opacity-60", s.isdir ? "fa-folder" : "fa-file")} />
+                            <span className="truncate">{s.name}</span>
+                        </div>
+                    ))}
+                </div>
+            )}
         </div>
     );
 });

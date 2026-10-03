@@ -18,6 +18,13 @@ import { Atom, atom, Getter, PrimitiveAtom, WritableAtom } from "jotai";
 import { loadable } from "jotai/utils";
 import type * as MonacoTypes from "monaco-editor";
 import { createRef } from "react";
+import {
+    applySuggestion,
+    commonPrefix,
+    filterSuggestions,
+    splitPathInput,
+    type PathSuggestion,
+} from "./path-suggest-util";
 import { PreviewView } from "./preview";
 import { makeDirectoryDefaultMenuItems } from "./preview-directory-utils";
 import type { PreviewEnv } from "./previewenv";
@@ -159,6 +166,12 @@ export class PreviewModel implements ViewModel {
     openFileModalGiveFocusRef: React.RefObject<() => boolean>;
     // in-progress edit of the header path; null when the path is not being edited
     pathDraft: PrimitiveAtom<string | null>;
+    pathError: PrimitiveAtom<string>;
+    pathSuggestions: PrimitiveAtom<PathSuggestion[]>;
+    pathSuggestIndex: PrimitiveAtom<number>;
+    pathSuggestSeq = 0;
+    pathSuggestTimer: NodeJS.Timeout = null;
+    pathSuggestCache: { dir: string; entries: PathSuggestion[] } = null;
     displayPath: Atom<string>;
     pathInputRef: React.RefObject<HTMLInputElement>;
 
@@ -195,6 +208,9 @@ export class PreviewModel implements ViewModel {
         this.openFileError = atom(null) as PrimitiveAtom<string>;
         this.openFileModalGiveFocusRef = createRef();
         this.pathDraft = atom(null) as PrimitiveAtom<string | null>;
+        this.pathError = atom(null) as PrimitiveAtom<string>;
+        this.pathSuggestions = atom([]) as PrimitiveAtom<PathSuggestion[]>;
+        this.pathSuggestIndex = atom(-1) as PrimitiveAtom<number>;
         this.pathInputRef = createRef();
         this.manageConnection = atom(true);
         this.blockAtom = this.env.wos.getWaveObjectAtom<Block>(`block:${blockId}`);
@@ -276,12 +292,20 @@ export class PreviewModel implements ViewModel {
                     value: pathDraft ?? "‎" + headerPath,
                     ref: this.pathInputRef,
                     className: "preview-filename",
-                    onChange: (e) => globalStore.set(this.pathDraft, e.target.value),
+                    onChange: (e) => this.handlePathChange(e.target.value),
                     onKeyDown: (e) => this.handlePathKeyDown(e),
                     onFocus: (e) => this.handlePathFocus(e),
-                    onBlur: () => globalStore.set(this.pathDraft, null),
+                    onBlur: () => this.handlePathBlur(),
                 },
             ];
+            const pathError = get(this.pathError);
+            if (pathError != null) {
+                viewTextChildren.push({
+                    elemtype: "text",
+                    text: pathError,
+                    className: "text-error text-[11px] whitespace-nowrap",
+                });
+            }
             let saveClassName = "grey";
             if (get(this.newFileContent) !== null) {
                 saveClassName = "green";
@@ -596,15 +620,134 @@ export class PreviewModel implements ViewModel {
     handlePathFocus(e: React.FocusEvent<HTMLInputElement>) {
         const loadable = globalStore.get(this.loadableFileInfo);
         const statPath = loadable.state == "hasData" ? loadable.data?.path : null;
-        globalStore.set(this.pathDraft, statPath ?? globalStore.get(this.metaFilePath) ?? "");
+        const draft = statPath ?? globalStore.get(this.metaFilePath) ?? "";
+        globalStore.set(this.pathDraft, draft);
+        this.schedulePathSuggestions(draft);
         const input = e.target;
         setTimeout(() => input.select(), 0);
     }
 
+    handlePathChange(value: string) {
+        globalStore.set(this.pathDraft, value);
+        globalStore.set(this.pathError, null);
+        this.schedulePathSuggestions(value);
+    }
+
+    handlePathBlur() {
+        globalStore.set(this.pathDraft, null);
+        globalStore.set(this.pathError, null);
+        this.clearPathSuggestions();
+    }
+
+    clearPathSuggestions() {
+        this.pathSuggestSeq++;
+        clearTimeout(this.pathSuggestTimer);
+        this.pathSuggestCache = null;
+        globalStore.set(this.pathSuggestions, []);
+        globalStore.set(this.pathSuggestIndex, -1);
+    }
+
+    schedulePathSuggestions(draft: string) {
+        clearTimeout(this.pathSuggestTimer);
+        const seq = ++this.pathSuggestSeq;
+        globalStore.set(this.pathSuggestIndex, -1);
+        const parts = splitPathInput(draft);
+        if (parts == null) {
+            globalStore.set(this.pathSuggestions, []);
+            return;
+        }
+        const cached = this.pathSuggestCache;
+        if (cached != null && cached.dir == parts.dir) {
+            this.setPathSuggestions(cached.entries, parts.prefix);
+            return;
+        }
+        this.pathSuggestTimer = setTimeout(() => {
+            fireAndForget(async () => {
+                const entries = await this.listDirForSuggestions(parts.dir);
+                if (seq != this.pathSuggestSeq) {
+                    return;
+                }
+                this.pathSuggestCache = { dir: parts.dir, entries };
+                this.setPathSuggestions(entries, parts.prefix);
+            });
+        }, 120);
+    }
+
+    setPathSuggestions(entries: PathSuggestion[], prefix: string) {
+        const showHidden = globalStore.get(this.showHiddenFiles);
+        globalStore.set(this.pathSuggestions, filterSuggestions(entries, prefix, showHidden));
+    }
+
+    // same listing call the directory view uses, so it works over wsh and plain SSH alike
+    async listDirForSuggestions(dir: string): Promise<PathSuggestion[]> {
+        const entries: PathSuggestion[] = [];
+        try {
+            const remotePath = await this.formatRemoteUri(dir, globalStore.get);
+            const stream = this.env.rpc.FileListStreamCommand(TabRpcClient, { path: remotePath }, null);
+            for await (const chunk of stream) {
+                for (const fi of chunk?.fileinfo ?? []) {
+                    entries.push({ name: fi.name, isdir: !!fi.isdir });
+                }
+            }
+        } catch (e) {
+            return [];
+        }
+        return entries;
+    }
+
+    acceptPathSuggestion(suggestion: PathSuggestion) {
+        const draft = globalStore.get(this.pathDraft) ?? "";
+        const next = applySuggestion(draft, suggestion);
+        globalStore.set(this.pathDraft, next);
+        this.schedulePathSuggestions(next);
+        this.pathInputRef.current?.focus();
+    }
+
     handlePathKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+        const suggestions = globalStore.get(this.pathSuggestions);
+        const index = globalStore.get(this.pathSuggestIndex);
+        if ((e.key == "ArrowDown" || e.key == "ArrowUp") && suggestions.length > 0) {
+            e.preventDefault();
+            e.stopPropagation();
+            const step = e.key == "ArrowDown" ? 1 : -1;
+            const next = (index + step + suggestions.length + (index < 0 && step < 0 ? 1 : 0)) % suggestions.length;
+            globalStore.set(this.pathSuggestIndex, next);
+            return;
+        }
+        if (e.key == "Tab" && suggestions.length > 0) {
+            e.preventDefault();
+            e.stopPropagation();
+            if (index >= 0) {
+                this.acceptPathSuggestion(suggestions[index]);
+                return;
+            }
+            if (suggestions.length == 1) {
+                this.acceptPathSuggestion(suggestions[0]);
+                return;
+            }
+            const draft = globalStore.get(this.pathDraft) ?? "";
+            const parts = splitPathInput(draft);
+            const common = commonPrefix(suggestions.map((s) => s.name));
+            if (parts != null && common.length > parts.prefix.length) {
+                const next = (parts.dir == "/" ? "/" : parts.dir + "/") + common;
+                globalStore.set(this.pathDraft, next);
+                this.schedulePathSuggestions(next);
+            }
+            return;
+        }
+        if (e.key == "Enter" && index >= 0 && index < suggestions.length) {
+            e.preventDefault();
+            e.stopPropagation();
+            this.acceptPathSuggestion(suggestions[index]);
+            return;
+        }
         if (e.key == "Escape") {
             e.preventDefault();
             e.stopPropagation();
+            if (suggestions.length > 0) {
+                this.clearPathSuggestions();
+                return;
+            }
             globalStore.set(this.pathDraft, null);
             refocusNode(this.blockId);
             return;
@@ -615,12 +758,36 @@ export class PreviewModel implements ViewModel {
         e.preventDefault();
         e.stopPropagation();
         const newPath = (globalStore.get(this.pathDraft) ?? "").trim();
-        globalStore.set(this.pathDraft, null);
+        this.clearPathSuggestions();
         if (isBlank(newPath)) {
+            globalStore.set(this.pathDraft, null);
             refocusNode(this.blockId);
             return;
         }
-        fireAndForget(() => this.handleOpenFile(newPath));
+        fireAndForget(async () => {
+            const error = await this.checkPathExists(newPath);
+            if (error != null) {
+                // the draft stays so the user can fix the typo
+                globalStore.set(this.pathError, error);
+                return;
+            }
+            globalStore.set(this.pathDraft, null);
+            await this.handleOpenFile(newPath);
+        });
+    }
+
+    // without this a mistyped path falls through to the editor, which treats a missing file as a new empty one
+    async checkPathExists(path: string): Promise<string | null> {
+        try {
+            const remotePath = await this.formatRemoteUri(path, globalStore.get);
+            const info = await this.env.rpc.FileInfoCommand(TabRpcClient, { info: { path: remotePath } });
+            if (info == null || info.notfound) {
+                return `No such file or directory: ${path}`;
+            }
+            return null;
+        } catch (e) {
+            return `Cannot open ${path}: ${e?.message ?? e}`;
+        }
     }
 
     toggleOpenFileModal() {
