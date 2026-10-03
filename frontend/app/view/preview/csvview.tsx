@@ -107,9 +107,11 @@ const CSVView = ({ parentRef, filename, content }: CSVViewProps) => {
             return [];
         }
         const headers = Object.keys(parsedData[0]);
-        return headers.map((header) =>
-            columnHelper.accessor(header, {
-                header: () => header,
+        // an empty header name (e.g. a trailing comma) gives tanstack no column id and it throws
+        return headers.map((header, idx) =>
+            columnHelper.accessor((row) => row[header], {
+                id: `col${idx}`,
+                header: () => header || `Column ${idx + 1}`,
                 cell: (info) => info.renderValue(),
             })
         );

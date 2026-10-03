@@ -22,6 +22,7 @@ import { ElectronWshClient } from "./emain-wsh";
 const RemoteEditDirName = "wave-remote-edit";
 const RemoteEditMaxAgeMs = 7 * 24 * 60 * 60 * 1000;
 const SyncDebounceMs = 700;
+const StatPollMs = 2000;
 const RemoteRpcTimeoutMs = 60000;
 const UploadChunkBytes = 16 * 1024 * 1024;
 
@@ -338,6 +339,7 @@ async function syncBack(sess: RemoteEditSession) {
     if (hash === sess.lastSyncedHash) {
         return;
     }
+    console.log("remote edit: local copy changed, uploading", sess.remoteUri);
     sess.uploading = true;
     const fileName = path.basename(sess.localPath);
     try {
@@ -388,24 +390,29 @@ async function openRemoteFile(
     }
     let sess = remoteEditSessions.get(remoteUri);
     if (sess != null) {
-        // reuse the local copy; refresh it from the remote only if there are no unsynced local edits
-        const localBytes = await fs.promises.readFile(sess.localPath).catch(() => null);
-        const clean = localBytes != null && hashBytes(localBytes) === sess.lastSyncedHash && !sess.uploading;
-        if (clean) {
-            const { hash, modTime } = await downloadRemote(remoteUri, sess.localPath, onProgress, signal);
-            sess.lastSyncedHash = hash;
-            sess.remoteModTime = modTime;
+        // the remote is the source of truth on every open: unsynced local edits are discarded, and a pending
+        // upload of them is cancelled so it can't overwrite the remote with stale content
+        if (sess.debounceTimer != null) {
+            clearTimeout(sess.debounceTimer);
+            sess.debounceTimer = null;
         }
+        sess.uploadPending = false;
+        const { hash, modTime } = await downloadRemote(remoteUri, sess.localPath, onProgress, signal);
+        sess.lastSyncedHash = hash;
+        sess.remoteModTime = modTime;
         return openLocalFile(sess.localPath, mode, editorPath);
     }
     const dir = path.join(remoteEditRoot(), crypto.createHash("sha256").update(remoteUri).digest("hex").slice(0, 16));
     await fs.promises.mkdir(dir, { recursive: true });
     const localPath = path.join(dir, safeLocalName(remotePath));
     const { hash, modTime } = await downloadRemote(remoteUri, localPath, onProgress, signal);
-    const localName = path.basename(localPath);
-    // watch the directory, not the file, so editors that save by writing a temp file and renaming it still sync
-    const watcher = fs.watch(dir, (_event, changed) => {
-        if (changed == null || changed.toString() === localName) {
+    // watch the directory, not the file, so editors that save by writing a temp file and renaming it still sync.
+    // Events aren't filtered by name: Windows can report a different case or an 8.3 short name, and syncBack
+    // is hash-gated so extra triggers are harmless.
+    const watcher = fs.watch(dir, () => scheduleSync(sess));
+    // fs.watch is unreliable for some editors and filesystems; polling the file's stat catches what it misses
+    fs.watchFile(localPath, { interval: StatPollMs }, (cur, prev) => {
+        if (cur.mtimeMs !== prev.mtimeMs || cur.size !== prev.size) {
             scheduleSync(sess);
         }
     });
@@ -479,6 +486,7 @@ export function cleanupOldRemoteEdits() {
 export function closeRemoteEditSessions() {
     for (const sess of remoteEditSessions.values()) {
         sess.watcher.close();
+        fs.unwatchFile(sess.localPath);
     }
     remoteEditSessions.clear();
 }

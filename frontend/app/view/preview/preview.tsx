@@ -2,11 +2,14 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { CenteredDiv } from "@/app/element/quickelems";
+import { getApi, getSettingsKeyAtom } from "@/app/store/global";
 import { globalStore } from "@/app/store/jotaiStore";
 import { TabRpcClient } from "@/app/store/wshrpcutil";
 import { BlockHeaderSuggestionControl } from "@/app/suggestion/suggestion";
 import { useWaveEnv } from "@/app/waveenv/waveenv";
-import { isBlank, makeConnRoute } from "@/util/util";
+import { isWindows } from "@/util/platformutil";
+import { openFileExternally } from "@/util/previewutil";
+import { cn, isBlank, makeConnRoute } from "@/util/util";
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { memo, useEffect } from "react";
 import { CSVView } from "./csvview";
@@ -44,6 +47,53 @@ function CSVViewPreview({ model, parentRef }: SpecializedViewProps) {
     return <CSVView parentRef={parentRef} readonly={true} content={fileContent} filename={fileName} />;
 }
 
+const OpenButtonClass = "px-3 py-1.5 rounded border border-border hover:bg-hover transition-colors cursor-pointer";
+
+const UnsupportedPreview = memo(
+    ({ model, message, noText }: { model: PreviewModel; message: string; noText?: boolean }) => {
+        const path = useAtomValue(model.statFilePath);
+        const conn = useAtomValue(model.connectionImmediate);
+        const editorSetting = useAtomValue(getSettingsKeyAtom("preview:externaleditor"));
+        const editor = getApi().getExternalEditor(editorSetting ?? "");
+        const remoteSuffix = isBlank(conn) ? "" : " (edit locally)";
+
+        return (
+            <div className="flex flex-col items-center justify-center gap-3 h-full p-4 text-center">
+                <div className="text-secondary">{message}</div>
+                <div className="text-sm text-secondary">Choose how to open it:</div>
+                <div className="flex flex-wrap items-center justify-center gap-2">
+                    {!noText && (
+                        <button
+                            className={cn(
+                                OpenButtonClass,
+                                "bg-accent/80 text-primary border-transparent hover:bg-accent"
+                            )}
+                            onClick={() => globalStore.set(model.textOverridePath, path)}
+                        >
+                            Open as Text
+                        </button>
+                    )}
+                    <button className={OpenButtonClass} onClick={() => openFileExternally(path, conn, "default")}>
+                        Default Application{remoteSuffix}
+                    </button>
+                    {editor != null && (
+                        <button className={OpenButtonClass} onClick={() => openFileExternally(path, conn, "editor")}>
+                            {editor.name}
+                            {remoteSuffix}
+                        </button>
+                    )}
+                    {isWindows() && (
+                        <button className={OpenButtonClass} onClick={() => openFileExternally(path, conn, "openwith")}>
+                            Open With…{remoteSuffix}
+                        </button>
+                    )}
+                </div>
+            </div>
+        );
+    }
+);
+UnsupportedPreview.displayName = "UnsupportedPreview";
+
 const SpecializedView = memo(({ parentRef, model }: SpecializedViewProps) => {
     const specializedView = useAtomValue(model.specializedView);
     const mimeType = useAtomValue(model.fileMimeType);
@@ -54,6 +104,9 @@ const SpecializedView = memo(({ parentRef, model }: SpecializedViewProps) => {
         setCanPreview(canPreview(mimeType));
     }, [mimeType, setCanPreview]);
 
+    if (specializedView.unsupported) {
+        return <UnsupportedPreview model={model} message={specializedView.errorStr} noText={specializedView.noText} />;
+    }
     if (specializedView.errorStr != null) {
         return <CenteredDiv>{specializedView.errorStr}</CenteredDiv>;
     }

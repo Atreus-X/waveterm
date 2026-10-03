@@ -340,6 +340,14 @@
         "window:showmenubar": {
           "type": "boolean"
         },
+        "window:showversion": {
+          "type": "string",
+          "enum": [
+            "off",
+            "test",
+            "always"
+          ]
+        },
         "window:nativetitlebar": {
           "type": "boolean"
         },

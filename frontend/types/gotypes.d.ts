@@ -1771,6 +1771,7 @@ declare global {
         "window:reducedmotion"?: boolean;
         "window:tilegapsize"?: number;
         "window:showmenubar"?: boolean;
+        "window:showversion"?: string;
         "window:nativetitlebar"?: boolean;
         "window:disablehardwareacceleration"?: boolean;
         "window:maxtabcachesize"?: number;

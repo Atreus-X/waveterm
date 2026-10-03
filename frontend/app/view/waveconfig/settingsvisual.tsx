@@ -124,6 +124,18 @@ const SettingSections: SettingSection[] = [
                 applies: "restart",
                 kind: "toggle",
             },
+            {
+                key: "window:showversion",
+                tooltip: "Shows the app version in the tab bar, to the left of the usage meter.",
+                label: "Show version in tab bar",
+                kind: "select",
+                defaultValue: "always",
+                options: [
+                    { value: "always", label: "Always" },
+                    { value: "test", label: "Test builds only" },
+                    { value: "off", label: "Off" },
+                ],
+            },
         ],
     },
     {
