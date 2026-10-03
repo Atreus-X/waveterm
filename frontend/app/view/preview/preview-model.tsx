@@ -159,6 +159,7 @@ export class PreviewModel implements ViewModel {
     openFileModalGiveFocusRef: React.RefObject<() => boolean>;
     // in-progress edit of the header path; null when the path is not being edited
     pathDraft: PrimitiveAtom<string | null>;
+    displayPath: Atom<string>;
     pathInputRef: React.RefObject<HTMLInputElement>;
 
     markdownShowToc: PrimitiveAtom<boolean>;
@@ -235,20 +236,8 @@ export class PreviewModel implements ViewModel {
         });
         this.viewName = atom("Preview");
         this.hideViewName = atom(true);
-        this.viewText = atom((get) => {
+        this.displayPath = atom((get) => {
             let headerPath = get(this.metaFilePath);
-            const connStatus = get(this.connStatus);
-            if (connStatus?.status != "connected") {
-                return [
-                    {
-                        elemtype: "text",
-                        text: headerPath,
-                        className: "preview-filename",
-                    },
-                ];
-            }
-            const loadableSV = get(this.loadableSpecializedView);
-            const isCeView = loadableSV.state == "hasData" && loadableSV.data.specializedView == "codeedit";
             const loadableFileInfo = get(this.loadableFileInfo);
             if (loadableFileInfo.state == "hasData") {
                 headerPath = loadableFileInfo.data?.path;
@@ -259,6 +248,26 @@ export class PreviewModel implements ViewModel {
             if (!isBlank(headerPath) && headerPath != "/" && headerPath.endsWith("/")) {
                 headerPath = headerPath.slice(0, -1);
             }
+            return headerPath;
+        });
+        this.viewText = atom((get) => {
+            const connStatus = get(this.connStatus);
+            if (connStatus?.status != "connected") {
+                return [
+                    {
+                        elemtype: "text",
+                        text: get(this.metaFilePath),
+                        className: "preview-filename",
+                    },
+                ];
+            }
+            // directories show the path on its own line under the header (see DirectoryPathBar)
+            if (jotaiLoadableValue(get(this.fileMimeTypeLoadable), "") == "directory") {
+                return [];
+            }
+            const loadableSV = get(this.loadableSpecializedView);
+            const isCeView = loadableSV.state == "hasData" && loadableSV.data.specializedView == "codeedit";
+            const headerPath = get(this.displayPath);
             const pathDraft = get(this.pathDraft);
             const viewTextChildren: HeaderElem[] = [
                 {
