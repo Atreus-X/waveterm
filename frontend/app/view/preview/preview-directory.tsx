@@ -396,7 +396,7 @@ function TableBody({
     const downloadZip = useCallback(
         (targets: string[]) => {
             const uris = targets.map((p) => formatRemoteUri(p, conn || "local"));
-            env.electron.downloadZip(uris, zipNameFor(targets, dirPath));
+            env.electron.downloadZip(uris, zipNameFor(targets, dirPath), conn || "");
         },
         [conn, dirPath, env]
     );

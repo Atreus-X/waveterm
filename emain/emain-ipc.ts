@@ -33,6 +33,54 @@ const electronApp = electron.app;
 let webviewFocusId: number = null;
 let webviewKeys: string[] = [];
 
+type PendingDownload = { connection: string; name: string };
+const PendingDownloads = new Map<string, PendingDownload>();
+const ActiveDownloads = new Map<string, Electron.DownloadItem>();
+const DownloadSessions = new WeakSet<Electron.Session>();
+let downloadSeq = 0;
+
+function downloadKey(connection: string, key: string): string {
+    return `${connection ?? ""}\u0000${key}`;
+}
+
+// Electron's native downloads have no UI of their own, so report them on the same channel as open-in-external
+// downloads and the file browser shows the same progress card (with cancel).
+function trackDownloads(sender: electron.WebContents, url: string, pending: PendingDownload) {
+    PendingDownloads.set(url, pending);
+    const ses = sender.session;
+    if (DownloadSessions.has(ses)) {
+        return;
+    }
+    DownloadSessions.add(ses);
+    ses.on("will-download", (_event, item) => {
+        const info = PendingDownloads.get(item.getURL());
+        if (info == null) {
+            return;
+        }
+        PendingDownloads.delete(item.getURL());
+        const key = `downloads/${++downloadSeq}/${info.name}`;
+        const base = { path: key, connection: info.connection };
+        const send = (progress: OpenFileExternalProgress) => {
+            if (!sender.isDestroyed()) {
+                sender.send("open-file-external-progress", progress);
+            }
+        };
+        ActiveDownloads.set(downloadKey(info.connection, key), item);
+        send({ ...base, phase: "download", received: 0, total: item.getTotalBytes() });
+        item.on("updated", () => {
+            send({ ...base, phase: "download", received: item.getReceivedBytes(), total: item.getTotalBytes() });
+        });
+        item.once("done", (_e, state) => {
+            ActiveDownloads.delete(downloadKey(info.connection, key));
+            if (state === "interrupted") {
+                send({ ...base, phase: "error", received: 0, total: 0, error: "Download failed" });
+                return;
+            }
+            send({ ...base, phase: "done", received: 0, total: 0 });
+        });
+    });
+}
+
 export function openBuilderWindow(appId?: string) {
     const normalizedAppId = appId || "";
     const existingBuilderWindows = getAllBuilderWindows();
@@ -249,10 +297,11 @@ export function initIpcHandlers() {
         const baseName = encodeURIComponent(path.basename(payload.filePath));
         const streamingUrl =
             getWebServerEndpoint() + "/wave/stream-file/" + baseName + "?path=" + encodeURIComponent(payload.filePath);
+        trackDownloads(event.sender, streamingUrl, { connection: "", name: path.basename(payload.filePath) });
         event.sender.downloadURL(streamingUrl);
     });
 
-    electron.ipcMain.on("download-zip", (event, payload: { paths: string[]; name: string }) => {
+    electron.ipcMain.on("download-zip", (event, payload: { paths: string[]; name: string; connection?: string }) => {
         const zipName = payload.name || "download.zip";
         const url =
             getWebServerEndpoint() +
@@ -262,6 +311,7 @@ export function initIpcHandlers() {
             encodeURIComponent(zipName) +
             "&paths=" +
             encodeURIComponent(JSON.stringify(payload.paths ?? []));
+        trackDownloads(event.sender, url, { connection: payload.connection ?? "", name: zipName });
         event.sender.downloadURL(url);
     });
 
@@ -433,6 +483,11 @@ export function initIpcHandlers() {
     });
 
     electron.ipcMain.on("cancel-open-file-external", (_event, filePath: string, connection: string) => {
+        const download = ActiveDownloads.get(downloadKey(connection, filePath));
+        if (download != null) {
+            download.cancel();
+            return;
+        }
         cancelOpenFileExternal(connection, filePath);
     });
 
