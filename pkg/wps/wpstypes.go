@@ -35,6 +35,7 @@ const (
 	Event_BlockJobStatus      = "block:jobstatus"      // type: wshrpc.BlockJobStatusData
 	Event_Badge               = "badge"                // type: baseds.BadgeEvent
 	Event_ConnSleepDisconnect = "conn:sleepdisconnect" // type: wshrpc.ConnSleepDisconnectData
+	Event_FileCopyProgress    = "filecopy:progress"    // type: wshrpc.FileCopyProgressData
 )
 
 var AllEvents []string = []string{
@@ -58,6 +59,7 @@ var AllEvents []string = []string{
 	Event_BlockJobStatus,
 	Event_Badge,
 	Event_ConnSleepDisconnect,
+	Event_FileCopyProgress,
 }
 
 type WaveEvent struct {

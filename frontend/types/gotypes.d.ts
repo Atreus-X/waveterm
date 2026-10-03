@@ -1020,6 +1020,16 @@ declare global {
         recursive?: boolean;
         merge?: boolean;
         timeout?: number;
+        xferid?: string;
+    };
+
+    // wshrpc.FileCopyProgressData
+    type FileCopyProgressData = {
+        xferid: string;
+        name: string;
+        done: number;
+        total: number;
+        finished?: boolean;
     };
 
     // wshrpc.FileData

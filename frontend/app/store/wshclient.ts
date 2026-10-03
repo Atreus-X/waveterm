@@ -1,7 +1,7 @@
 // Copyright 2025, Command Line Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { sendRpcCommand, sendRpcResponse } from "@/app/store/wshrpcutil-base";
+import { sendRpcCancel, sendRpcCommand, sendRpcResponse } from "@/app/store/wshrpcutil-base";
 import * as util from "@/util/util";
 
 const notFoundLogMap = new Map<string, boolean>();
@@ -39,6 +39,9 @@ class RpcResponseHelper {
     }
 }
 
+// frontend-only extension of RpcOpts (which is a Go wire type): aborting sends the RPC cancel and rejects the call
+export type AbortableRpcOpts = RpcOpts & { abortSignal?: AbortSignal };
+
 class WshClient {
     routeId: string;
     openRpcs: Map<string, ClientRpcEntry> = new Map();
@@ -67,8 +70,24 @@ class WshClient {
             return null;
         }
         const respMsgPromise = rpcGen.next(true); // pass true to force termination of rpc after 1 response (not streaming)
-        return respMsgPromise.then((msg: IteratorResult<any, void>) => {
+        const resultPromise = respMsgPromise.then((msg: IteratorResult<any, void>) => {
             return msg.value;
+        });
+        const signal = (opts as AbortableRpcOpts)?.abortSignal;
+        if (signal == null) {
+            return resultPromise;
+        }
+        return new Promise((resolve, reject) => {
+            const onAbort = () => {
+                sendRpcCancel(msg.reqid);
+                reject(new Error("canceled"));
+            };
+            if (signal.aborted) {
+                onAbort();
+                return;
+            }
+            signal.addEventListener("abort", onAbort, { once: true });
+            resultPromise.then(resolve, reject).finally(() => signal.removeEventListener("abort", onAbort));
         });
     }
 

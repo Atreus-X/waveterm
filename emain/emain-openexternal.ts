@@ -39,6 +39,19 @@ type RemoteEditSession = {
 };
 
 const remoteEditSessions = new Map<string, RemoteEditSession>();
+const activeDownloads = new Map<string, AbortController>();
+
+function downloadKey(connName: string, remotePath: string): string {
+    return `${connName ?? ""}|${remotePath}`;
+}
+
+function isAbortError(err: any): boolean {
+    return err?.name === "AbortError" || err?.code === "ABORT_ERR";
+}
+
+export function cancelOpenFileExternal(connName: string, remotePath: string) {
+    activeDownloads.get(downloadKey(connName, remotePath))?.abort();
+}
 
 function remoteEditRoot(): string {
     return path.join(electron.app.getPath("temp"), RemoteEditDirName);
@@ -152,7 +165,8 @@ const ProgressIntervalMs = 150;
 async function downloadRemote(
     remoteUri: string,
     localPath: string,
-    onProgress?: OpenProgressFn
+    onProgress?: OpenProgressFn,
+    signal?: AbortSignal
 ): Promise<{ hash: string; modTime: number }> {
     const info = await RpcApi.FileInfoCommand(
         ElectronWshClient,
@@ -168,7 +182,7 @@ async function downloadRemote(
     // streamed from wavesrv's stream-file endpoint rather than FileReadCommand, which returns the
     // whole file in one base64 RPC message and so refuses anything over the 32 MB transfer limit
     const url = `${getWebServerEndpoint()}/wave/stream-file?path=${encodeURIComponent(remoteUri)}`;
-    const res = await fetch(url, { headers: { [AuthKeyHeader]: AuthKey } });
+    const res = await fetch(url, { headers: { [AuthKeyHeader]: AuthKey }, signal });
     if (!res.ok || res.body == null) {
         throw new Error(`download failed (HTTP ${res.status})`);
     }
@@ -189,12 +203,22 @@ async function downloadRemote(
             cb(null, chunk);
         },
     });
-    const out = fs.createWriteStream(localPath);
+    // written beside the real file and renamed on success, so a canceled or failed download never leaves
+    // a truncated copy where the save-back watcher would upload it
+    const partPath = localPath + ".part";
+    const out = fs.createWriteStream(partPath);
     // "finish" can fire before the handle is closed; opening a file Windows still sees as open for
     // writing fails ("another program is using this file"), so wait for "close" too
     const closed = new Promise<void>((resolve) => out.once("close", () => resolve()));
-    await pipeline(Readable.fromWeb(res.body as any), hashing, out);
-    await closed;
+    try {
+        await pipeline(Readable.fromWeb(res.body as any), hashing, out, { signal });
+        await closed;
+        await fs.promises.rename(partPath, localPath);
+    } catch (err) {
+        await closed.catch(() => {});
+        await fs.promises.rm(partPath, { force: true }).catch(() => {});
+        throw err;
+    }
     onProgress?.("opening", received, total);
     return { hash: hash.digest("hex"), modTime: info.modtime ?? 0 };
 }
@@ -243,11 +267,16 @@ async function openPathWithRetry(localPath: string): Promise<string> {
 
 // run-once files get a fresh copy per open (never overwriting one that may still be running) and no
 // save-back session
-async function openRemoteRunOnce(remoteUri: string, remotePath: string, onProgress?: OpenProgressFn): Promise<string> {
+async function openRemoteRunOnce(
+    remoteUri: string,
+    remotePath: string,
+    onProgress?: OpenProgressFn,
+    signal?: AbortSignal
+): Promise<string> {
     const dir = path.join(remoteEditRoot(), "run-" + crypto.randomBytes(6).toString("hex"));
     await fs.promises.mkdir(dir, { recursive: true });
     const localPath = path.join(dir, safeLocalName(remotePath));
-    await downloadRemote(remoteUri, localPath, onProgress);
+    await downloadRemote(remoteUri, localPath, onProgress, signal);
     const excuse = await openPathWithRetry(localPath);
     if (excuse) {
         console.log(`could not open ${localPath}: ${excuse}`);
@@ -352,11 +381,12 @@ async function openRemoteFile(
     remotePath: string,
     mode: OpenExternalMode,
     editorPath: string,
-    onProgress?: OpenProgressFn
+    onProgress?: OpenProgressFn,
+    signal?: AbortSignal
 ): Promise<string> {
     const remoteUri = formatRemoteUri(remotePath, connName);
     if (mode === "default" && isRunOnceFile(remotePath)) {
-        return openRemoteRunOnce(remoteUri, remotePath, onProgress);
+        return openRemoteRunOnce(remoteUri, remotePath, onProgress, signal);
     }
     let sess = remoteEditSessions.get(remoteUri);
     if (sess != null) {
@@ -367,7 +397,7 @@ async function openRemoteFile(
             sess.debounceTimer = null;
         }
         sess.uploadPending = false;
-        const { hash, modTime } = await downloadRemote(remoteUri, sess.localPath, onProgress);
+        const { hash, modTime } = await downloadRemote(remoteUri, sess.localPath, onProgress, signal);
         sess.lastSyncedHash = hash;
         sess.remoteModTime = modTime;
         return openLocalFile(sess.localPath, mode, editorPath);
@@ -375,7 +405,7 @@ async function openRemoteFile(
     const dir = path.join(remoteEditRoot(), crypto.createHash("sha256").update(remoteUri).digest("hex").slice(0, 16));
     await fs.promises.mkdir(dir, { recursive: true });
     const localPath = path.join(dir, safeLocalName(remotePath));
-    const { hash, modTime } = await downloadRemote(remoteUri, localPath, onProgress);
+    const { hash, modTime } = await downloadRemote(remoteUri, localPath, onProgress, signal);
     // watch the directory, not the file, so editors that save by writing a temp file and renaming it still sync.
     // Events aren't filtered by name: Windows can report a different case or an 8.3 short name, and syncBack
     // is hash-gated so extra triggers are harmless.
@@ -406,8 +436,25 @@ export async function openFileExternal(opts: OpenFileExternalOpts, onProgress?: 
         if (isLocalConn(opts.connection)) {
             return await openLocalFile(expandHome(opts.path), opts.mode, opts.editorPath);
         }
-        return await openRemoteFile(opts.connection, opts.path, opts.mode, opts.editorPath, onProgress);
+        const key = downloadKey(opts.connection, opts.path);
+        const controller = new AbortController();
+        activeDownloads.set(key, controller);
+        try {
+            return await openRemoteFile(
+                opts.connection,
+                opts.path,
+                opts.mode,
+                opts.editorPath,
+                onProgress,
+                controller.signal
+            );
+        } finally {
+            activeDownloads.delete(key);
+        }
     } catch (err) {
+        if (isAbortError(err)) {
+            return "";
+        }
         const msg = `${err?.message ?? err}`;
         console.error("openFileExternal failed", opts, err);
         notify("Couldn't open file", `${path.basename(opts.path)}: ${msg}`);

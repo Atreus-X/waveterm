@@ -24,7 +24,7 @@ contextBridge.exposeInMainWorld("api", {
     onContextMenuClick: (callback: (id: string | null) => void) =>
         ipcRenderer.on("contextmenu-click", (_event, id: string | null) => callback(id)),
     downloadFile: (filePath) => ipcRenderer.send("download", { filePath }),
-    downloadZip: (paths, name) => ipcRenderer.send("download-zip", { paths, name }),
+    downloadZip: (paths, name, connection) => ipcRenderer.send("download-zip", { paths, name, connection }),
     openExternal: (url) => {
         if (url && typeof url === "string") {
             ipcRenderer.send("open-external", url);
@@ -63,6 +63,8 @@ contextBridge.exposeInMainWorld("api", {
     onQuicklook: (filePath: string) => ipcRenderer.send("quicklook", filePath),
     openNativePath: (filePath: string) => ipcRenderer.send("open-native-path", filePath),
     openFileExternal: (opts: OpenFileExternalOpts) => ipcRenderer.invoke("open-file-external", opts),
+    cancelOpenFileExternal: (filePath: string, connection: string) =>
+        ipcRenderer.send("cancel-open-file-external", filePath, connection),
     onOpenFileExternalProgress: (callback) =>
         ipcRenderer.on("open-file-external-progress", (_event, progress) => callback(progress)),
     getExternalEditor: (configuredPath: string) => ipcRenderer.sendSync("get-external-editor", configuredPath),
