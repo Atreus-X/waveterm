@@ -157,6 +157,9 @@ export class PreviewModel implements ViewModel {
     openFileModalDelay: PrimitiveAtom<boolean>;
     openFileError: PrimitiveAtom<string>;
     openFileModalGiveFocusRef: React.RefObject<() => boolean>;
+    // in-progress edit of the header path; null when the path is not being edited
+    pathDraft: PrimitiveAtom<string | null>;
+    pathInputRef: React.RefObject<HTMLInputElement>;
 
     markdownShowToc: PrimitiveAtom<boolean>;
 
@@ -190,6 +193,8 @@ export class PreviewModel implements ViewModel {
         this.openFileModalDelay = atom(false);
         this.openFileError = atom(null) as PrimitiveAtom<string>;
         this.openFileModalGiveFocusRef = createRef();
+        this.pathDraft = atom(null) as PrimitiveAtom<string | null>;
+        this.pathInputRef = createRef();
         this.manageConnection = atom(true);
         this.blockAtom = this.env.wos.getWaveObjectAtom<Block>(`block:${blockId}`);
         this.markdownShowToc = atom(false);
@@ -254,13 +259,18 @@ export class PreviewModel implements ViewModel {
             if (!isBlank(headerPath) && headerPath != "/" && headerPath.endsWith("/")) {
                 headerPath = headerPath.slice(0, -1);
             }
+            const pathDraft = get(this.pathDraft);
             const viewTextChildren: HeaderElem[] = [
                 {
-                    elemtype: "text",
-                    text: headerPath,
-                    ref: this.previewTextRef,
+                    elemtype: "input",
+                    // the leading LRM keeps rtl truncation (filename stays visible) from reordering the leading "/"
+                    value: pathDraft ?? "‎" + headerPath,
+                    ref: this.pathInputRef,
                     className: "preview-filename",
-                    onClick: () => this.toggleOpenFileModal(),
+                    onChange: (e) => globalStore.set(this.pathDraft, e.target.value),
+                    onKeyDown: (e) => this.handlePathKeyDown(e),
+                    onFocus: (e) => this.handlePathFocus(e),
+                    onBlur: () => globalStore.set(this.pathDraft, null),
                 },
             ];
             let saveClassName = "grey";
@@ -572,6 +582,36 @@ export class PreviewModel implements ViewModel {
                 }, 200);
             }
         }
+    }
+
+    handlePathFocus(e: React.FocusEvent<HTMLInputElement>) {
+        const loadable = globalStore.get(this.loadableFileInfo);
+        const statPath = loadable.state == "hasData" ? loadable.data?.path : null;
+        globalStore.set(this.pathDraft, statPath ?? globalStore.get(this.metaFilePath) ?? "");
+        const input = e.target;
+        setTimeout(() => input.select(), 0);
+    }
+
+    handlePathKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+        if (e.key == "Escape") {
+            e.preventDefault();
+            e.stopPropagation();
+            globalStore.set(this.pathDraft, null);
+            refocusNode(this.blockId);
+            return;
+        }
+        if (e.key != "Enter") {
+            return;
+        }
+        e.preventDefault();
+        e.stopPropagation();
+        const newPath = (globalStore.get(this.pathDraft) ?? "").trim();
+        globalStore.set(this.pathDraft, null);
+        if (isBlank(newPath)) {
+            refocusNode(this.blockId);
+            return;
+        }
+        fireAndForget(() => this.handleOpenFile(newPath));
     }
 
     toggleOpenFileModal() {
