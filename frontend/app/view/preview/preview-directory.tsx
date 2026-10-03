@@ -4,7 +4,14 @@
 import { ContextMenuModel } from "@/app/store/contextmenu";
 import { globalStore } from "@/app/store/jotaiStore";
 import { OpenExternalProgressModel } from "@/app/store/openexternal-progress";
-import { openProgressFraction, openProgressKey, openProgressLabel } from "@/app/store/openexternal-progress-util";
+import {
+    openProgressFraction,
+    openProgressKey,
+    openProgressLabel,
+    transferDetail,
+    transferLabel,
+} from "@/app/store/openexternal-progress-util";
+import type { AbortableRpcOpts } from "@/app/store/wshclient";
 import { TabRpcClient } from "@/app/store/wshrpcutil";
 import { useWaveEnv } from "@/app/waveenv/waveenv";
 import { checkKeyPressed, isCharacterKeyEvent } from "@/util/keyutil";
@@ -668,60 +675,93 @@ function TableRow({
     );
 }
 
-type UploadProgress = { name: string; done: number; total: number };
+const CancelButton = ({ onClick, disabled }: { onClick: () => void; disabled?: boolean }) => (
+    <button
+        className={clsx(
+            "ml-2 shrink-0 rounded px-1 text-secondary hover:bg-hover hover:text-primary",
+            disabled ? "opacity-50" : "cursor-pointer"
+        )}
+        title="Cancel"
+        disabled={disabled}
+        onClick={onClick}
+    >
+        <i className="fa-solid fa-xmark" />
+    </button>
+);
 
-// shown at the bottom left of the block while remote files download to open in an external app
-const OpenProgressList = React.memo(({ connection, upload }: { connection: string; upload: UploadProgress }) => {
-    const progressMap = useAtomValue(OpenExternalProgressModel.getInstance().progressAtom);
+const ProgressBar = ({ frac, isError }: { frac: number | null; isError?: boolean }) => (
+    <div className="mt-1 h-[3px] overflow-hidden rounded bg-zinc-700">
+        <div
+            className={clsx(
+                "h-full transition-[width] duration-150",
+                isError ? "bg-error" : "bg-accent",
+                frac == null && !isError && "w-1/3 animate-pulse"
+            )}
+            style={frac != null || isError ? { width: `${isError ? 100 : frac * 100}%` } : undefined}
+        />
+    </div>
+);
+
+const ProgressCardClass = "rounded border border-border bg-panel px-2 py-1 text-[11px] shadow-lg";
+
+// shown at the bottom left of the block while files transfer: remote files downloading to open in an
+// external app, and uploads / drag-drop copies
+const OpenProgressList = React.memo(({ connection }: { connection: string }) => {
+    const model = OpenExternalProgressModel.getInstance();
+    const progressMap = useAtomValue(model.progressAtom);
+    const speedMap = useAtomValue(model.speedAtom);
+    const transfers = useAtomValue(model.transfersAtom);
     // matched by connection only: the opened file's path and this block's folder path aren't always written the
     // same way (separators, "~"), which silently hid the bar
     const items = Object.values(progressMap).filter((p) => (p.connection ?? "") === (connection ?? ""));
-    if (items.length === 0 && upload == null) {
+    const mine = Object.values(transfers).filter((t) => (t.connection ?? "") === (connection ?? ""));
+    if (items.length === 0 && mine.length === 0) {
         return null;
     }
     return (
-        <div className="pointer-events-none absolute bottom-2 left-2 z-10 flex max-w-[90%] flex-col gap-1">
-            {upload != null && (
-                <div className="rounded bg-panel/90 px-2 py-1 text-[11px]">
-                    <div className="truncate text-accent" title={upload.name}>
-                        Uploading {upload.name}
-                        {upload.total > 1 ? ` (${upload.done + 1} of ${upload.total})` : ""}
+        <div className="absolute bottom-2 left-2 z-10 flex max-w-[90%] flex-col gap-1">
+            {mine.map((t) => {
+                const frac = t.total > 0 ? Math.min(1, t.done / t.total) : null;
+                const detail = transferDetail(t.done, t.total, t.bps);
+                return (
+                    <div key={t.id} className={ProgressCardClass}>
+                        <div className="flex items-center">
+                            <div className="min-w-0 flex-1 truncate text-accent" title={t.name}>
+                                {t.canceling ? "Canceling " : "Uploading "}
+                                {t.name}
+                                {t.count > 1 ? ` (${t.index + 1} of ${t.count})` : ""}
+                            </div>
+                            <CancelButton onClick={() => model.cancelTransfer(t.id)} disabled={t.canceling} />
+                        </div>
+                        <div className="truncate text-secondary">
+                            {transferLabel(t.done, t.total)}
+                            {detail ? ` · ${detail}` : ""}
+                        </div>
+                        <ProgressBar frac={frac} />
                     </div>
-                    <div className="mt-1 h-[2px] overflow-hidden rounded bg-white/10">
-                        <div
-                            className={clsx(
-                                "h-full bg-accent transition-[width] duration-150",
-                                upload.total <= 1 && "w-1/3 animate-pulse"
-                            )}
-                            style={upload.total > 1 ? { width: `${(upload.done / upload.total) * 100}%` } : undefined}
-                        />
-                    </div>
-                </div>
-            )}
+                );
+            })}
             {items.map((p) => {
                 const frac = openProgressFraction(p);
                 const isError = p.phase === "error";
                 const label = openProgressLabel(p);
+                const detail =
+                    p.phase === "download"
+                        ? transferDetail(p.received, p.total, speedMap[openProgressKey(p.connection, p.path)])
+                        : "";
                 return (
-                    <div
-                        key={openProgressKey(p.connection, p.path)}
-                        className="rounded bg-panel/90 px-2 py-1 text-[11px]"
-                    >
-                        <div className={clsx("truncate", isError ? "text-error" : "text-accent")} title={label}>
-                            {p.path.split("/").pop()}: {label}
-                        </div>
-                        <div className="mt-1 h-[2px] overflow-hidden rounded bg-white/10">
+                    <div key={openProgressKey(p.connection, p.path)} className={ProgressCardClass}>
+                        <div className="flex items-center">
                             <div
-                                className={clsx(
-                                    "h-full transition-[width] duration-150",
-                                    isError ? "bg-error" : "bg-accent",
-                                    frac == null && !isError && "w-1/3 animate-pulse"
-                                )}
-                                style={
-                                    frac != null || isError ? { width: `${isError ? 100 : frac * 100}%` } : undefined
-                                }
-                            />
+                                className={clsx("min-w-0 flex-1 truncate", isError ? "text-error" : "text-accent")}
+                                title={label}
+                            >
+                                {p.path.split("/").pop()}: {label}
+                            </div>
+                            {p.phase === "download" && <CancelButton onClick={() => model.cancelDownload(p)} />}
                         </div>
+                        {detail && <div className="truncate text-secondary">{detail}</div>}
+                        <ProgressBar frac={frac} isError={isError} />
                     </div>
                 );
             })}
@@ -951,9 +991,20 @@ function DirectoryPreview({ model }: DirectoryPreviewProps) {
 
     const handleDropCopy = useCallback(
         async (data: CommandFileCopyData, isDir: boolean) => {
+            const progressModel = OpenExternalProgressModel.getInstance();
+            const xfer = progressModel.beginTransfer(conn, 1);
+            progressModel.setTransferItem(xfer.id, data.srcuri.split("/").at(-1), 0);
             try {
-                await env.rpc.FileCopyCommand(TabRpcClient, data, { timeout: data.opts.timeout });
+                data.opts.xferid = xfer.id;
+                await env.rpc.FileCopyCommand(TabRpcClient, data, {
+                    timeout: data.opts.timeout,
+                    abortSignal: xfer.signal,
+                } as AbortableRpcOpts);
             } catch (e) {
+                if (xfer.signal.aborted) {
+                    model.refreshCallback();
+                    return;
+                }
                 console.warn("Copy failed:", e);
                 const copyError = `${e}`;
                 const allowRetry = copyError.includes(overwriteError) || copyError.includes(mergeError);
@@ -988,13 +1039,13 @@ function DirectoryPreview({ model }: DirectoryPreviewProps) {
                     };
                 }
                 setErrorMsg(errorMsg);
+            } finally {
+                progressModel.endTransfer(xfer.id);
             }
             model.refreshCallback();
         },
-        [model.refreshCallback]
+        [model.refreshCallback, conn]
     );
-
-    const [uploadProgress, setUploadProgress] = useState<UploadProgress>(null);
 
     const uploadLocalFiles = useCallback(
         async (files: File[]) => {
@@ -1005,13 +1056,24 @@ function DirectoryPreview({ model }: DirectoryPreviewProps) {
             const desturi = await model.formatRemoteUri(dirPath, globalStore.get);
             const conflicts: CommandFileCopyData[] = [];
             const failures: string[] = [];
+            let canceled = false;
             const copyAll = async (items: CommandFileCopyData[]) => {
+                const progressModel = OpenExternalProgressModel.getInstance();
+                const xfer = progressModel.beginTransfer(conn, items.length);
                 try {
                     for (const [i, data] of items.entries()) {
-                        setUploadProgress({ name: data.srcuri.split("/").at(-1), done: i, total: items.length });
+                        progressModel.setTransferItem(xfer.id, data.srcuri.split("/").at(-1), i);
                         try {
-                            await env.rpc.FileCopyCommand(TabRpcClient, data, { timeout: data.opts.timeout });
+                            data.opts.xferid = xfer.id;
+                            await env.rpc.FileCopyCommand(TabRpcClient, data, {
+                                timeout: data.opts.timeout,
+                                abortSignal: xfer.signal,
+                            } as AbortableRpcOpts);
                         } catch (e) {
+                            if (xfer.signal.aborted) {
+                                canceled = true;
+                                return;
+                            }
                             const copyError = `${e}`;
                             const name = data.srcuri.split("/").at(-1);
                             if (copyError.includes(overwriteError) || copyError.includes(mergeError)) {
@@ -1022,7 +1084,7 @@ function DirectoryPreview({ model }: DirectoryPreviewProps) {
                         }
                     }
                 } finally {
-                    setUploadProgress(null);
+                    progressModel.endTransfer(xfer.id);
                 }
             };
             const timeoutYear = 31536000000;
@@ -1036,6 +1098,9 @@ function DirectoryPreview({ model }: DirectoryPreviewProps) {
                 }))
             );
             model.refreshCallback();
+            if (canceled) {
+                return;
+            }
             if (failures.length > 0) {
                 setErrorMsg({
                     status: failures.length == 1 ? "Upload Failed" : `${failures.length} Uploads Failed`,
@@ -1061,7 +1126,7 @@ function DirectoryPreview({ model }: DirectoryPreviewProps) {
                                 conflicts.length = 0;
                                 await copyAll(retry);
                                 model.refreshCallback();
-                                if (failures.length > 0) {
+                                if (!canceled && failures.length > 0) {
                                     setErrorMsg({ status: "Upload Failed", text: failures.join("\n"), level: "error" });
                                 }
                             }),
@@ -1069,7 +1134,7 @@ function DirectoryPreview({ model }: DirectoryPreviewProps) {
                 ],
             });
         },
-        [dirPath, model.formatRemoteUri, model.refreshCallback]
+        [dirPath, model.formatRemoteUri, model.refreshCallback, conn]
     );
 
     const uploadInputRef = useRef<HTMLInputElement>(null);
@@ -1227,7 +1292,7 @@ function DirectoryPreview({ model }: DirectoryPreviewProps) {
                     newFile={newFile}
                     newDirectory={newDirectory}
                 />
-                <OpenProgressList connection={conn} upload={uploadProgress} />
+                <OpenProgressList connection={conn} />
                 <input
                     ref={uploadInputRef}
                     type="file"

@@ -152,6 +152,7 @@ declare global {
         onQuicklook: (filePath: string) => void; // quicklook
         openNativePath(filePath: string): void; // open-native-path
         openFileExternal: (opts: OpenFileExternalOpts) => Promise<string>; // open-file-external (resolves to "" or an error message)
+        cancelOpenFileExternal: (filePath: string, connection: string) => void; // cancel-open-file-external
         onOpenFileExternalProgress: (callback: (progress: OpenFileExternalProgress) => void) => void; // open-file-external-progress
         getExternalEditor: (configuredPath: string) => ExternalEditorInfo | null; // get-external-editor
         setUpdateSource: (source: string) => void; // set-update-source

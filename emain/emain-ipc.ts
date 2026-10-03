@@ -20,7 +20,7 @@ import {
     setWasActive,
 } from "./emain-activity";
 import { createBuilderWindow, getAllBuilderWindows, getBuilderWindowByWebContentsId } from "./emain-builder";
-import { findExternalEditor, openFileExternal } from "./emain-openexternal";
+import { cancelOpenFileExternal, findExternalEditor, openFileExternal } from "./emain-openexternal";
 import { callWithOriginalXdgCurrentDesktopAsync, unamePlatform } from "./emain-platform";
 import { getWaveTabViewByWebContentsId } from "./emain-tabview";
 import { handleCtrlShiftState } from "./emain-util";
@@ -430,6 +430,10 @@ export function initIpcHandlers() {
         setTaskbar(-1);
         send({ ...base, phase: rtn ? "error" : "done", received: 0, total: 0, error: rtn || undefined });
         return rtn;
+    });
+
+    electron.ipcMain.on("cancel-open-file-external", (_event, filePath: string, connection: string) => {
+        cancelOpenFileExternal(connection, filePath);
     });
 
     electron.ipcMain.on("get-external-editor", (event, configuredPath: string) => {

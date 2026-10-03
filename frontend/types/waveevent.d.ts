@@ -27,6 +27,7 @@ declare global {
         | "block:jobstatus"
         | "badge"
         | "conn:sleepdisconnect"
+        | "filecopy:progress"
     ;
 
     type WaveEvent = {
@@ -55,7 +56,8 @@ declare global {
         { event: "waveai:modeconfig"; data?: AIModeConfigUpdate; } | 
         { event: "block:jobstatus"; data?: BlockJobStatusData; } | 
         { event: "badge"; data?: BadgeEvent; } | 
-        { event: "conn:sleepdisconnect"; data?: ConnSleepDisconnectData; }
+        { event: "conn:sleepdisconnect"; data?: ConnSleepDisconnectData; } | 
+        { event: "filecopy:progress"; data?: FileCopyProgressData; }
     );
 
 }

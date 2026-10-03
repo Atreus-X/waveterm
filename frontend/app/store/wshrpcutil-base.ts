@@ -137,4 +137,4 @@ class UpstreamWshRpcProxy implements AbstractWshClient {
     }
 }
 
-export { DefaultRouter, initElectronWshrpc, sendRpcCommand, sendRpcResponse, setDefaultRouter, shutdownWshrpc };
+export { DefaultRouter, initElectronWshrpc, sendRpcCancel, sendRpcCommand, sendRpcResponse, setDefaultRouter, shutdownWshrpc };
