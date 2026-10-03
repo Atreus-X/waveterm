@@ -22,6 +22,7 @@ import { ElectronWshClient } from "./emain-wsh";
 const RemoteEditDirName = "wave-remote-edit";
 const RemoteEditMaxAgeMs = 7 * 24 * 60 * 60 * 1000;
 const SyncDebounceMs = 700;
+const StatPollMs = 2000;
 const RemoteRpcTimeoutMs = 60000;
 const UploadChunkBytes = 16 * 1024 * 1024;
 
@@ -309,6 +310,7 @@ async function syncBack(sess: RemoteEditSession) {
     if (hash === sess.lastSyncedHash) {
         return;
     }
+    console.log("remote edit: local copy changed, uploading", sess.remoteUri);
     sess.uploading = true;
     const fileName = path.basename(sess.localPath);
     try {
@@ -372,10 +374,13 @@ async function openRemoteFile(
     await fs.promises.mkdir(dir, { recursive: true });
     const localPath = path.join(dir, safeLocalName(remotePath));
     const { hash, modTime } = await downloadRemote(remoteUri, localPath, onProgress);
-    const localName = path.basename(localPath);
-    // watch the directory, not the file, so editors that save by writing a temp file and renaming it still sync
-    const watcher = fs.watch(dir, (_event, changed) => {
-        if (changed == null || changed.toString() === localName) {
+    // watch the directory, not the file, so editors that save by writing a temp file and renaming it still sync.
+    // Events aren't filtered by name: Windows can report a different case or an 8.3 short name, and syncBack
+    // is hash-gated so extra triggers are harmless.
+    const watcher = fs.watch(dir, () => scheduleSync(sess));
+    // fs.watch is unreliable for some editors and filesystems; polling the file's stat catches what it misses
+    fs.watchFile(localPath, { interval: StatPollMs }, (cur, prev) => {
+        if (cur.mtimeMs !== prev.mtimeMs || cur.size !== prev.size) {
             scheduleSync(sess);
         }
     });
@@ -432,6 +437,7 @@ export function cleanupOldRemoteEdits() {
 export function closeRemoteEditSessions() {
     for (const sess of remoteEditSessions.values()) {
         sess.watcher.close();
+        fs.unwatchFile(sess.localPath);
     }
     remoteEditSessions.clear();
 }
