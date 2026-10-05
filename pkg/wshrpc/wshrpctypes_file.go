@@ -119,10 +119,19 @@ type CommandFileCopyData struct {
 }
 
 type FileCopyOpts struct {
-	Overwrite bool  `json:"overwrite,omitempty"`
-	Recursive bool  `json:"recursive,omitempty"` // only used for move, always true for copy
-	Merge     bool  `json:"merge,omitempty"`
-	Timeout   int64 `json:"timeout,omitempty"`
+	Overwrite bool   `json:"overwrite,omitempty"`
+	Recursive bool   `json:"recursive,omitempty"` // only used for move, always true for copy
+	Merge     bool   `json:"merge,omitempty"`
+	Timeout   int64  `json:"timeout,omitempty"`
+	XferId    string `json:"xferid,omitempty"` // when set, byte progress is published as filecopy:progress events
+}
+
+type FileCopyProgressData struct {
+	XferId   string `json:"xferid"`
+	Name     string `json:"name"`
+	Done     int64  `json:"done"`
+	Total    int64  `json:"total"` // 0 when unknown (folders)
+	Finished bool   `json:"finished,omitempty"`
 }
 
 type CommandRemoteStreamFileData struct {

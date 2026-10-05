@@ -124,7 +124,7 @@ declare global {
         onNavigate: (callback: (url: string) => void) => void;
         onIframeNavigate: (callback: (url: string) => void) => void;
         downloadFile: (path: string) => void; // download
-        downloadZip: (paths: string[], name: string) => void; // download-zip
+        downloadZip: (paths: string[], name: string, connection: string) => void; // download-zip
         openExternal: (url: string) => void; // open-external
         onFullScreenChange: (callback: (isFullScreen: boolean) => void) => void; // fullscreen-change
         onZoomFactorChange: (callback: (zoomFactor: number) => void) => void; // zoom-factor-change
@@ -152,6 +152,7 @@ declare global {
         onQuicklook: (filePath: string) => void; // quicklook
         openNativePath(filePath: string): void; // open-native-path
         openFileExternal: (opts: OpenFileExternalOpts) => Promise<string>; // open-file-external (resolves to "" or an error message)
+        cancelOpenFileExternal: (filePath: string, connection: string) => void; // cancel-open-file-external
         onOpenFileExternalProgress: (callback: (progress: OpenFileExternalProgress) => void) => void; // open-file-external-progress
         getExternalEditor: (configuredPath: string) => ExternalEditorInfo | null; // get-external-editor
         setUpdateSource: (source: string) => void; // set-update-source
