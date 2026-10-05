@@ -293,8 +293,66 @@ const SnippetEditor = memo(({ model, snippet }: { model: LibraryViewModel; snipp
 });
 SnippetEditor.displayName = "SnippetEditor";
 
-// list | draggable divider | detail; each tab remembers its own divider position (per viewer)
-function LibrarySplit({ id, children }: { id: string; children: [React.ReactNode, React.ReactNode] }) {
+function listHiddenKey(id: string): string {
+    return `wave-library-${id}-list-hidden`;
+}
+
+function useListHidden(id: string): [boolean, (hidden: boolean) => void] {
+    const [hidden, setHiddenState] = useState(() => {
+        try {
+            return localStorage.getItem(listHiddenKey(id)) === "1";
+        } catch {
+            return false;
+        }
+    });
+    const setHidden = (next: boolean) => {
+        setHiddenState(next);
+        try {
+            localStorage.setItem(listHiddenKey(id), next ? "1" : "0");
+        } catch {}
+    };
+    return [hidden, setHidden];
+}
+
+function ListToggleButton({ noun, onClick, icon }: { noun: string; onClick: () => void; icon: string }) {
+    const label = icon === "fa-angles-left" ? `Hide ${noun} list` : `Show ${noun} list`;
+    return (
+        <button
+            onClick={onClick}
+            title={label}
+            aria-label={label}
+            className="cursor-pointer rounded px-2 py-1 text-secondary transition-colors hover:bg-hoverbg hover:text-primary"
+        >
+            <i className={cn("fa-solid", icon)} />
+        </button>
+    );
+}
+
+// list | draggable divider | detail; each tab remembers its own divider position (per viewer).
+// When the list is hidden, the detail pane takes the full width and a thin rail brings the list back.
+function LibrarySplit({
+    id,
+    noun,
+    hidden,
+    onShow,
+    children,
+}: {
+    id: string;
+    noun: string;
+    hidden: boolean;
+    onShow: () => void;
+    children: [React.ReactNode, React.ReactNode];
+}) {
+    if (hidden) {
+        return (
+            <div className="flex min-h-0 flex-1">
+                <div className="flex shrink-0 flex-col border-r border-border p-1">
+                    <ListToggleButton noun={noun} onClick={onShow} icon="fa-angles-right" />
+                </div>
+                <div className="min-h-0 min-w-0 flex-1">{children[1]}</div>
+            </div>
+        );
+    }
     return (
         <PanelGroup direction="horizontal" autoSaveId={`wave-library-${id}-split`} className="min-h-0 flex-1">
             <Panel defaultSize={32} minSize={15} maxSize={75} className="min-h-0">
@@ -317,14 +375,16 @@ const SnippetsTab = memo(({ model }: { model: LibraryViewModel }) => {
     const filling = jotai.useAtomValue(model.fillingAtom);
     const targetId = jotai.useAtomValue(model.lib.lastTermBlockIdAtom);
     const [query, setQuery] = useState("");
+    const [listHidden, setListHidden] = useListHidden("snippets");
     const conn = model.lib.terminalConnection(targetId);
     const shown = rankSnippets(snippets, query, conn);
     const selected = snippets.find((s) => s.id === selectedId) ?? null;
     const target = model.lib.isTerminal(targetId) ? targetLabel(model.lib, targetId) : null;
     return (
-        <LibrarySplit id="snippets">
+        <LibrarySplit id="snippets" noun="snippets" hidden={listHidden} onShow={() => setListHidden(false)}>
             <div className="flex h-full min-h-0 flex-col border-r border-border">
                 <div className="flex items-center gap-2 border-b border-border p-2">
+                    <ListToggleButton noun="snippets" onClick={() => setListHidden(true)} icon="fa-angles-left" />
                     <input
                         value={query}
                         onChange={(e) => setQuery(e.target.value)}
@@ -410,6 +470,7 @@ const NotesTab = memo(({ model }: { model: LibraryViewModel }) => {
     const [renameTo, setRenameTo] = useState<string>(null);
     const [editorVer, setEditorVer] = useState(0);
     const [error, setError] = useState<string>(null);
+    const [listHidden, setListHidden] = useListHidden("notes");
     const general = notes.filter((n) => !n.host);
     const hosts = notes.filter((n) => n.host);
     const createNote = async () => {
@@ -474,9 +535,10 @@ const NotesTab = memo(({ model }: { model: LibraryViewModel }) => {
         );
     };
     return (
-        <LibrarySplit id="notes">
+        <LibrarySplit id="notes" noun="notes" hidden={listHidden} onShow={() => setListHidden(false)}>
             <div className="flex h-full min-h-0 flex-col border-r border-border">
                 <div className="flex items-center gap-2 border-b border-border p-2">
+                    <ListToggleButton noun="notes" onClick={() => setListHidden(true)} icon="fa-angles-left" />
                     {newName == null ? (
                         <button
                             onClick={() => {
