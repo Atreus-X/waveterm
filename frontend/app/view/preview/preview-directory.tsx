@@ -1235,6 +1235,10 @@ function DirectoryPreview({ model }: DirectoryPreviewProps) {
                     if (event.target.type === "file") {
                         return;
                     }
+                    // the path bar lives inside this container; typing a path must not open the search bar
+                    if (event.target === model.pathInputRef.current) {
+                        return;
+                    }
                     if (!entryManagerProps) {
                         setSearchText(event.target.value.toLowerCase());
                     }
