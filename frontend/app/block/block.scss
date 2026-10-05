@@ -75,7 +75,6 @@
             flex-direction: column;
 
             .block-frame-default-header {
-                max-height: var(--header-height);
                 min-height: var(--header-height);
                 display: flex;
                 padding: 4px 5px 4px 7px;
@@ -230,7 +229,12 @@
 
                 .block-frame-end-icons {
                     display: flex;
-                    flex-shrink: 0;
+                    flex-wrap: wrap;
+                    justify-content: flex-end;
+                    min-width: 24px;
+                    // shrinks only after the title/path text has given up all its room (flex shrink is weighted by
+                    // factor), then the icons wrap onto extra rows and the header grows
+                    flex: 0 0.001 auto;
 
                     .wave-iconbutton {
                         display: flex;
