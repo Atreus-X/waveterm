@@ -11,7 +11,7 @@ import { checkKeyPressed, isCharacterKeyEvent } from "@/util/keyutil";
 import { PLATFORM, PlatformMacOS } from "@/util/platformutil";
 import { addOpenMenuItems, openFileExternally, openPreviewInNewBlock } from "@/util/previewutil";
 import { isTextCapableFile } from "@/util/textfiles";
-import { fireAndForget } from "@/util/util";
+import { cn, fireAndForget } from "@/util/util";
 import { formatRemoteUri } from "@/util/waveutil";
 import { offset, useDismiss, useFloating, useInteractions } from "@floating-ui/react";
 import {
@@ -735,6 +735,35 @@ const MemoizedTableBody = React.memo(
     (prev, next) => prev.table.options.data == next.table.options.data
 ) as typeof TableBody;
 
+// editable path on its own line between the block header and the column names; the header would crowd it
+// out next to a connection chip
+const DirectoryPathBar = React.memo(({ model }: { model: PreviewModel }) => {
+    const displayPath = useAtomValue(model.displayPath);
+    const pathDraft = useAtomValue(model.pathDraft);
+    const editing = pathDraft != null;
+    return (
+        <div className="shrink-0 border-b border-border px-2 py-[3px]">
+            <input
+                ref={model.pathInputRef}
+                className={cn(
+                    "w-full bg-transparent border-none outline-none font-mono text-[11px] rounded-sm cursor-text",
+                    "hover:bg-hover focus:bg-hover",
+                    editing ? "opacity-100" : "opacity-70"
+                )}
+                // rtl keeps the end of a long path visible; the leading LRM stops it reordering the leading "/"
+                style={editing ? undefined : { direction: "rtl", textAlign: "left" }}
+                value={pathDraft ?? "\u200e" + displayPath}
+                onChange={(e) => globalStore.set(model.pathDraft, e.target.value)}
+                onKeyDown={(e) => model.handlePathKeyDown(e)}
+                onFocus={(e) => model.handlePathFocus(e)}
+                onBlur={() => globalStore.set(model.pathDraft, null)}
+                onClick={(e) => e.stopPropagation()}
+            />
+        </div>
+    );
+});
+DirectoryPathBar.displayName = "DirectoryPathBar";
+
 interface DirectoryPreviewProps {
     model: PreviewModel;
 }
@@ -1206,6 +1235,10 @@ function DirectoryPreview({ model }: DirectoryPreviewProps) {
                     if (event.target.type === "file") {
                         return;
                     }
+                    // the path bar lives inside this container; typing a path must not open the search bar
+                    if (event.target === model.pathInputRef.current) {
+                        return;
+                    }
                     if (!entryManagerProps) {
                         setSearchText(event.target.value.toLowerCase());
                     }
@@ -1214,6 +1247,7 @@ function DirectoryPreview({ model }: DirectoryPreviewProps) {
                 onContextMenu={(e) => handleFileContextMenu(e)}
                 onClick={() => setEntryManagerProps(undefined)}
             >
+                <DirectoryPathBar model={model} />
                 <DirectoryTable
                     model={model}
                     data={filteredData}
