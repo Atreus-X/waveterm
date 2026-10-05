@@ -1074,7 +1074,8 @@ export class PreviewModel implements ViewModel {
             fireAndForget(() => this.goParentDirectory({}));
             return true;
         }
-        if (checkKeyPressed(e, "Cmd:o")) {
+        // "Cmd" is Alt on Windows/Linux, and Alt+0 (zero) is the Wave AI shortcut there, so Ctrl+O is the unambiguous alias
+        if (checkKeyPressed(e, "Cmd:o") || checkKeyPressed(e, "Ctrl:o")) {
             this.toggleOpenFileModal();
             return true;
         }
