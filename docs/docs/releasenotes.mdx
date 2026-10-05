@@ -6,6 +6,24 @@ sidebar_position: 200
 
 # Release Notes
 
+### v0.17.3 (Atreus fork) &mdash; Oct 5, 2026
+
+An editable path bar with autocomplete, cancellable transfers with progress, an open chooser for files with no preview, and several remote-edit and layout fixes.
+
+- **Editable Path** - Click the path in a file or folder view to edit it and press Enter to go there. In folder views the path sits on its own row above the column names. A path that doesn't exist now shows an error instead of creating a file, and typing in the path bar no longer opens the folder search
+- **Path Autocomplete** - Typing a path suggests matching folders and files (arrow keys, Tab and Enter to accept, Escape to close), on local, `wsh` and plain-SSH hosts
+- **Transfer Cancel and Progress** - Uploads, downloads, Download as Zip, drag-and-drop copies and open-in-external now show a progress card with speed and time remaining, and an &#10005; cancels the transfer and cleans up the partial file
+- **Open Chooser** - Files with no preview, and files over the preview size limit, offer Open as Text, Default Application, your external editor and Open With... instead of a dead end
+- **Edit/Save/Preview Row** - In file views the Edit, Save and Preview buttons sit on their own line under the header instead of sharing a row with the header icons
+- **Header Icons Wrap** - Block header icons wrap onto extra rows when a block is too narrow, instead of being clipped
+- **Library** - The Snippets and Notes tabs can hide and show their list pane to give the editor the full width
+- **Open File Shortcut** - Ctrl+O also opens the Open File popup in file views; on Windows and Linux the existing shortcut is Alt+O (the letter), while Alt+0 (zero) focuses Wave AI
+- **Version in the Tab Bar** - The app version now shows to the left of the usage meter
+- A CSV with an empty header cell no longer crashes the block
+- Remote files edited in an external editor now upload on save more reliably, and reopening a remote file always shows the latest remote content
+- [deps] Dependency roll-up: React DOM pinned to match React, `ai` and `@ai-sdk/react`, `undici`, `mermaid`, `postcss`, `shell-quote`, `dompurify` and Monaco held at 0.55.x; Dependabot limits tightened
+- [build] Synced with upstream Wave: slow dev renderer startup is now recoverable
+
 ### v0.17.2 (Atreus fork) &mdash; Oct 2, 2026
 
 Update settings in the settings GUI that apply without a restart, and a fix for stuck update checks.
