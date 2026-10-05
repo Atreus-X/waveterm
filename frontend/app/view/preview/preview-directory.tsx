@@ -765,7 +765,7 @@ const DirectoryPathBar = React.memo(({ model }: { model: PreviewModel }) => {
             {pathError != null && <div className="px-0.5 pt-[2px] text-[11px] text-error">{pathError}</div>}
             {editing && suggestions.length > 0 && (
                 <div
-                    className="absolute left-2 right-2 top-full z-20 max-h-60 overflow-y-auto rounded border border-border bg-panel py-1 shadow-lg"
+                    className="absolute left-2 right-2 top-full z-20 max-h-60 overflow-y-auto rounded border border-border bg-modalbg py-1 shadow-lg"
                     // keeps focus in the input so a click doesn't trigger the blur that closes the list
                     onMouseDown={(e) => e.preventDefault()}
                 >
