@@ -1,6 +1,7 @@
 // Copyright 2026, Command Line Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+import { renderHeaderElements } from "@/app/block/blockutil";
 import { CenteredDiv } from "@/app/element/quickelems";
 import { getApi, getSettingsKeyAtom } from "@/app/store/global";
 import { globalStore } from "@/app/store/jotaiStore";
@@ -93,6 +94,20 @@ const UnsupportedPreview = memo(
     }
 );
 UnsupportedPreview.displayName = "UnsupportedPreview";
+
+// Edit / Save / Preview sit on their own line under the header so they never share a row with the header icons
+const FileActionBar = memo(({ model }: { model: PreviewModel }) => {
+    const buttons = useAtomValue(model.fileActionButtons);
+    if (buttons.length == 0) {
+        return null;
+    }
+    return (
+        <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border px-2 py-[3px]">
+            {renderHeaderElements(buttons, false)}
+        </div>
+    );
+});
+FileActionBar.displayName = "FileActionBar";
 
 const SpecializedView = memo(({ parentRef, model }: SpecializedViewProps) => {
     const specializedView = useAtomValue(model.specializedView);
@@ -203,6 +218,7 @@ function PreviewView({
         <>
             <div key="fullpreview" className="flex flex-col w-full overflow-hidden scrollbar-hide-until-hover">
                 {errorMsg && <ErrorOverlay errorMsg={errorMsg} resetOverlay={() => setErrorMsg(null)} />}
+                <FileActionBar model={model} />
                 <div ref={contentRef} className="flex-grow overflow-hidden">
                     <SpecializedView parentRef={contentRef} model={model} />
                 </div>

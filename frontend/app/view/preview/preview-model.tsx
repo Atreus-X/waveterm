@@ -133,6 +133,7 @@ export class PreviewModel implements ViewModel {
     viewIcon: Atom<string | IconButtonDecl>;
     viewName: Atom<string>;
     viewText: Atom<HeaderElem[]>;
+    fileActionButtons: Atom<HeaderElem[]>;
     preIconButton: Atom<IconButtonDecl>;
     endIconButtons: Atom<IconButtonDecl[]>;
     hideViewName: Atom<boolean>;
@@ -285,8 +286,6 @@ export class PreviewModel implements ViewModel {
             if (jotaiLoadableValue(get(this.fileMimeTypeLoadable), "") == "directory") {
                 return [];
             }
-            const loadableSV = get(this.loadableSpecializedView);
-            const isCeView = loadableSV.state == "hasData" && loadableSV.data.specializedView == "codeedit";
             const headerPath = get(this.displayPath);
             const pathDraft = get(this.pathDraft);
             const viewTextChildren: HeaderElem[] = [
@@ -310,6 +309,24 @@ export class PreviewModel implements ViewModel {
                     className: "text-error text-[11px] whitespace-nowrap",
                 });
             }
+            return [
+                {
+                    elemtype: "div",
+                    children: viewTextChildren,
+                },
+            ] as HeaderElem[];
+        });
+        this.fileActionButtons = atom((get) => {
+            const connStatus = get(this.connStatus);
+            if (connStatus?.status != "connected") {
+                return [];
+            }
+            if (jotaiLoadableValue(get(this.fileMimeTypeLoadable), "") == "directory") {
+                return [];
+            }
+            const loadableSV = get(this.loadableSpecializedView);
+            const isCeView = loadableSV.state == "hasData" && loadableSV.data.specializedView == "codeedit";
+            const viewTextChildren: HeaderElem[] = [];
             let saveClassName = "grey";
             if (get(this.newFileContent) !== null) {
                 saveClassName = "green";
@@ -354,12 +371,7 @@ export class PreviewModel implements ViewModel {
                     onClick: () => fireAndForget(() => this.setEditMode(true)),
                 });
             }
-            return [
-                {
-                    elemtype: "div",
-                    children: viewTextChildren,
-                },
-            ] as HeaderElem[];
+            return viewTextChildren;
         });
         this.preIconButton = atom((get) => {
             const connStatus = get(this.connStatus);
