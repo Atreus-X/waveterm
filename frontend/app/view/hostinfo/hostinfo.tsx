@@ -298,6 +298,75 @@ const ActionStrip = memo(({ model }: { model: HostInfoViewModel }) => {
 });
 ActionStrip.displayName = "ActionStrip";
 
+const AlertsPanel = memo(({ model }: { model: HostInfoViewModel }) => {
+    const open = useAtomValue(model.alertsOpenAtom);
+    const alerts = useAtomValue(model.alertsAtom);
+    if (!open) return null;
+    return (
+        <div className="absolute right-2 top-2 z-20 flex max-h-[70%] w-80 max-w-[calc(100%-1rem)] flex-col rounded border border-border bg-panel shadow-lg">
+            <div className="flex items-center gap-2 border-b border-border px-3 py-1.5 text-xs">
+                <i className="fa-solid fa-bell text-muted" />
+                <span className="flex-1 font-semibold">Alerts</span>
+                {alerts.length > 0 && (
+                    <button
+                        onClick={() => model.dismissAllAlerts()}
+                        className="cursor-pointer rounded px-1.5 py-0.5 text-secondary transition-colors hover:bg-hoverbg hover:text-primary"
+                    >
+                        Dismiss all
+                    </button>
+                )}
+                <button
+                    onClick={() => globalStore.set(model.alertsOpenAtom, false)}
+                    title="Close"
+                    aria-label="Close"
+                    className="cursor-pointer rounded px-1.5 py-0.5 text-muted transition-colors hover:bg-hoverbg hover:text-primary"
+                >
+                    <i className="fa-solid fa-xmark" />
+                </button>
+            </div>
+            <div className="min-h-0 flex-1 overflow-y-auto">
+                {alerts.length === 0 ? (
+                    <div className="flex items-center gap-2 px-3 py-4 text-xs text-secondary">
+                        <i className="fa-solid fa-circle-check text-success" />
+                        Nothing needs attention.
+                    </div>
+                ) : (
+                    alerts.map((a) => (
+                        <div
+                            key={a.key}
+                            onClick={() => model.openAlert(a)}
+                            className="flex cursor-pointer items-start gap-2 border-b border-border px-3 py-2 text-xs last:border-b-0 hover:bg-hoverbg"
+                        >
+                            <i
+                                className={cn(
+                                    `fa-solid fa-${a.icon} fa-fw mt-0.5`,
+                                    a.level === "crit" ? "text-error" : "text-warning"
+                                )}
+                            />
+                            <div className="min-w-0 flex-1">
+                                <div className="break-words">{a.title}</div>
+                                <div className="break-words text-[11px] text-muted">{a.detail}</div>
+                            </div>
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    model.dismissAlert(a.key);
+                                }}
+                                title="Dismiss until it clears and returns"
+                                aria-label="Dismiss"
+                                className="cursor-pointer rounded px-1.5 py-0.5 text-muted transition-colors hover:bg-hoverbg hover:text-primary"
+                            >
+                                <i className="fa-solid fa-xmark" />
+                            </button>
+                        </div>
+                    ))
+                )}
+            </div>
+        </div>
+    );
+});
+AlertsPanel.displayName = "AlertsPanel";
+
 const SectionBody = memo(({ model, data }: { model: HostInfoViewModel; data: HostInfoData }) => {
     const active = useAtomValue(model.sectionAtom);
     const changes = useAtomValue(model.changesAtom);
@@ -361,7 +430,8 @@ export const HostInfoView = memo(({ model }: ViewComponentProps<HostInfoViewMode
         );
     }
     return (
-        <div className="flex h-full w-full min-h-0 min-w-0 flex-col">
+        <div className="relative flex h-full w-full min-h-0 min-w-0 flex-col">
+            <AlertsPanel model={model} />
             <VitalsStrip model={model} data={data} />
             <ActionStrip model={model} />
             {(error || notConnected || paused) && (
