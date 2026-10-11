@@ -11,6 +11,8 @@ import {
     groupPorts,
     HostCommands,
     isContainerIface,
+    nextSort,
+    sortRows,
     usageLevel,
 } from "./hostinfo-util";
 
@@ -113,4 +115,28 @@ test("HostCommands quote their arguments", () => {
     expect(HostCommands.serviceJournal("nginx.service")).toBe("journalctl -u nginx.service -n 200 -f");
     expect(HostCommands.containerLogs("a b;rm -rf /")).toBe("docker logs -f --tail 200 'a b;rm -rf /'");
     expect(HostCommands.processTop(42.9)).toBe("top -p 42");
+});
+
+test("nextSort cycles first direction, flipped, then cleared", () => {
+    let st = nextSort(null, "cpu", "desc");
+    expect(st).toEqual({ key: "cpu", dir: "desc" });
+    st = nextSort(st, "cpu", "desc");
+    expect(st).toEqual({ key: "cpu", dir: "asc" });
+    expect(nextSort(st, "cpu", "desc")).toBeNull();
+    expect(nextSort(st, "name", "asc")).toEqual({ key: "name", dir: "asc" });
+});
+
+test("sortRows sorts numbers, natural text, empties last, ties stable", () => {
+    type Row = { n: string; v: number };
+    const rows: Row[] = [
+        { n: "web10", v: 5 },
+        { n: "web2", v: 20 },
+        { n: "", v: 20 },
+        { n: "web1", v: NaN },
+    ];
+    const g = { n: (r: Row) => r.n, v: (r: Row) => r.v };
+    expect(sortRows(rows, { key: "n", dir: "asc" }, g).map((r) => r.n)).toEqual(["web1", "web2", "web10", ""]);
+    expect(sortRows(rows, { key: "n", dir: "desc" }, g).map((r) => r.n)).toEqual(["web10", "web2", "web1", ""]);
+    expect(sortRows(rows, { key: "v", dir: "desc" }, g).map((r) => r.n)).toEqual(["web2", "", "web10", "web1"]);
+    expect(sortRows(rows, null, g)).toBe(rows);
 });
