@@ -1793,6 +1793,7 @@ declare global {
         "conn:disconnectonlock"?: boolean;
         "conn:syncsshconfig"?: boolean;
         "conn:showvitals"?: boolean;
+        "conn:notifyalerts"?: boolean;
         "conn:localhostdisplayname"?: string;
         "debug:*"?: boolean;
         "debug:pprofport"?: number;

@@ -23,6 +23,7 @@
     "conn:disconnectonlock": true,
     "conn:syncsshconfig": true,
     "conn:showvitals": true,
+    "conn:notifyalerts": true,
     "editor:minimapenabled": true,
     "web:defaulturl": "https://github.com/Atreus-X/waveterm",
     "web:defaultsearch": "https://www.google.com/search?q={query}",

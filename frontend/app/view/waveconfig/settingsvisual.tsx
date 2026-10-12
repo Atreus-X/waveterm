@@ -361,6 +361,14 @@ const SettingSections: SettingSection[] = [
                 kind: "toggle",
                 defaultValue: true,
             },
+            {
+                key: "conn:notifyalerts",
+                tooltip:
+                    "Shows a desktop notification when a connected SSH host raises a new critical alert (disk or memory nearly full, very high load, a failed service) while Wave isn't the focused window. An alert that stays active doesn't repeat.",
+                label: "Desktop notifications for host alerts",
+                kind: "toggle",
+                defaultValue: true,
+            },
         ],
     },
     {
