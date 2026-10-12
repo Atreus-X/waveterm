@@ -156,6 +156,7 @@ const HostRow = memo(({ model, conn }: { model: FleetViewModel; conn: string }) 
     const connected = !!status?.connected;
     const series = useHostVitals(conn, connected, env as HostVitalsDeps);
     const v = series?.latest;
+    const alerts = connected ? (series?.alerts ?? []) : [];
     const connectErr = connecting[conn];
     const isConnecting = status?.status === "connecting" || connectErr === "";
 
@@ -179,8 +180,22 @@ const HostRow = memo(({ model, conn }: { model: FleetViewModel; conn: string }) 
         >
             <span className={cn("h-2 w-2 rounded-full", dotClass)} />
             <div className="min-w-0">
-                <div className={cn("truncate font-medium", connected && "text-primary")} title={conn}>
-                    {conn}
+                <div className="flex min-w-0 items-center gap-1.5">
+                    <div className={cn("truncate font-medium", connected && "text-primary")} title={conn}>
+                        {conn}
+                    </div>
+                    {alerts.length > 0 && (
+                        <span
+                            className={cn(
+                                "flex shrink-0 items-center gap-1 text-[11px]",
+                                alerts.some((a) => a.level === "crit") ? "text-error" : "text-warning"
+                            )}
+                            title={alerts.map((a) => `${a.title} (${a.detail})`).join("\n")}
+                        >
+                            <i className="fa-solid fa-bell" />
+                            {alerts.length}
+                        </span>
+                    )}
                 </div>
                 {series?.error && <div className="truncate text-[11px] text-warning">{series.error}</div>}
                 {connectErr && <div className="truncate text-[11px] text-error">{connectErr}</div>}

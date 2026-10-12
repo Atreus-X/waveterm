@@ -7,6 +7,7 @@
 
 import { globalStore } from "@/app/store/jotaiStore";
 import { TabRpcClient } from "@/app/store/wshrpcutil";
+import { computeVitalsAlerts, type HostAlert } from "@/app/view/hostinfo/hostinfo-util";
 import type { WaveEnv } from "@/app/waveenv/waveenv";
 import * as jotai from "jotai";
 import { useEffect } from "react";
@@ -24,6 +25,7 @@ export type HostVitalsSeries = {
     mem: number[];
     rx: number[];
     tx: number[];
+    alerts: HostAlert[];
     error: string;
 };
 
@@ -117,6 +119,7 @@ export class HostVitalsModel {
                 mem: push(prev?.mem ?? [], memPct),
                 rx: push(prev?.rx ?? [], v.rxrate),
                 tx: push(prev?.tx ?? [], v.txrate),
+                alerts: computeVitalsAlerts(v),
                 error: null,
             });
         } catch (e) {
@@ -128,6 +131,7 @@ export class HostVitalsModel {
                 mem: prev?.mem ?? [],
                 rx: prev?.rx ?? [],
                 tx: prev?.tx ?? [],
+                alerts: prev?.alerts ?? [],
                 error: String(e?.message ?? e),
             });
         } finally {

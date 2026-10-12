@@ -38,17 +38,34 @@ export const ConnVitalsMeter = memo(({ connection }: { connection: string }) => 
         `Network in ${fmtRate(v.rxrate)} · out ${fmtRate(v.txrate)}`,
         series.error ? `Last update failed: ${series.error}` : null,
     ].filter(Boolean);
+    const alerts = series.alerts ?? [];
+    const hasCrit = alerts.some((a) => a.level === "crit");
     return (
-        <div
-            className={cn(
-                "flex shrink-0 items-end gap-[2px] pr-1.5",
-                series.error ? "opacity-40" : "opacity-80 group-hover:opacity-100"
+        <>
+            {alerts.length > 0 && (
+                <i
+                    className={cn(
+                        "fa-solid fa-bell shrink-0 pr-1.5 text-[11px]",
+                        hasCrit ? "text-error" : "text-warning"
+                    )}
+                    title={`${alerts.map((a) => a.title).join("\n")}\n\nClick to open the Host Inspector`}
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        waveEnv.createBlock({ meta: { view: "hostinfo", connection } });
+                    }}
+                />
             )}
-            title={lines.join("\n")}
-        >
-            <MiniBar percent={v.cpupct} />
-            <MiniBar percent={memPct} />
-        </div>
+            <div
+                className={cn(
+                    "flex shrink-0 items-end gap-[2px] pr-1.5",
+                    series.error ? "opacity-40" : "opacity-80 group-hover:opacity-100"
+                )}
+                title={lines.join("\n")}
+            >
+                <MiniBar percent={v.cpupct} />
+                <MiniBar percent={memPct} />
+            </div>
+        </>
     );
 });
 ConnVitalsMeter.displayName = "ConnVitalsMeter";
