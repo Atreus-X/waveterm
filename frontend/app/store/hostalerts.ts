@@ -6,6 +6,7 @@
 // reported before, so an alert that stays active never repeats.
 
 import { getSettingsKeyAtom } from "@/app/store/global";
+import { HostAlertIgnores } from "@/app/store/hostalertignores";
 import { globalStore } from "@/app/store/jotaiStore";
 import type { HostAlert } from "@/app/view/hostinfo/hostinfo-util";
 
@@ -14,6 +15,7 @@ const MaxBodyLines = 4;
 export type HostAlertNotifierDeps = {
     enabled: () => boolean;
     windowFocused: () => boolean;
+    isIgnored: (conn: string, ignoreKey: string) => boolean;
     notify: (conn: string, fresh: HostAlert[]) => void;
 };
 
@@ -50,6 +52,7 @@ export class HostAlertNotifier {
             HostAlertNotifier.instance = new HostAlertNotifier({
                 enabled: () => globalStore.get(getSettingsKeyAtom("conn:notifyalerts")) ?? true,
                 windowFocused: () => typeof document !== "undefined" && document.hasFocus(),
+                isIgnored: (conn, ignoreKey) => HostAlertIgnores.getInstance().isIgnored(conn, ignoreKey),
                 notify: showDesktopNotification,
             });
         }
@@ -82,9 +85,11 @@ export class HostAlertNotifier {
         }
         const before = this.live.get(conn) ?? new Set<string>();
         this.live.set(conn, new Set(merged.keys()));
-        // tracked even when notifications are off or the window is focused, so turning them on or
-        // switching away later doesn't announce alerts that were already showing
-        const fresh = [...merged.values()].filter((a) => a.level === "crit" && !before.has(a.key));
+        // tracked even when notifications are off, the window is focused or the alert is ignored, so turning
+        // them on, switching away or un-ignoring later doesn't announce alerts that were already showing
+        const fresh = [...merged.values()].filter(
+            (a) => a.level === "crit" && !before.has(a.key) && !this.deps.isIgnored(conn, a.ignoreKey)
+        );
         if (fresh.length === 0 || !this.deps.enabled() || this.deps.windowFocused()) return;
         this.deps.notify(conn, fresh);
     }

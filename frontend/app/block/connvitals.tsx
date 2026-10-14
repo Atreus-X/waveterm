@@ -1,6 +1,7 @@
 // Copyright 2026, Atreus-X (fork of Wave Terminal by Command Line Inc.)
 // SPDX-License-Identifier: Apache-2.0
 
+import { useVisibleAlerts } from "@/app/store/hostalertignores";
 import { useHostVitals } from "@/app/store/hostvitals";
 import { LibraryModel } from "@/app/store/library-model";
 import { fmtBytes, fmtRate, usageLevel } from "@/app/view/hostinfo/hostinfo-util";
@@ -27,6 +28,7 @@ MiniBar.displayName = "MiniBar";
 export const ConnVitalsMeter = memo(({ connection }: { connection: string }) => {
     const waveEnv = useWaveEnv<BlockEnv>();
     const series = useHostVitals(connection, true, waveEnv);
+    const alerts = useVisibleAlerts(connection, series?.alerts);
     const v = series?.latest;
     if (v == null) return null;
     const memUsed = v.memtotal - v.memavail;
@@ -38,7 +40,6 @@ export const ConnVitalsMeter = memo(({ connection }: { connection: string }) => 
         `Network in ${fmtRate(v.rxrate)} · out ${fmtRate(v.txrate)}`,
         series.error ? `Last update failed: ${series.error}` : null,
     ].filter(Boolean);
-    const alerts = series.alerts ?? [];
     const hasCrit = alerts.some((a) => a.level === "crit");
     return (
         <>

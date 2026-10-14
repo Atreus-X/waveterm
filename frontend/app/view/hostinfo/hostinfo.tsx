@@ -6,7 +6,7 @@ import { Tooltip } from "@/app/element/tooltip";
 import { globalStore } from "@/app/store/jotaiStore";
 import { cn } from "@/util/util";
 import { useAtomValue } from "jotai";
-import { memo } from "react";
+import { memo, useState } from "react";
 import { RailDefaultWidth, RailMaxWidth, RailMinWidth, type HostInfoViewModel } from "./hostinfo-model";
 import {
     DockerSection,
@@ -301,6 +301,8 @@ ActionStrip.displayName = "ActionStrip";
 const AlertsPanel = memo(({ model }: { model: HostInfoViewModel }) => {
     const open = useAtomValue(model.alertsOpenAtom);
     const alerts = useAtomValue(model.alertsAtom);
+    const ignored = useAtomValue(model.ignoredRulesAtom);
+    const [showIgnored, setShowIgnored] = useState(false);
     if (!open) return null;
     return (
         <div className="absolute right-2 top-2 z-20 flex max-h-[70%] w-80 max-w-[calc(100%-1rem)] flex-col rounded border border-border bg-modalbg shadow-lg">
@@ -350,6 +352,17 @@ const AlertsPanel = memo(({ model }: { model: HostInfoViewModel }) => {
                             <button
                                 onClick={(e) => {
                                     e.stopPropagation();
+                                    model.ignoreAlert(a);
+                                }}
+                                title={`Ignore "${a.ignoreLabel}" on this host permanently`}
+                                aria-label="Ignore permanently"
+                                className="cursor-pointer rounded px-1.5 py-0.5 text-muted transition-colors hover:bg-hoverbg hover:text-primary"
+                            >
+                                <i className="fa-solid fa-bell-slash" />
+                            </button>
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation();
                                     model.dismissAlert(a.key);
                                 }}
                                 title="Dismiss until it clears and returns"
@@ -362,6 +375,32 @@ const AlertsPanel = memo(({ model }: { model: HostInfoViewModel }) => {
                     ))
                 )}
             </div>
+            {ignored.length > 0 && (
+                <div className="border-t border-border text-xs">
+                    <button
+                        onClick={() => setShowIgnored(!showIgnored)}
+                        className="flex w-full cursor-pointer items-center gap-2 px-3 py-1.5 text-secondary transition-colors hover:bg-hoverbg hover:text-primary"
+                    >
+                        <i className={`fa-solid fa-chevron-${showIgnored ? "down" : "right"} fa-fw text-[10px]`} />
+                        <span>Ignored ({ignored.length})</span>
+                    </button>
+                    {showIgnored && (
+                        <div className="max-h-40 overflow-y-auto">
+                            {ignored.map((r) => (
+                                <div key={r.key} className="flex items-center gap-2 px-3 py-1">
+                                    <span className="min-w-0 flex-1 break-words text-muted">{r.label}</span>
+                                    <button
+                                        onClick={() => model.restoreIgnored(r.key)}
+                                        className="cursor-pointer rounded px-1.5 py-0.5 text-secondary transition-colors hover:bg-hoverbg hover:text-primary"
+                                    >
+                                        Stop ignoring
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            )}
         </div>
     );
 });

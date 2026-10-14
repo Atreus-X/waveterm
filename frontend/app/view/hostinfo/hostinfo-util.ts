@@ -178,6 +178,9 @@ export function changeCount(ch: HostChanges): number {
 export type HostAlert = {
     // stable per condition; includes the severity so an escalation re-alerts after a dismissal
     key: string;
+    // the condition itself, the same at every severity; what "ignore permanently" is stored against
+    ignoreKey: string;
+    ignoreLabel: string;
     level: "warn" | "crit";
     icon: string;
     title: string;
@@ -203,6 +206,8 @@ function diskAlert(mount: string, usedPct: number, detail: string): HostAlert {
     if (level === "ok") return null;
     return {
         key: `disk|${mount}|${level}`,
+        ignoreKey: `disk|${mount}`,
+        ignoreLabel: `Disk usage on ${mount}`,
         level,
         icon: "hard-drive",
         title: `Disk ${usedPct.toFixed(0)}% full: ${mount}`,
@@ -217,6 +222,8 @@ function memAlert(total: number, avail: number): HostAlert {
     if (total <= 0 || level === "ok") return null;
     return {
         key: `mem|${level}`,
+        ignoreKey: "mem",
+        ignoreLabel: "Memory usage",
         level,
         icon: "memory",
         title: `Memory ${used.toFixed(0)}% used`,
@@ -231,6 +238,8 @@ function loadAlert(load1: number, cpucount: number): HostAlert {
     const level = perCore >= LoadCritPerCore ? "crit" : "warn";
     return {
         key: `load|${level}`,
+        ignoreKey: "load",
+        ignoreLabel: "High load",
         level,
         icon: "gauge-high",
         title: `High load: ${load1.toFixed(2)}`,
@@ -274,6 +283,8 @@ export function computeAlerts(data: HostInfoData): HostAlert[] {
     for (const s of failed) {
         alerts.push({
             key: `svc|${s.unit}`,
+            ignoreKey: `svc|${s.unit}`,
+            ignoreLabel: `Service ${s.unit}`,
             level: "crit",
             icon: "gears",
             title: `Service failed: ${s.unit}`,
@@ -287,6 +298,8 @@ export function computeAlerts(data: HostInfoData): HostAlert[] {
         if (problem == null) continue;
         alerts.push({
             key: `ctr|${c.name}|${problem}`,
+            ignoreKey: `ctr|${c.name}`,
+            ignoreLabel: `Container ${c.name}`,
             level: "warn",
             icon: "cubes",
             title: `Container ${problem}: ${c.name}`,

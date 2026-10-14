@@ -7,6 +7,8 @@ import { HostAlertNotifier } from "./hostalerts";
 
 const crit = (key: string): HostAlert => ({
     key,
+    ignoreKey: key.replace(/\|(crit|warn)$/, ""),
+    ignoreLabel: key,
     level: "crit",
     icon: "x",
     title: key,
@@ -17,10 +19,12 @@ const warn = (key: string): HostAlert => ({ ...crit(key), level: "warn" });
 
 function makeNotifier(opts?: { enabled?: boolean; focused?: boolean }) {
     const sent: { conn: string; keys: string[] }[] = [];
-    const flags = { enabled: opts?.enabled ?? true, focused: opts?.focused ?? false };
+    const ignored = new Set<string>();
+    const flags = { enabled: opts?.enabled ?? true, focused: opts?.focused ?? false, ignored };
     const n = HostAlertNotifier.makeForTest({
         enabled: () => flags.enabled,
         windowFocused: () => flags.focused,
+        isIgnored: (conn, ignoreKey) => ignored.has(`${conn}|${ignoreKey}`),
         notify: (conn, fresh) => sent.push({ conn, keys: fresh.map((a) => a.key) }),
     });
     return { n, sent, flags };
@@ -88,4 +92,25 @@ test("hosts are tracked independently", () => {
     n.report("h1", "vitals", [crit("a")]);
     n.report("h2", "vitals", [crit("a")]);
     expect(sent.map((s) => s.conn)).toEqual(["h1", "h2"]);
+});
+
+test("an ignored condition never notifies, at any severity, and un-ignoring does not announce it", () => {
+    const { n, sent, flags } = makeNotifier();
+    flags.ignored.add("h1|disk|/");
+    n.report("h1", "vitals", [crit("disk|/|crit")]);
+    n.report("h1", "vitals", []);
+    n.report("h1", "vitals", [crit("disk|/|crit")]);
+    flags.ignored.delete("h1|disk|/");
+    n.report("h1", "vitals", [crit("disk|/|crit")]);
+    expect(sent).toEqual([]);
+    n.report("h1", "vitals", [crit("disk|/|crit"), crit("mem|crit")]);
+    expect(sent).toEqual([{ conn: "h1", keys: ["mem|crit"] }]);
+});
+
+test("ignoring on one host leaves the same condition on another host alone", () => {
+    const { n, sent, flags } = makeNotifier();
+    flags.ignored.add("h1|mem");
+    n.report("h1", "vitals", [crit("mem|crit")]);
+    n.report("h2", "vitals", [crit("mem|crit")]);
+    expect(sent.map((s) => s.conn)).toEqual(["h2"]);
 });
