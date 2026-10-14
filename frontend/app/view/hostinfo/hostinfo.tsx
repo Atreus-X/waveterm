@@ -303,7 +303,7 @@ const AlertsPanel = memo(({ model }: { model: HostInfoViewModel }) => {
     const alerts = useAtomValue(model.alertsAtom);
     if (!open) return null;
     return (
-        <div className="absolute right-2 top-2 z-20 flex max-h-[70%] w-80 max-w-[calc(100%-1rem)] flex-col rounded border border-border bg-panel shadow-lg">
+        <div className="absolute right-2 top-2 z-20 flex max-h-[70%] w-80 max-w-[calc(100%-1rem)] flex-col rounded border border-border bg-modalbg shadow-lg">
             <div className="flex items-center gap-2 border-b border-border px-3 py-1.5 text-xs">
                 <i className="fa-solid fa-bell text-muted" />
                 <span className="flex-1 font-semibold">Alerts</span>
