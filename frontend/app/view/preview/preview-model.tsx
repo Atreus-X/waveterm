@@ -27,6 +27,7 @@ import {
 } from "./path-suggest-util";
 import { PreviewView } from "./preview";
 import { makeDirectoryDefaultMenuItems } from "./preview-directory-utils";
+import { planTaskToggle } from "./preview-mdtasks";
 import type { PreviewEnv } from "./previewenv";
 
 // TODO drive this using config
@@ -162,6 +163,7 @@ export class PreviewModel implements ViewModel {
     fileContentSaved: PrimitiveAtom<string | null>;
     fileContent: WritableAtom<Promise<string>, [string], void>;
     newFileContent: PrimitiveAtom<string | null>;
+    taskToggleQueue: Promise<void> = Promise.resolve();
     connectionError: PrimitiveAtom<string>;
     errorMsgAtom: PrimitiveAtom<ErrorMsg>;
 
@@ -932,6 +934,51 @@ export class PreviewModel implements ViewModel {
         const fileContent = await globalStore.get(this.fileContent);
         this.monacoRef.current?.setValue(fileContent);
         globalStore.set(this.newFileContent, null);
+    }
+
+    // clicks are applied one at a time so a quick second click sees the first one's result
+    toggleMarkdownTask(taskIndex: number): Promise<void> {
+        this.taskToggleQueue = this.taskToggleQueue.then(() => this.applyTaskToggle(taskIndex)).catch(() => {});
+        return this.taskToggleQueue;
+    }
+
+    async applyTaskToggle(taskIndex: number) {
+        const filePath = await globalStore.get(this.statFilePath);
+        if (filePath == null) return;
+        if (globalStore.get(this.newFileContent) != null) {
+            globalStore.set(this.errorMsgAtom, {
+                status: "Unsaved edits",
+                text: "Save or revert your edits before ticking checkboxes.",
+            });
+            return;
+        }
+        const shown = await globalStore.get(this.fileContent);
+        const path = await this.formatRemoteUri(filePath, globalStore.get);
+        try {
+            const file = await this.env.rpc.FileReadCommand(TabRpcClient, { info: { path } });
+            const plan = planTaskToggle(shown, base64ToString(file?.data64), taskIndex);
+            if (plan.kind === "unchanged") return;
+            if (plan.kind === "stale") {
+                globalStore.set(this.fileContent, plan.onDisk);
+                globalStore.set(this.errorMsgAtom, {
+                    status: "File changed on disk",
+                    text: "Reloaded the latest version. Click the checkbox again.",
+                });
+                return;
+            }
+            globalStore.set(this.fileContent, plan.next);
+            try {
+                await this.env.rpc.FileWriteCommand(TabRpcClient, {
+                    info: { path },
+                    data64: stringToBase64(plan.next),
+                });
+            } catch (e) {
+                globalStore.set(this.fileContent, shown);
+                throw e;
+            }
+        } catch (e) {
+            globalStore.set(this.errorMsgAtom, { status: "Save Failed", text: `${e}` });
+        }
     }
 
     async handleOpenFile(filePath: string) {

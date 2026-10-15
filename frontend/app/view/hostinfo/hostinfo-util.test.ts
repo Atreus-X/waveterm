@@ -4,6 +4,8 @@
 import { assert, expect, test } from "vitest";
 import {
     changeCount,
+    computeAlerts,
+    computeVitalsAlerts,
     connHost,
     diffHost,
     fmtBytes,
@@ -11,6 +13,8 @@ import {
     groupPorts,
     HostCommands,
     isContainerIface,
+    nextSort,
+    sortRows,
     usageLevel,
 } from "./hostinfo-util";
 
@@ -113,4 +117,106 @@ test("HostCommands quote their arguments", () => {
     expect(HostCommands.serviceJournal("nginx.service")).toBe("journalctl -u nginx.service -n 200 -f");
     expect(HostCommands.containerLogs("a b;rm -rf /")).toBe("docker logs -f --tail 200 'a b;rm -rf /'");
     expect(HostCommands.processTop(42.9)).toBe("top -p 42");
+});
+
+test("nextSort cycles first direction, flipped, then cleared", () => {
+    let st = nextSort(null, "cpu", "desc");
+    expect(st).toEqual({ key: "cpu", dir: "desc" });
+    st = nextSort(st, "cpu", "desc");
+    expect(st).toEqual({ key: "cpu", dir: "asc" });
+    expect(nextSort(st, "cpu", "desc")).toBeNull();
+    expect(nextSort(st, "name", "asc")).toEqual({ key: "name", dir: "asc" });
+});
+
+test("sortRows sorts numbers, natural text, empties last, ties stable", () => {
+    type Row = { n: string; v: number };
+    const rows: Row[] = [
+        { n: "web10", v: 5 },
+        { n: "web2", v: 20 },
+        { n: "", v: 20 },
+        { n: "web1", v: NaN },
+    ];
+    const g = { n: (r: Row) => r.n, v: (r: Row) => r.v };
+    expect(sortRows(rows, { key: "n", dir: "asc" }, g).map((r) => r.n)).toEqual(["web1", "web2", "web10", ""]);
+    expect(sortRows(rows, { key: "n", dir: "desc" }, g).map((r) => r.n)).toEqual(["web10", "web2", "web1", ""]);
+    expect(sortRows(rows, { key: "v", dir: "desc" }, g).map((r) => r.n)).toEqual(["web2", "", "web10", "web1"]);
+    expect(sortRows(rows, null, g)).toBe(rows);
+});
+
+test("computeAlerts flags disks, memory, failed services and unhealthy containers", () => {
+    const GiB = 1024 ** 3;
+    const data = {
+        system: {
+            cpucount: 4,
+            load1: 1,
+            memtotal: 10 * GiB,
+            memavail: 0.5 * GiB,
+            disks: [
+                { mount: "/", total: 100 * GiB, used: 95 * GiB, avail: 5 * GiB },
+                { mount: "/data", total: 100 * GiB, used: 50 * GiB, avail: 50 * GiB },
+            ],
+        },
+        services: {
+            available: true,
+            failed: 1,
+            services: [
+                { unit: "a.service", active: "failed", sub: "failed" },
+                { unit: "b.service", active: "active", sub: "running" },
+            ],
+        },
+        docker: {
+            available: true,
+            containers: [
+                { id: "1", name: "web", state: "running", status: "Up 2 hours (unhealthy)", image: "x" },
+                { id: "2", name: "job", state: "exited", status: "Exited (0) 1 hour ago", image: "x" },
+                { id: "3", name: "bad", state: "exited", status: "Exited (137) 1 hour ago", image: "x" },
+            ],
+        },
+    } as HostInfoData;
+    const alerts = computeAlerts(data);
+    const titles = alerts.map((a) => a.title);
+    expect(titles).toContain("Disk 95% full: /");
+    expect(titles).toContain("Memory 95% used");
+    expect(titles).toContain("Service failed: a.service");
+    expect(titles).toContain("Container unhealthy: web");
+    expect(titles).toContain("Container exited with code 137: bad");
+    expect(titles.some((t) => t.includes("/data") || t.includes("job") || t.includes("b.service"))).toBe(false);
+    expect(alerts[alerts.length - 1].level).toBe("warn");
+    expect(alerts[0].level).toBe("crit");
+});
+
+test("computeAlerts is empty for a healthy or missing host", () => {
+    expect(computeAlerts(null)).toEqual([]);
+    expect(
+        computeAlerts({ system: { cpucount: 2, load1: 0.1, memtotal: 100, memavail: 80, disks: [] } } as HostInfoData)
+    ).toEqual([]);
+});
+
+test("computeVitalsAlerts raises the same keys as computeAlerts for the same conditions", () => {
+    const GiB = 1024 ** 3;
+    const vitals = {
+        cpupct: 5,
+        cpucount: 2,
+        load1: 7,
+        memtotal: 10 * GiB,
+        memavail: 0.5 * GiB,
+        uptimesec: 1,
+        rxrate: 0,
+        txrate: 0,
+        diskmaxpct: 95,
+        diskmaxmount: "/",
+    } as HostVitalsInfo;
+    const full = computeAlerts({
+        system: {
+            cpucount: 2,
+            load1: 7,
+            memtotal: 10 * GiB,
+            memavail: 0.5 * GiB,
+            disks: [{ mount: "/", total: 100 * GiB, used: 95 * GiB, avail: 5 * GiB }],
+        },
+    } as HostInfoData);
+    const light = computeVitalsAlerts(vitals);
+    expect(light.map((a) => a.key).sort()).toEqual(full.map((a) => a.key).sort());
+    expect(computeVitalsAlerts(null)).toEqual([]);
+    expect(computeVitalsAlerts({ ...vitals, diskmaxpct: 10, memavail: 9 * GiB, load1: 0.1 })).toEqual([]);
 });

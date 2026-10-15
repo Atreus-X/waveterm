@@ -16,7 +16,11 @@ import {
     groupPorts,
     HostChanges,
     isContainerIface,
+    nextSort,
     pct,
+    PortRow,
+    sortRows,
+    SortState,
     usageLevel,
 } from "./hostinfo-util";
 
@@ -127,23 +131,80 @@ const Empty = memo(({ children }: { children: React.ReactNode }) => (
 ));
 Empty.displayName = "Empty";
 
+type SortProps = {
+    // one entry per header; null = not sortable
+    sortKeys: string[];
+    sort: SortState;
+    onSort: (key: string) => void;
+};
+
 // grid tables: header + rows share one template so columns line up without <table>
-const Table = memo(({ cols, header, children }: { cols: string; header: string[]; children: React.ReactNode }) => (
-    <div className="min-w-0 rounded border border-border">
-        <div
-            className="sticky top-0 z-[1] grid gap-3 border-b border-border bg-modalbg px-3 py-1.5 text-[11px] font-semibold tracking-wide text-muted uppercase"
-            style={{ gridTemplateColumns: cols }}
-        >
-            {header.map((h, i) => (
-                <div key={i} className="truncate">
-                    {h}
-                </div>
-            ))}
+const Table = memo(
+    ({
+        cols,
+        header,
+        sortProps,
+        children,
+    }: {
+        cols: string;
+        header: string[];
+        sortProps?: SortProps;
+        children: React.ReactNode;
+    }) => (
+        <div className="min-w-0 rounded border border-border">
+            <div
+                className="sticky top-0 z-[1] grid gap-3 border-b border-border bg-modalbg px-3 py-1.5 text-[11px] font-semibold tracking-wide text-muted uppercase"
+                style={{ gridTemplateColumns: cols }}
+            >
+                {header.map((h, i) => {
+                    const key = sortProps?.sortKeys[i];
+                    if (key == null) {
+                        return (
+                            <div key={i} className="truncate">
+                                {h}
+                            </div>
+                        );
+                    }
+                    const active = sortProps.sort?.key === key;
+                    return (
+                        <button
+                            key={i}
+                            onClick={() => sortProps.onSort(key)}
+                            title={`Sort by ${h}`}
+                            className={cn(
+                                "flex cursor-pointer items-center gap-1 text-left uppercase transition-colors hover:text-primary",
+                                active && "text-primary"
+                            )}
+                        >
+                            <span className="truncate">{h}</span>
+                            {active && (
+                                <i
+                                    className={`fa-solid fa-caret-${sortProps.sort.dir === "asc" ? "up" : "down"} shrink-0`}
+                                />
+                            )}
+                        </button>
+                    );
+                })}
+            </div>
+            {children}
         </div>
-        {children}
-    </div>
-));
+    )
+);
 Table.displayName = "Table";
+
+function useColumnSort(
+    initial: SortState,
+    firstDirs: Record<string, "asc" | "desc">
+): { sort: SortState; sortProps: (sortKeys: string[]) => SortProps } {
+    const [picked, setPicked] = useState<SortState>(null);
+    const sort = picked ?? initial;
+    const sortProps = (sortKeys: string[]): SortProps => ({
+        sortKeys,
+        sort,
+        onSort: (key) => setPicked(nextSort(sort, key, firstDirs[key] ?? "asc")),
+    });
+    return { sort, sortProps };
+}
 
 const Row = memo(
     ({
@@ -186,14 +247,56 @@ type SectionProps = { model: HostInfoViewModel; data: HostInfoData; changes: Hos
 // ---- overview ----
 
 const Card = memo(
-    ({ title, children, className }: { title: string; children: React.ReactNode; className?: string }) => (
+    ({
+        title,
+        actions,
+        children,
+        className,
+    }: {
+        title: string;
+        actions?: React.ReactNode;
+        children: React.ReactNode;
+        className?: string;
+    }) => (
         <div className={cn("rounded border border-border p-3", className)}>
-            <div className="mb-2 text-[11px] font-semibold tracking-wide text-muted uppercase">{title}</div>
+            <div className="mb-2 flex items-center justify-between gap-2">
+                <div className="text-[11px] font-semibold tracking-wide text-muted uppercase">{title}</div>
+                {actions}
+            </div>
             {children}
         </div>
     )
 );
 Card.displayName = "Card";
+
+// sort buttons for lists that have no header row
+const SortChips = memo(
+    ({ options, sortProps }: { options: { key: string; label: string }[]; sortProps: SortProps }) => (
+        <div className="flex items-center gap-1 text-[11px]">
+            <span className="text-muted">Sort</span>
+            {options.map((o) => {
+                const active = sortProps.sort?.key === o.key;
+                return (
+                    <button
+                        key={o.key}
+                        onClick={() => sortProps.onSort(o.key)}
+                        title={`Sort by ${o.label}`}
+                        className={cn(
+                            "flex cursor-pointer items-center gap-1 rounded px-1.5 py-0.5 transition-colors",
+                            active ? "bg-accent/20 text-primary" : "text-secondary hover:bg-hoverbg"
+                        )}
+                    >
+                        {o.label}
+                        {active && (
+                            <i className={`fa-solid fa-caret-${sortProps.sort.dir === "asc" ? "up" : "down"}`} />
+                        )}
+                    </button>
+                );
+            })}
+        </div>
+    )
+);
+SortChips.displayName = "SortChips";
 
 const KV = memo(({ k, v }: { k: string; v: React.ReactNode }) => (
     <div className="flex justify-between gap-3 text-xs">
@@ -203,10 +306,20 @@ const KV = memo(({ k, v }: { k: string; v: React.ReactNode }) => (
 ));
 KV.displayName = "KV";
 
+const DiskSorters = {
+    mount: (d: HostDiskInfo) => d.mount,
+    used: (d: HostDiskInfo) => pct(d.used, d.total),
+    avail: (d: HostDiskInfo) => d.avail,
+    size: (d: HostDiskInfo) => d.total,
+};
+const DiskSortDirs: Record<string, "asc" | "desc"> = { used: "desc", avail: "asc", size: "desc" };
+
 export const OverviewSection = memo(({ model, data }: SectionProps) => {
     const conn = useAtomValue(model.connection);
+    const { sort: diskSort, sortProps: diskSortProps } = useColumnSort(null, DiskSortDirs);
     const sys = data.system;
     if (sys == null) return <Empty>No system information yet.</Empty>;
+    const disks = sortRows(sys.disks, diskSort, DiskSorters);
     const memUsed = sys.memtotal - sys.memavail;
     const memPct = pct(memUsed, sys.memtotal);
     const swapUsed = sys.swaptotal - sys.swapfree;
@@ -288,10 +401,25 @@ export const OverviewSection = memo(({ model, data }: SectionProps) => {
                     />
                 </Card>
             </div>
-            <Card title="Disks">
+            <Card
+                title="Disks"
+                actions={
+                    disks.length > 1 && (
+                        <SortChips
+                            options={[
+                                { key: "mount", label: "Mount" },
+                                { key: "used", label: "Used" },
+                                { key: "avail", label: "Free" },
+                                { key: "size", label: "Size" },
+                            ]}
+                            sortProps={diskSortProps([])}
+                        />
+                    )
+                }
+            >
                 {sys.disks.length === 0 && <Empty>No disks reported.</Empty>}
                 <div className="flex flex-col gap-2">
-                    {sys.disks.map((d) => {
+                    {disks.map((d) => {
                         const used = pct(d.used, d.total);
                         return (
                             <div
@@ -351,13 +479,27 @@ OverviewSection.displayName = "OverviewSection";
 
 const NetCols =
     "minmax(60px,0.8fr) minmax(100px,2fr) minmax(40px,90px) minmax(40px,90px) minmax(40px,90px) minmax(40px,90px)";
+const NetSorters = {
+    name: (i: HostIfaceInfo) => i.name,
+    addrs: (i: HostIfaceInfo) => (i.addrs ?? []).join(", "),
+    rx: (i: HostIfaceInfo) => i.rxrate,
+    tx: (i: HostIfaceInfo) => i.txrate,
+    rxbytes: (i: HostIfaceInfo) => i.rxbytes,
+    txbytes: (i: HostIfaceInfo) => i.txbytes,
+};
+const NetSortDirs: Record<string, "asc" | "desc"> = { rx: "desc", tx: "desc", rxbytes: "desc", txbytes: "desc" };
 
 export const NetworkSection = memo(({ data }: SectionProps) => {
     const [showAll, setShowAll] = useState(false);
+    const { sort, sortProps } = useColumnSort(null, NetSortDirs);
     const net = data.network;
     if (net == null) return <Empty>No network information yet.</Empty>;
     const hidden = net.interfaces.filter((i) => isContainerIface(i.name));
-    const rows = showAll ? net.interfaces : net.interfaces.filter((i) => !isContainerIface(i.name));
+    const rows = sortRows(
+        showAll ? net.interfaces : net.interfaces.filter((i) => !isContainerIface(i.name)),
+        sort,
+        NetSorters
+    );
     return (
         <div className="flex flex-col gap-3">
             <Toolbar>
@@ -369,7 +511,11 @@ export const NetworkSection = memo(({ data }: SectionProps) => {
                     />
                 )}
             </Toolbar>
-            <Table cols={NetCols} header={["Interface", "Addresses", "In", "Out", "Received", "Sent"]}>
+            <Table
+                cols={NetCols}
+                header={["Interface", "Addresses", "In", "Out", "Received", "Sent"]}
+                sortProps={sortProps(["name", "addrs", "rx", "tx", "rxbytes", "txbytes"])}
+            >
                 {rows.map((i) => (
                     <Row key={i.name} cols={NetCols}>
                         <div className="truncate font-medium">{i.name}</div>
@@ -399,18 +545,29 @@ NetworkSection.displayName = "NetworkSection";
 // ---- ports ----
 
 const PortCols = "minmax(40px,70px) minmax(36px,60px) minmax(80px,1.5fr) minmax(70px,1.5fr) minmax(40px,70px)";
+const PortSorters = {
+    port: (r: PortRow) => r.port,
+    proto: (r: PortRow) => r.proto,
+    addrs: (r: PortRow) => r.addrs.join(", "),
+    process: (r: PortRow) => r.process,
+};
 
 export const PortsSection = memo(({ model, data, changes }: SectionProps) => {
     const [query, setQuery] = useState("");
     const [hideLocal, setHideLocal] = useState(false);
     const conn = useAtomValue(model.connection);
+    const { sort, sortProps } = useColumnSort(null, {});
     const ports = data.ports;
     const rows = useMemo(() => groupPorts(ports?.ports), [ports]);
     if (ports == null) return <Empty>No port information yet.</Empty>;
     if (ports.tool === "none") return <Empty>Neither ss nor netstat is installed on this host.</Empty>;
     const host = connHost(conn);
-    const shown = rows.filter(
-        (r) => (!hideLocal || !r.localOnly) && matches(query, r.port, r.process, r.proto, r.addrs.join(" "))
+    const shown = sortRows(
+        rows.filter(
+            (r) => (!hideLocal || !r.localOnly) && matches(query, r.port, r.process, r.proto, r.addrs.join(" "))
+        ),
+        sort,
+        PortSorters
     );
     return (
         <div className="flex flex-col">
@@ -427,7 +584,11 @@ export const PortsSection = memo(({ model, data, changes }: SectionProps) => {
                     {changes.portsGone > 0 && ` · ${changes.portsGone} closed since baseline`}
                 </span>
             </Toolbar>
-            <Table cols={PortCols} header={["Port", "Proto", "Listening on", "Process", ""]}>
+            <Table
+                cols={PortCols}
+                header={["Port", "Proto", "Listening on", "Process", ""]}
+                sortProps={sortProps(["port", "proto", "addrs", "process", null])}
+            >
                 {shown.map((r) => {
                     const isNew = changes.ports.has(r.key);
                     const actions: RowAction[] = [
@@ -482,44 +643,45 @@ PortsSection.displayName = "PortsSection";
 
 const ProcCols =
     "minmax(40px,64px) minmax(70px,1fr) minmax(48px,90px) minmax(36px,64px) minmax(36px,64px) minmax(44px,80px) minmax(44px,80px) minmax(52px,84px)";
-type ProcSort = "cpu" | "mem";
+const ProcSorters = {
+    pid: (p: HostProcessInfo) => p.pid,
+    name: (p: HostProcessInfo) => p.name,
+    user: (p: HostProcessInfo) => p.user,
+    cpu: (p: HostProcessInfo) => p.cpupct,
+    mem: (p: HostProcessInfo) => p.mempct,
+    rss: (p: HostProcessInfo) => p.rss,
+    elapsed: (p: HostProcessInfo) => p.elapsedsec,
+};
+const ProcSortDirs: Record<string, "asc" | "desc"> = { cpu: "desc", mem: "desc", rss: "desc", elapsed: "desc" };
+const ProcDefaultSort: SortState = { key: "cpu", dir: "desc" };
 
 export const ProcessesSection = memo(({ model, data }: SectionProps) => {
     const [query, setQuery] = useState("");
-    const [sortBy, setSortBy] = useState<ProcSort>("cpu");
+    const { sort, sortProps } = useColumnSort(ProcDefaultSort, ProcSortDirs);
     const procs = data.processes;
     const cmds = getHostCommands(data.os);
     const isWindows = data.os === "windows";
     if (procs == null) return <Empty>No process information yet.</Empty>;
-    const shown = procs.processes
-        .filter((p) => matches(query, p.pid, p.name, p.user, p.args))
-        .sort((a, b) => (sortBy === "cpu" ? b.cpupct - a.cpupct : b.rss - a.rss));
+    const shown = sortRows(
+        procs.processes.filter((p) => matches(query, p.pid, p.name, p.user, p.args)),
+        sort,
+        ProcSorters
+    );
     const ask = (p: HostProcessInfo, action: string, verb: string) =>
         model.askAction({ kind: "process", target: String(p.pid), action, label: `${verb} ${p.name} (pid ${p.pid})` });
     return (
         <div className="flex flex-col">
             <Toolbar>
                 <SearchBox value={query} onChange={setQuery} placeholder="Filter by name, user, pid, command" />
-                <div className="flex items-center gap-1 text-xs">
-                    <span className="text-muted">Sort</span>
-                    {(["cpu", "mem"] as ProcSort[]).map((s) => (
-                        <button
-                            key={s}
-                            onClick={() => setSortBy(s)}
-                            className={cn(
-                                "cursor-pointer rounded px-2 py-0.5",
-                                sortBy === s ? "bg-accent/20 text-primary" : "text-secondary hover:bg-hoverbg"
-                            )}
-                        >
-                            {s === "cpu" ? "CPU" : "Memory"}
-                        </button>
-                    ))}
-                </div>
                 <span className="text-xs text-muted">
                     busiest {procs.processes.length} of {procs.total} processes · CPU is the average since each started
                 </span>
             </Toolbar>
-            <Table cols={ProcCols} header={["PID", "Name", "User", "CPU", "Mem", "Memory", "Running", ""]}>
+            <Table
+                cols={ProcCols}
+                header={["PID", "Name", "User", "CPU", "Mem", "Memory", "Running", ""]}
+                sortProps={sortProps(["pid", "name", "user", "cpu", "mem", "rss", "elapsed", null])}
+            >
                 {shown.map((p) => (
                     <Row key={p.pid} cols={ProcCols} title={p.args}>
                         <div className="tabular-nums text-secondary">{p.pid}</div>
@@ -566,6 +728,12 @@ ProcessesSection.displayName = "ProcessesSection";
 
 const SvcCols = "minmax(80px,1.2fr) minmax(70px,150px) minmax(48px,80px) minmax(90px,2fr) minmax(70px,124px)";
 type SvcFilter = "all" | "running" | "failed" | "inactive";
+const SvcSorters = {
+    name: (s: HostServiceInfo) => s.unit,
+    state: (s: HostServiceInfo) => `${s.active} ${s.sub}`,
+    enabled: (s: HostServiceInfo) => s.enabled,
+    description: (s: HostServiceInfo) => s.description,
+};
 
 function serviceTone(s: HostServiceInfo): Tone {
     if (s.active === "failed") return "crit";
@@ -577,6 +745,7 @@ function serviceTone(s: HostServiceInfo): Tone {
 export const ServicesSection = memo(({ model, data, changes }: SectionProps) => {
     const [query, setQuery] = useState("");
     const [filter, setFilter] = useState<SvcFilter>(() => ((data.services?.failed ?? 0) > 0 ? "failed" : "all"));
+    const { sort, sortProps } = useColumnSort(null, {});
     const svcs = data.services;
     const cmds = getHostCommands(data.os);
     if (svcs == null) return <Empty>No service information yet.</Empty>;
@@ -587,12 +756,16 @@ export const ServicesSection = memo(({ model, data, changes }: SectionProps) => 
         failed: svcs.failed,
         inactive: svcs.services.filter((s) => s.active === "inactive").length,
     };
-    const shown = svcs.services.filter((s) => {
-        if (filter === "running" && s.sub !== "running") return false;
-        if (filter === "failed" && s.active !== "failed") return false;
-        if (filter === "inactive" && s.active !== "inactive") return false;
-        return matches(query, s.unit, s.description);
-    });
+    const shown = sortRows(
+        svcs.services.filter((s) => {
+            if (filter === "running" && s.sub !== "running") return false;
+            if (filter === "failed" && s.active !== "failed") return false;
+            if (filter === "inactive" && s.active !== "inactive") return false;
+            return matches(query, s.unit, s.description);
+        }),
+        sort,
+        SvcSorters
+    );
     const ask = (s: HostServiceInfo, action: string, verb: string) =>
         model.askAction({ kind: "service", target: s.unit, action, label: `${verb} ${s.unit}` });
     const filterLabels: Record<SvcFilter, string> = {
@@ -621,7 +794,11 @@ export const ServicesSection = memo(({ model, data, changes }: SectionProps) => 
                 </div>
                 <SearchBox value={query} onChange={setQuery} placeholder="Filter by name or description" />
             </Toolbar>
-            <Table cols={SvcCols} header={["Service", "State", "At boot", "Description", ""]}>
+            <Table
+                cols={SvcCols}
+                header={["Service", "State", "At boot", "Description", ""]}
+                sortProps={sortProps(["name", "state", "enabled", "description", null])}
+            >
                 {shown.length === 0 && <Empty>No services match.</Empty>}
                 {shown.map((s) => {
                     const running = s.active === "active" || s.active === "reloading";
@@ -697,8 +874,22 @@ function containerTone(c: HostContainerInfo): Tone {
     return "muted";
 }
 
+// docker prints "12.34%" and "1.2GiB / 8GiB"; sort on the leading number
+const leadingNumber = (s: string) => (s ? parseFloat(s) : NaN);
+
+const DockerSorters = {
+    name: (c: HostContainerInfo) => c.name,
+    image: (c: HostContainerInfo) => c.image,
+    state: (c: HostContainerInfo) => c.status,
+    ports: (c: HostContainerInfo) => c.ports,
+    cpu: (c: HostContainerInfo) => leadingNumber(c.cpupct),
+    mem: (c: HostContainerInfo) => leadingNumber(c.mempct),
+};
+const DockerSortDirs: Record<string, "asc" | "desc"> = { cpu: "desc", mem: "desc" };
+
 export const DockerSection = memo(({ model, data, changes }: SectionProps) => {
     const [query, setQuery] = useState("");
+    const { sort, sortProps } = useColumnSort(null, DockerSortDirs);
     const liveStats = useAtomValue(model.dockerStatsAtom);
     const dk = data.docker;
     const cmds = getHostCommands(data.os);
@@ -733,6 +924,9 @@ export const DockerSection = memo(({ model, data, changes }: SectionProps) => {
     const header = liveStats
         ? ["Container", "Image", "State", "CPU", "Memory", ""]
         : ["Container", "Image", "State", "Ports", ""];
+    const sortKeys = liveStats
+        ? ["name", "image", "state", "cpu", "mem", null]
+        : ["name", "image", "state", "ports", null];
     const ask = (c: HostContainerInfo, action: string, verb: string) =>
         model.askAction({ kind: "container", target: c.name, action, label: `${verb} container ${c.name}` });
     const running = dk.containers.filter((c) => c.state === "running").length;
@@ -752,7 +946,11 @@ export const DockerSection = memo(({ model, data, changes }: SectionProps) => {
             </Toolbar>
             {dk.containers.length === 0 && <Empty>No containers on this host.</Empty>}
             {groups.map(([project, list]) => {
-                const shown = list.filter((c) => matches(query, c.name, c.image, c.project, c.ports));
+                const shown = sortRows(
+                    list.filter((c) => matches(query, c.name, c.image, c.project, c.ports)),
+                    sort,
+                    DockerSorters
+                );
                 if (shown.length === 0) return null;
                 const up = list.filter((c) => c.state === "running").length;
                 return (
@@ -764,7 +962,7 @@ export const DockerSection = memo(({ model, data, changes }: SectionProps) => {
                                 {up}/{list.length} running
                             </span>
                         </div>
-                        <Table cols={cols} header={header}>
+                        <Table cols={cols} header={header} sortProps={sortProps(sortKeys)}>
                             {shown.map((c) => {
                                 const isRunning = c.state === "running";
                                 const changed = changes.containers.has(c.id);
