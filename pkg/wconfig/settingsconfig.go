@@ -201,6 +201,7 @@ type SettingsType struct {
 	ConnDisconnectOnLock     *bool   `json:"conn:disconnectonlock,omitempty"`
 	ConnSyncSshConfig        *bool   `json:"conn:syncsshconfig,omitempty"`
 	ConnShowVitals           *bool   `json:"conn:showvitals,omitempty"`
+	ConnNotifyAlerts         *bool   `json:"conn:notifyalerts,omitempty"`
 	ConnLocalHostnameDisplay *string `json:"conn:localhostdisplayname,omitempty"`
 
 	DebugClear               bool `json:"debug:*,omitempty"`

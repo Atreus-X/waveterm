@@ -210,6 +210,143 @@ export function sortRows<T>(rows: T[], sort: SortState, getters: Record<string, 
     });
 }
 
+// ---- alerts ----
+
+export type HostAlert = {
+    // stable per condition; includes the severity so an escalation re-alerts after a dismissal
+    key: string;
+    // the condition itself, the same at every severity; what "ignore permanently" is stored against
+    ignoreKey: string;
+    ignoreLabel: string;
+    level: "warn" | "crit";
+    icon: string;
+    title: string;
+    detail: string;
+    section: HostSectionId;
+};
+
+const LoadWarnPerCore = 1.5;
+const LoadCritPerCore = 3;
+const MaxListedAlerts = 20;
+
+function containerProblem(c: HostContainerInfo): string {
+    if (c.state === "restarting") return "restarting";
+    if (c.state === "dead") return "dead";
+    if (/unhealthy/i.test(c.status ?? "")) return "unhealthy";
+    const exit = /^Exited \((\d+)\)/.exec(c.status ?? "");
+    if (c.state === "exited" && exit != null && exit[1] !== "0") return `exited with code ${exit[1]}`;
+    return null;
+}
+
+function diskAlert(mount: string, usedPct: number, detail: string): HostAlert {
+    const level = usageLevel(usedPct);
+    if (level === "ok") return null;
+    return {
+        key: `disk|${mount}|${level}`,
+        ignoreKey: `disk|${mount}`,
+        ignoreLabel: `Disk usage on ${mount}`,
+        level,
+        icon: "hard-drive",
+        title: `Disk ${usedPct.toFixed(0)}% full: ${mount}`,
+        detail,
+        section: "overview",
+    };
+}
+
+function memAlert(total: number, avail: number): HostAlert {
+    const used = pct(total - avail, total);
+    const level = usageLevel(used);
+    if (total <= 0 || level === "ok") return null;
+    return {
+        key: `mem|${level}`,
+        ignoreKey: "mem",
+        ignoreLabel: "Memory usage",
+        level,
+        icon: "memory",
+        title: `Memory ${used.toFixed(0)}% used`,
+        detail: `${fmtBytes(avail)} available of ${fmtBytes(total)}`,
+        section: "processes",
+    };
+}
+
+function loadAlert(load1: number, cpucount: number): HostAlert {
+    const perCore = cpucount > 0 ? load1 / cpucount : 0;
+    if (perCore < LoadWarnPerCore) return null;
+    const level = perCore >= LoadCritPerCore ? "crit" : "warn";
+    return {
+        key: `load|${level}`,
+        ignoreKey: "load",
+        ignoreLabel: "High load",
+        level,
+        icon: "gauge-high",
+        title: `High load: ${load1.toFixed(2)}`,
+        detail: `${perCore.toFixed(1)}x the ${cpucount} cores`,
+        section: "processes",
+    };
+}
+
+function sortAlerts(alerts: HostAlert[]): HostAlert[] {
+    return alerts.sort((a, b) => (a.level === b.level ? 0 : a.level === "crit" ? -1 : 1));
+}
+
+// the subset of alerts the lightweight vitals poll can raise (no service or container data)
+export function computeVitalsAlerts(v: HostVitalsInfo): HostAlert[] {
+    if (v == null) return [];
+    const found = [
+        v.diskmaxmount
+            ? diskAlert(v.diskmaxmount, v.diskmaxpct, `Fullest disk on this host (${v.diskmaxpct.toFixed(0)}%)`)
+            : null,
+        memAlert(v.memtotal, v.memavail),
+        loadAlert(v.load1, v.cpucount),
+    ];
+    return sortAlerts(found.filter((a) => a != null));
+}
+
+export function computeAlerts(data: HostInfoData): HostAlert[] {
+    const alerts: HostAlert[] = [];
+    const sys = data?.system;
+    if (sys) {
+        for (const d of sys.disks ?? []) {
+            if (d.total <= 0) continue;
+            const a = diskAlert(d.mount, pct(d.used, d.total), `${fmtBytes(d.avail)} free of ${fmtBytes(d.total)}`);
+            if (a != null) alerts.push(a);
+        }
+        const mem = memAlert(sys.memtotal, sys.memavail);
+        if (mem != null) alerts.push(mem);
+        const load = loadAlert(sys.load1, sys.cpucount);
+        if (load != null) alerts.push(load);
+    }
+    const failed = (data?.services?.available ? data.services.services : []).filter((s) => s.active === "failed");
+    for (const s of failed) {
+        alerts.push({
+            key: `svc|${s.unit}`,
+            ignoreKey: `svc|${s.unit}`,
+            ignoreLabel: `Service ${s.unit}`,
+            level: "crit",
+            icon: "gears",
+            title: `Service failed: ${s.unit}`,
+            detail: s.description || `${s.active}/${s.sub}`,
+            section: "services",
+        });
+    }
+    const containers = data?.docker?.available && !data.docker.error ? data.docker.containers : [];
+    for (const c of containers) {
+        const problem = containerProblem(c);
+        if (problem == null) continue;
+        alerts.push({
+            key: `ctr|${c.name}|${problem}`,
+            ignoreKey: `ctr|${c.name}`,
+            ignoreLabel: `Container ${c.name}`,
+            level: "warn",
+            icon: "cubes",
+            title: `Container ${problem}: ${c.name}`,
+            detail: c.status || c.image,
+            section: "docker",
+        });
+    }
+    return sortAlerts(alerts).slice(0, MaxListedAlerts);
+}
+
 // ---- commands opened in terminal blocks (every argument is shell-quoted) ----
 
 const q = (s: string) => quote([s]);

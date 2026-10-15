@@ -411,6 +411,9 @@
         "conn:showvitals": {
           "type": "boolean"
         },
+        "conn:notifyalerts": {
+          "type": "boolean"
+        },
         "conn:localhostdisplayname": {
           "type": "string"
         },
