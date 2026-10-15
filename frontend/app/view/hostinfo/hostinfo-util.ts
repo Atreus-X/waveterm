@@ -173,6 +173,43 @@ export function changeCount(ch: HostChanges): number {
     return ch.ports.size + ch.portsGone + ch.services.size + ch.containers.size + ch.containersGone;
 }
 
+// ---- column sorting ----
+
+export type SortState = { key: string; dir: "asc" | "desc" };
+
+// first click sorts in firstDir, the second flips it, the third clears (back to the tab's default order)
+export function nextSort(cur: SortState, key: string, firstDir: "asc" | "desc"): SortState {
+    if (cur?.key !== key) return { key, dir: firstDir };
+    if (cur.dir === firstDir) return { key, dir: firstDir === "asc" ? "desc" : "asc" };
+    return null;
+}
+
+type SortValue = string | number;
+
+function compareValues(a: SortValue, b: SortValue): number {
+    if (typeof a === "number" && typeof b === "number") return a - b;
+    return String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: "base" });
+}
+
+function isEmptySortValue(v: SortValue): boolean {
+    return v == null || v === "" || (typeof v === "number" && Number.isNaN(v));
+}
+
+// empty values sort last in either direction; ties keep their incoming order
+export function sortRows<T>(rows: T[], sort: SortState, getters: Record<string, (row: T) => SortValue>): T[] {
+    const get = sort != null ? getters[sort.key] : null;
+    if (get == null) return rows;
+    const sign = sort.dir === "asc" ? 1 : -1;
+    return [...rows].sort((a, b) => {
+        const va = get(a);
+        const vb = get(b);
+        const ea = isEmptySortValue(va);
+        const eb = isEmptySortValue(vb);
+        if (ea || eb) return ea === eb ? 0 : ea ? 1 : -1;
+        return sign * compareValues(va, vb);
+    });
+}
+
 // ---- alerts ----
 
 export type HostAlert = {
