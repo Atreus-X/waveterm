@@ -1,6 +1,7 @@
 // Copyright 2026, Atreus-X (fork of Wave Terminal by Command Line Inc.)
 // SPDX-License-Identifier: Apache-2.0
 
+import { filterIgnored, HostAlertIgnores, type IgnoredRule } from "@/app/store/hostalertignores";
 import { HostAlertNotifier } from "@/app/store/hostalerts";
 import { globalStore } from "@/app/store/jotaiStore";
 import { TabRpcClient } from "@/app/store/wshrpcutil";
@@ -137,6 +138,7 @@ export class HostInfoViewModel implements ViewModel {
     connStatus: jotai.Atom<ConnStatus>;
     changesAtom: jotai.Atom<HostChanges>;
     alertsAtom: jotai.Atom<HostAlert[]>;
+    ignoredRulesAtom: jotai.Atom<IgnoredRule[]>;
     endIconButtons: jotai.Atom<IconButtonDecl[]>;
 
     disposed = false;
@@ -149,6 +151,7 @@ export class HostInfoViewModel implements ViewModel {
         this.viewType = "hostinfo";
         this.blockId = blockId;
         this.env = waveEnv;
+        const ignores = HostAlertIgnores.getInstance();
         const railPrefs = loadRailPrefs();
         this.railCollapsedAtom = jotai.atom(railPrefs.collapsed) as jotai.PrimitiveAtom<boolean>;
         this.railWidthAtom = jotai.atom(railPrefs.width) as jotai.PrimitiveAtom<number>;
@@ -168,8 +171,10 @@ export class HostInfoViewModel implements ViewModel {
         });
         this.alertsAtom = jotai.atom((get) => {
             const dismissed = get(this.dismissedAlertsAtom);
-            return computeAlerts(get(this.dataAtom)).filter((a) => !dismissed.has(a.key));
+            const active = filterIgnored(get(ignores.mapAtom), get(this.connection), computeAlerts(get(this.dataAtom)));
+            return active.filter((a) => !dismissed.has(a.key));
         });
+        this.ignoredRulesAtom = jotai.atom((get) => get(ignores.mapAtom)[get(this.connection)] ?? []);
         this.endIconButtons = jotai.atom((get) => {
             const paused = get(this.pausedAtom);
             const alerts = get(this.alertsAtom);
@@ -343,6 +348,14 @@ export class HostInfoViewModel implements ViewModel {
 
     dismissAlert(key: string) {
         globalStore.set(this.dismissedAlertsAtom, new Set([...globalStore.get(this.dismissedAlertsAtom), key]));
+    }
+
+    ignoreAlert(alert: HostAlert) {
+        HostAlertIgnores.getInstance().ignore(globalStore.get(this.connection), alert);
+    }
+
+    restoreIgnored(ignoreKey: string) {
+        HostAlertIgnores.getInstance().restore(globalStore.get(this.connection), ignoreKey);
     }
 
     dismissAllAlerts() {

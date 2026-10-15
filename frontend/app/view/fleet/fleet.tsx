@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { ScrollArea } from "@/app/element/scrollarea";
+import { useVisibleAlerts } from "@/app/store/hostalertignores";
 import { HostVitalsDeps, useHostVitals } from "@/app/store/hostvitals";
 import { globalStore } from "@/app/store/jotaiStore";
 import { TabRpcClient } from "@/app/store/wshrpcutil";
@@ -156,7 +157,8 @@ const HostRow = memo(({ model, conn }: { model: FleetViewModel; conn: string }) 
     const connected = !!status?.connected;
     const series = useHostVitals(conn, connected, env as HostVitalsDeps);
     const v = series?.latest;
-    const alerts = connected ? (series?.alerts ?? []) : [];
+    const visibleAlerts = useVisibleAlerts(conn, series?.alerts);
+    const alerts = connected ? visibleAlerts : [];
     const connectErr = connecting[conn];
     const isConnecting = status?.status === "connecting" || connectErr === "";
 
