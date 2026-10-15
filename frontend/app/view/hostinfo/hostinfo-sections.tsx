@@ -8,19 +8,25 @@ import { useAtomValue } from "jotai";
 import { memo, useMemo, useState } from "react";
 import type { HostInfoViewModel } from "./hostinfo-model";
 import {
+    busiestInterfaces,
     connHost,
+    exposedPorts,
+    failedServices,
     fmtBytes,
     fmtDuration,
     fmtRate,
     getHostCommands,
     groupPorts,
     HostChanges,
+    HostSectionId,
     isContainerIface,
     nextSort,
     pct,
     PortRow,
+    problemContainers,
     sortRows,
     SortState,
+    topProcesses,
     usageLevel,
 } from "./hostinfo-util";
 
@@ -314,83 +320,219 @@ const DiskSorters = {
 };
 const DiskSortDirs: Record<string, "asc" | "desc"> = { used: "desc", avail: "asc", size: "desc" };
 
+const OverviewRows = 5;
+
+const ViewAll = memo(({ model, section }: { model: HostInfoViewModel; section: HostSectionId }) => (
+    <button
+        onClick={() => model.setSection(section)}
+        className="cursor-pointer text-[11px] text-secondary transition-colors hover:text-primary"
+    >
+        View all <i className="fa-solid fa-arrow-right text-[9px]" />
+    </button>
+));
+ViewAll.displayName = "ViewAll";
+
+// one compact line: what on the left, its value on the right
+const Line = memo(({ left, right, title }: { left: React.ReactNode; right?: React.ReactNode; title?: string }) => (
+    <div className="flex items-center justify-between gap-3 text-xs" title={title}>
+        <span className="min-w-0 flex-1 truncate">{left}</span>
+        {right != null && <span className="shrink-0 tabular-nums text-secondary">{right}</span>}
+    </div>
+));
+Line.displayName = "Line";
+
+const Note = memo(({ children }: { children: React.ReactNode }) => (
+    <div className="text-[11px] text-muted">{children}</div>
+));
+Note.displayName = "Note";
+
+const AllGood = memo(({ children }: { children: React.ReactNode }) => (
+    <div className="flex items-center gap-2 text-xs text-secondary">
+        <i className="fa-solid fa-circle-check text-success" />
+        {children}
+    </div>
+));
+AllGood.displayName = "AllGood";
+
+const OverviewList = memo(({ children }: { children: React.ReactNode }) => (
+    <div className="flex flex-col gap-1">{children}</div>
+));
+OverviewList.displayName = "OverviewList";
+
+function moreNote(total: number, shown: number): React.ReactNode {
+    return total > shown ? <Note>+{total - shown} more</Note> : null;
+}
+
+const NetworkSummary = memo(({ data }: { data: HostInfoData }) => {
+    const net = data.network;
+    if (net == null) return <Note>Loading…</Note>;
+    const { shown, hidden } = busiestInterfaces(net.interfaces, 4);
+    return (
+        <OverviewList>
+            {net.defaultroute && <Note>Default route: {net.defaultroute}</Note>}
+            {shown.map((i) => (
+                <Line
+                    key={i.name}
+                    title={(i.addrs ?? []).join("\n")}
+                    left={
+                        <>
+                            <span className="font-medium">{i.name}</span>{" "}
+                            <span className="text-muted">{(i.addrs ?? [])[0] ?? ""}</span>
+                        </>
+                    }
+                    right={`↓ ${fmtRate(i.rxrate)}  ↑ ${fmtRate(i.txrate)}`}
+                />
+            ))}
+            {hidden > 0 && <Note>+{hidden} more interfaces</Note>}
+        </OverviewList>
+    );
+});
+NetworkSummary.displayName = "NetworkSummary";
+
+const PortsSummary = memo(({ data }: { data: HostInfoData }) => {
+    const ports = data.ports;
+    if (ports == null) return <Note>Loading…</Note>;
+    if (ports.tool === "none") return <Note>Neither ss nor netstat is installed on this host.</Note>;
+    const exposed = exposedPorts(ports.ports);
+    return (
+        <OverviewList>
+            <Note>
+                {groupPorts(ports.ports).length} listening · {exposed.length} reachable from the network
+            </Note>
+            {exposed.slice(0, OverviewRows).map((r) => (
+                <Line
+                    key={r.key}
+                    left={
+                        <>
+                            <span className="font-medium tabular-nums">{r.port}</span>
+                            <span className="text-muted">/{r.proto}</span>
+                        </>
+                    }
+                    right={r.process || "unknown"}
+                />
+            ))}
+            {moreNote(exposed.length, OverviewRows)}
+        </OverviewList>
+    );
+});
+PortsSummary.displayName = "PortsSummary";
+
+const ProcessesSummary = memo(({ data }: { data: HostInfoData }) => {
+    const procs = data.processes;
+    if (procs == null) return <Note>Loading…</Note>;
+    return (
+        <OverviewList>
+            {topProcesses(procs.processes, OverviewRows).map((p) => (
+                <Line
+                    key={p.pid}
+                    title={p.args}
+                    left={<span className="font-medium">{p.name}</span>}
+                    right={`${p.cpupct.toFixed(1)}% · ${fmtBytes(p.rss)}`}
+                />
+            ))}
+            <Note>{procs.total} processes · CPU is the average since each started</Note>
+        </OverviewList>
+    );
+});
+ProcessesSummary.displayName = "ProcessesSummary";
+
+const ServicesSummary = memo(({ data }: { data: HostInfoData }) => {
+    const svcs = data.services;
+    if (svcs == null) return <Note>Loading…</Note>;
+    if (!svcs.available) return <Note>This host doesn't use systemd.</Note>;
+    const failed = failedServices(svcs.services);
+    const running = svcs.services.filter((s) => s.sub === "running").length;
+    return (
+        <OverviewList>
+            <Note>
+                {running} running of {svcs.services.length}
+            </Note>
+            {failed.length === 0 && <AllGood>No failed services</AllGood>}
+            {failed.slice(0, OverviewRows).map((s) => (
+                <Line
+                    key={s.unit}
+                    title={s.description}
+                    left={<span className="font-medium">{s.unit.replace(/\.service$/, "")}</span>}
+                    right={<Pill tone="crit">failed</Pill>}
+                />
+            ))}
+            {moreNote(failed.length, OverviewRows)}
+        </OverviewList>
+    );
+});
+ServicesSummary.displayName = "ServicesSummary";
+
+const DockerSummary = memo(({ data }: { data: HostInfoData }) => {
+    const dk = data.docker;
+    if (dk == null) return <Note>Loading…</Note>;
+    if (!dk.available) return <Note>Docker isn't installed on this host.</Note>;
+    if (dk.error) return <Note>Docker didn't answer: {dk.error}</Note>;
+    if (dk.containers.length === 0) return <Note>No containers on this host.</Note>;
+    const running = dk.containers.filter((c) => c.state === "running").length;
+    const bad = problemContainers(dk.containers);
+    return (
+        <OverviewList>
+            <Note>
+                {running} of {dk.containers.length} running
+            </Note>
+            {bad.length === 0 && <AllGood>No container problems</AllGood>}
+            {bad.slice(0, OverviewRows).map(({ container, problem }) => (
+                <Line
+                    key={container.id}
+                    title={container.status}
+                    left={<span className="font-medium">{container.name}</span>}
+                    right={<Pill tone="warn">{problem}</Pill>}
+                />
+            ))}
+            {moreNote(bad.length, OverviewRows)}
+        </OverviewList>
+    );
+});
+DockerSummary.displayName = "DockerSummary";
+
 export const OverviewSection = memo(({ model, data }: SectionProps) => {
     const conn = useAtomValue(model.connection);
     const { sort: diskSort, sortProps: diskSortProps } = useColumnSort(null, DiskSortDirs);
     const sys = data.system;
     if (sys == null) return <Empty>No system information yet.</Empty>;
     const disks = sortRows(sys.disks, diskSort, DiskSorters);
-    const memUsed = sys.memtotal - sys.memavail;
-    const memPct = pct(memUsed, sys.memtotal);
     const swapUsed = sys.swaptotal - sys.swapfree;
-    const loadPerCore = sys.cpucount ? sys.load1 / sys.cpucount : 0;
+    const iconBtn =
+        "cursor-pointer rounded px-1.5 py-0.5 text-muted transition-colors hover:bg-hoverbg hover:text-primary";
     return (
-        <div className="flex flex-col gap-3">
-            <div className="flex flex-wrap gap-2">
-                <button
-                    onClick={() => model.openTerminal()}
-                    className="cursor-pointer rounded bg-accent/80 px-3 py-1 text-xs text-primary transition-colors hover:bg-accent"
-                >
-                    <i className="fa-solid fa-terminal mr-1.5" />
-                    Open terminal
-                </button>
-                <button
-                    onClick={() => model.openFiles("/")}
-                    className="cursor-pointer rounded border border-border px-3 py-1 text-xs transition-colors hover:bg-hoverbg"
-                >
-                    <i className="fa-solid fa-folder-open mr-1.5" />
-                    Browse files
-                </button>
-            </div>
-            <div
-                className="grid gap-3"
-                style={{ gridTemplateColumns: "repeat(auto-fill, minmax(min(230px, 100%), 1fr))" }}
+        <div
+            className="grid items-start gap-3"
+            style={{ gridTemplateColumns: "repeat(auto-fill, minmax(min(260px, 100%), 1fr))" }}
+        >
+            <Card
+                title="System"
+                actions={
+                    <div className="flex items-center gap-0.5">
+                        <button
+                            onClick={() => model.openTerminal()}
+                            title="Open a terminal"
+                            aria-label="Open a terminal"
+                            className={iconBtn}
+                        >
+                            <i className="fa-solid fa-terminal fa-fw text-xs" />
+                        </button>
+                        <button
+                            onClick={() => model.openFiles("/")}
+                            title="Browse files"
+                            aria-label="Browse files"
+                            className={iconBtn}
+                        >
+                            <i className="fa-solid fa-folder-open fa-fw text-xs" />
+                        </button>
+                    </div>
+                }
             >
-                <Card title="Processor">
-                    <div className="mb-1 flex items-baseline gap-2">
-                        <span className="text-2xl font-semibold tabular-nums">{sys.cpupct.toFixed(0)}%</span>
-                        <span className="text-xs text-muted">{sys.cpucount} cores</span>
-                    </div>
-                    <UsageBar percent={sys.cpupct} className="mb-2" />
-                    <KV k="Model" v={<span title={sys.cpumodel}>{sys.cpumodel || "-"}</span>} />
-                    {data.os === "windows" ? (
-                        <KV
-                            k="Load (busy cores + run queue)"
-                            v={
-                                <span className={cn("tabular-nums", loadPerCore >= 1 && "text-warning")}>
-                                    {sys.load1.toFixed(2)}
-                                </span>
-                            }
-                        />
-                    ) : (
-                        <KV
-                            k="Load 1 / 5 / 15"
-                            v={
-                                <span className={cn("tabular-nums", loadPerCore >= 1 && "text-warning")}>
-                                    {sys.load1.toFixed(2)} / {sys.load5.toFixed(2)} / {sys.load15.toFixed(2)}
-                                </span>
-                            }
-                        />
-                    )}
-                </Card>
-                <Card title="Memory">
-                    <div className="mb-1 flex items-baseline gap-2">
-                        <span className="text-2xl font-semibold tabular-nums">{memPct.toFixed(0)}%</span>
-                        <span className="text-xs text-muted">
-                            {fmtBytes(memUsed)} of {fmtBytes(sys.memtotal)}
-                        </span>
-                    </div>
-                    <UsageBar percent={memPct} className="mb-2" />
-                    <KV k="Available" v={fmtBytes(sys.memavail)} />
-                    <KV k="Swap" v={sys.swaptotal ? `${fmtBytes(swapUsed)} of ${fmtBytes(sys.swaptotal)}` : "none"} />
-                </Card>
-                <Card title="System">
-                    <KV k="Host" v={sys.hostname} />
-                    <KV k="OS" v={sys.os || "-"} />
+                <OverviewList>
+                    <KV k="CPU" v={<span title={sys.cpumodel}>{sys.cpumodel || `${sys.cpucount} cores`}</span>} />
                     <KV k="Kernel" v={sys.kernel || "-"} />
                     {sys.virt && <KV k="Runs on" v={sys.virt} />}
-                    <KV k="Up for" v={fmtDuration(sys.uptimesec)} />
-                    <KV k="Logged-in sessions" v={sys.users} />
+                    <KV k="Swap" v={sys.swaptotal ? `${fmtBytes(swapUsed)} of ${fmtBytes(sys.swaptotal)}` : "none"} />
+                    <KV k="Sessions" v={sys.users} />
                     <KV
                         k="Inspecting as"
                         v={
@@ -399,8 +541,8 @@ export const OverviewSection = memo(({ model, data }: SectionProps) => {
                                 : `${data.user || "?"} (uid ${data.uid})`
                         }
                     />
-                </Card>
-            </div>
+                </OverviewList>
+            </Card>
             <Card
                 title="Disks"
                 actions={
@@ -417,29 +559,21 @@ export const OverviewSection = memo(({ model, data }: SectionProps) => {
                     )
                 }
             >
-                {sys.disks.length === 0 && <Empty>No disks reported.</Empty>}
-                <div className="flex flex-col gap-2">
+                {sys.disks.length === 0 && <Note>No disks reported.</Note>}
+                <div className="flex max-h-44 flex-col gap-1.5 overflow-y-auto">
                     {disks.map((d) => {
                         const used = pct(d.used, d.total);
                         return (
                             <div
                                 key={d.mount}
-                                className="grid items-center gap-3 text-xs"
-                                style={{
-                                    gridTemplateColumns: "minmax(80px,1.2fr) minmax(60px,2fr) minmax(70px,150px) 28px",
-                                }}
+                                className="grid items-center gap-2 text-xs"
+                                style={{ gridTemplateColumns: "minmax(50px,1fr) minmax(40px,1fr) auto 22px" }}
+                                title={`${d.device} · ${d.fstype}\n${fmtBytes(d.used)} of ${fmtBytes(d.total)}`}
                             >
-                                <div className="min-w-0">
-                                    <div className="truncate" title={d.mount}>
-                                        {d.mount}
-                                    </div>
-                                    <div className="truncate text-[11px] text-muted" title={d.device}>
-                                        {d.device} · {d.fstype}
-                                    </div>
-                                </div>
+                                <div className="truncate">{d.mount}</div>
                                 <UsageBar percent={used} />
                                 <div className="text-right tabular-nums text-secondary">
-                                    {fmtBytes(d.used)} / {fmtBytes(d.total)}
+                                    {used.toFixed(0)}% · {fmtBytes(d.avail)} free
                                 </div>
                                 <RowActions
                                     actions={[
@@ -455,7 +589,22 @@ export const OverviewSection = memo(({ model, data }: SectionProps) => {
                     })}
                 </div>
             </Card>
-            <Card title="Host note">
+            <Card title="Processes" actions={<ViewAll model={model} section="processes" />}>
+                <ProcessesSummary data={data} />
+            </Card>
+            <Card title="Network" actions={<ViewAll model={model} section="network" />}>
+                <NetworkSummary data={data} />
+            </Card>
+            <Card title="Ports" actions={<ViewAll model={model} section="ports" />}>
+                <PortsSummary data={data} />
+            </Card>
+            <Card title="Services" actions={<ViewAll model={model} section="services" />}>
+                <ServicesSummary data={data} />
+            </Card>
+            <Card title="Docker" actions={<ViewAll model={model} section="docker" />}>
+                <DockerSummary data={data} />
+            </Card>
+            <Card title="Host note" className="col-span-full">
                 <NoteEditor
                     key={conn}
                     noteRef={{ host: conn }}

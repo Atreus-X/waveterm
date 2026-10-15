@@ -173,6 +173,39 @@ export function changeCount(ch: HostChanges): number {
     return ch.ports.size + ch.portsGone + ch.services.size + ch.containers.size + ch.containersGone;
 }
 
+// ---- overview summaries: the few rows of each tab worth showing at a glance ----
+
+export function topProcesses(procs: HostProcessInfo[], n: number): HostProcessInfo[] {
+    return [...(procs ?? [])].sort((a, b) => b.cpupct - a.cpupct || b.rss - a.rss).slice(0, n);
+}
+
+// real interfaces first by traffic, so the one carrying data leads
+export function busiestInterfaces(ifaces: HostIfaceInfo[], n: number): { shown: HostIfaceInfo[]; hidden: number } {
+    const real = (ifaces ?? [])
+        .filter((i) => i.name !== "lo" && !isContainerIface(i.name))
+        .sort((a, b) => b.rxrate + b.txrate - (a.rxrate + a.txrate) || a.name.localeCompare(b.name));
+    return { shown: real.slice(0, n), hidden: Math.max(0, real.length - n) };
+}
+
+export function exposedPorts(ports: HostPortInfo[]): PortRow[] {
+    return groupPorts(ports).filter((r) => !r.localOnly);
+}
+
+export function failedServices(svcs: HostServiceInfo[]): HostServiceInfo[] {
+    return (svcs ?? []).filter((s) => s.active === "failed");
+}
+
+export function problemContainers(
+    containers: HostContainerInfo[]
+): { container: HostContainerInfo; problem: string }[] {
+    const found: { container: HostContainerInfo; problem: string }[] = [];
+    for (const c of containers ?? []) {
+        const problem = containerProblem(c);
+        if (problem != null) found.push({ container: c, problem });
+    }
+    return found;
+}
+
 // ---- column sorting ----
 
 export type SortState = { key: string; dir: "asc" | "desc" };
@@ -229,7 +262,7 @@ const LoadWarnPerCore = 1.5;
 const LoadCritPerCore = 3;
 const MaxListedAlerts = 20;
 
-function containerProblem(c: HostContainerInfo): string {
+export function containerProblem(c: HostContainerInfo): string {
     if (c.state === "restarting") return "restarting";
     if (c.state === "dead") return "dead";
     if (/unhealthy/i.test(c.status ?? "")) return "unhealthy";

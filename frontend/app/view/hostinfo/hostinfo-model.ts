@@ -67,6 +67,12 @@ const TickMs = 1000;
 // alerts watch these no matter which section is on screen
 const AlertSections = ["system", "services", "docker"];
 
+// the Overview summarizes every other tab, so it keeps all of them fresh
+function watchedSections(id: HostSectionId): string[] {
+    if (id === "overview") return HostSections.map((s) => s.backend);
+    return [...AlertSections, backendSection(id)];
+}
+
 export type HostActionReq = {
     kind: "service" | "container" | "process";
     target: string;
@@ -235,7 +241,7 @@ export class HostInfoViewModel implements ViewModel {
         }
         if (globalStore.get(this.pausedAtom) || document.hidden) return;
         const now = Date.now();
-        const wanted = new Set([...AlertSections, backendSection(globalStore.get(this.sectionAtom))]);
+        const wanted = new Set(watchedSections(globalStore.get(this.sectionAtom)));
         const due = [...wanted].filter((s) => now - (this.lastFetch[s] ?? 0) >= (RefreshMs[s] ?? 15000));
         if (due.length > 0) {
             this.fetch(due, false);
@@ -310,7 +316,7 @@ export class HostInfoViewModel implements ViewModel {
 
     refreshNow(section?: HostSectionId) {
         const sec = section ?? globalStore.get(this.sectionAtom);
-        this.fetch(["system", backendSection(sec)], false);
+        this.fetch(sec === "overview" ? watchedSections(sec) : ["system", backendSection(sec)], false);
     }
 
     setRailCollapsed(collapsed: boolean) {

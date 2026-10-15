@@ -3,18 +3,23 @@
 
 import { assert, expect, test } from "vitest";
 import {
+    busiestInterfaces,
     changeCount,
     computeAlerts,
     computeVitalsAlerts,
     connHost,
     diffHost,
+    exposedPorts,
+    failedServices,
     fmtBytes,
     fmtDuration,
     groupPorts,
     HostCommands,
     isContainerIface,
     nextSort,
+    problemContainers,
     sortRows,
+    topProcesses,
     usageLevel,
 } from "./hostinfo-util";
 
@@ -219,4 +224,44 @@ test("computeVitalsAlerts raises the same keys as computeAlerts for the same con
     expect(light.map((a) => a.key).sort()).toEqual(full.map((a) => a.key).sort());
     expect(computeVitalsAlerts(null)).toEqual([]);
     expect(computeVitalsAlerts({ ...vitals, diskmaxpct: 10, memavail: 9 * GiB, load1: 0.1 })).toEqual([]);
+});
+
+test("overview summaries pick the rows worth showing", () => {
+    const proc = (name: string, cpupct: number, rss = 0) => ({ name, cpupct, rss }) as HostProcessInfo;
+    expect(topProcesses([proc("a", 1), proc("b", 9), proc("c", 9, 5), proc("d", 4)], 3).map((p) => p.name)).toEqual([
+        "c",
+        "b",
+        "d",
+    ]);
+    expect(topProcesses(null, 3)).toEqual([]);
+
+    const iface = (name: string, rxrate: number, txrate = 0) => ({ name, rxrate, txrate }) as HostIfaceInfo;
+    const nets = busiestInterfaces(
+        [iface("lo", 99), iface("veth1", 50), iface("eth1", 1), iface("eth0", 10), iface("wlan0", 0)],
+        2
+    );
+    expect(nets.shown.map((i) => i.name)).toEqual(["eth0", "eth1"]);
+    expect(nets.hidden).toBe(1);
+
+    const ports = [
+        { proto: "tcp", addr: "127.0.0.1", port: 5432, process: "postgres" },
+        { proto: "tcp", addr: "0.0.0.0", port: 22, process: "sshd" },
+        { proto: "tcp6", addr: "::", port: 22, process: "sshd" },
+    ] as HostPortInfo[];
+    expect(exposedPorts(ports).map((r) => r.port)).toEqual([22]);
+
+    const svc = (unit: string, active: string) => ({ unit, active }) as HostServiceInfo;
+    expect(failedServices([svc("a", "active"), svc("b", "failed")]).map((s) => s.unit)).toEqual(["b"]);
+
+    const ctr = (name: string, state: string, status: string) => ({ name, state, status }) as HostContainerInfo;
+    const bad = problemContainers([
+        ctr("ok", "running", "Up 2 hours"),
+        ctr("done", "exited", "Exited (0) 1 hour ago"),
+        ctr("sick", "running", "Up 1 hour (unhealthy)"),
+        ctr("crashed", "exited", "Exited (1) 1 hour ago"),
+    ]);
+    expect(bad.map((b) => `${b.container.name}:${b.problem}`)).toEqual([
+        "sick:unhealthy",
+        "crashed:exited with code 1",
+    ]);
 });
