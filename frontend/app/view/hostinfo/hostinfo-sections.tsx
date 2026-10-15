@@ -247,14 +247,56 @@ type SectionProps = { model: HostInfoViewModel; data: HostInfoData; changes: Hos
 // ---- overview ----
 
 const Card = memo(
-    ({ title, children, className }: { title: string; children: React.ReactNode; className?: string }) => (
+    ({
+        title,
+        actions,
+        children,
+        className,
+    }: {
+        title: string;
+        actions?: React.ReactNode;
+        children: React.ReactNode;
+        className?: string;
+    }) => (
         <div className={cn("rounded border border-border p-3", className)}>
-            <div className="mb-2 text-[11px] font-semibold tracking-wide text-muted uppercase">{title}</div>
+            <div className="mb-2 flex items-center justify-between gap-2">
+                <div className="text-[11px] font-semibold tracking-wide text-muted uppercase">{title}</div>
+                {actions}
+            </div>
             {children}
         </div>
     )
 );
 Card.displayName = "Card";
+
+// sort buttons for lists that have no header row
+const SortChips = memo(
+    ({ options, sortProps }: { options: { key: string; label: string }[]; sortProps: SortProps }) => (
+        <div className="flex items-center gap-1 text-[11px]">
+            <span className="text-muted">Sort</span>
+            {options.map((o) => {
+                const active = sortProps.sort?.key === o.key;
+                return (
+                    <button
+                        key={o.key}
+                        onClick={() => sortProps.onSort(o.key)}
+                        title={`Sort by ${o.label}`}
+                        className={cn(
+                            "flex cursor-pointer items-center gap-1 rounded px-1.5 py-0.5 transition-colors",
+                            active ? "bg-accent/20 text-primary" : "text-secondary hover:bg-hoverbg"
+                        )}
+                    >
+                        {o.label}
+                        {active && (
+                            <i className={`fa-solid fa-caret-${sortProps.sort.dir === "asc" ? "up" : "down"}`} />
+                        )}
+                    </button>
+                );
+            })}
+        </div>
+    )
+);
+SortChips.displayName = "SortChips";
 
 const KV = memo(({ k, v }: { k: string; v: React.ReactNode }) => (
     <div className="flex justify-between gap-3 text-xs">
@@ -264,10 +306,20 @@ const KV = memo(({ k, v }: { k: string; v: React.ReactNode }) => (
 ));
 KV.displayName = "KV";
 
+const DiskSorters = {
+    mount: (d: HostDiskInfo) => d.mount,
+    used: (d: HostDiskInfo) => pct(d.used, d.total),
+    avail: (d: HostDiskInfo) => d.avail,
+    size: (d: HostDiskInfo) => d.total,
+};
+const DiskSortDirs: Record<string, "asc" | "desc"> = { used: "desc", avail: "asc", size: "desc" };
+
 export const OverviewSection = memo(({ model, data }: SectionProps) => {
     const conn = useAtomValue(model.connection);
+    const { sort: diskSort, sortProps: diskSortProps } = useColumnSort(null, DiskSortDirs);
     const sys = data.system;
     if (sys == null) return <Empty>No system information yet.</Empty>;
+    const disks = sortRows(sys.disks, diskSort, DiskSorters);
     const memUsed = sys.memtotal - sys.memavail;
     const memPct = pct(memUsed, sys.memtotal);
     const swapUsed = sys.swaptotal - sys.swapfree;
@@ -349,10 +401,25 @@ export const OverviewSection = memo(({ model, data }: SectionProps) => {
                     />
                 </Card>
             </div>
-            <Card title="Disks">
+            <Card
+                title="Disks"
+                actions={
+                    disks.length > 1 && (
+                        <SortChips
+                            options={[
+                                { key: "mount", label: "Mount" },
+                                { key: "used", label: "Used" },
+                                { key: "avail", label: "Free" },
+                                { key: "size", label: "Size" },
+                            ]}
+                            sortProps={diskSortProps([])}
+                        />
+                    )
+                }
+            >
                 {sys.disks.length === 0 && <Empty>No disks reported.</Empty>}
                 <div className="flex flex-col gap-2">
-                    {sys.disks.map((d) => {
+                    {disks.map((d) => {
                         const used = pct(d.used, d.total);
                         return (
                             <div
