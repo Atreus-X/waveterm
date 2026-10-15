@@ -1,6 +1,7 @@
 // Copyright 2026, Atreus-X (fork of Wave Terminal by Command Line Inc.)
 // SPDX-License-Identifier: Apache-2.0
 
+import { HostAlertNotifier } from "@/app/store/hostalerts";
 import { globalStore } from "@/app/store/jotaiStore";
 import { TabRpcClient } from "@/app/store/wshrpcutil";
 import { MetaKeyAtomFnType, WaveEnv, WaveEnvSubset } from "@/app/waveenv/waveenv";
@@ -237,6 +238,7 @@ export class HostInfoViewModel implements ViewModel {
     }
 
     resetForConn(conn: string) {
+        this.clearNotifierSource();
         this.loadedConn = conn;
         this.lastFetch = {};
         this.inflight.clear();
@@ -295,6 +297,7 @@ export class HostInfoViewModel implements ViewModel {
         }
         globalStore.set(this.dataAtom, next);
         this.pruneDismissedAlerts(next);
+        HostAlertNotifier.getInstance().report(this.loadedConn, this.notifierSource(), computeAlerts(next));
         const updated = { ...globalStore.get(this.updatedAtAtom) };
         sections.forEach((s) => (updated[s] = resp.ts));
         globalStore.set(this.updatedAtAtom, updated);
@@ -430,7 +433,19 @@ export class HostInfoViewModel implements ViewModel {
         }
     }
 
+    clearNotifierSource() {
+        if (this.loadedConn != null) {
+            HostAlertNotifier.getInstance().clear(this.loadedConn, this.notifierSource());
+        }
+    }
+
+    // two inspector blocks on one host must not clear each other's alerts
+    notifierSource(): string {
+        return `inspector|${this.blockId}`;
+    }
+
     dispose() {
+        this.clearNotifierSource();
         this.disposed = true;
         if (this.timer != null) {
             clearInterval(this.timer);

@@ -5,6 +5,7 @@
 // subscribes by connection name; each connection is polled once no matter how many blocks show it,
 // only while something is subscribed, only while it's connected, and never while the window is hidden.
 
+import { HostAlertNotifier } from "@/app/store/hostalerts";
 import { globalStore } from "@/app/store/jotaiStore";
 import { TabRpcClient } from "@/app/store/wshrpcutil";
 import { computeVitalsAlerts, type HostAlert } from "@/app/view/hostinfo/hostinfo-util";
@@ -77,6 +78,7 @@ export class HostVitalsModel {
             if (n <= 0) {
                 this.refCounts.delete(conn);
                 this.deps.delete(conn);
+                HostAlertNotifier.getInstance().clear(conn, "vitals");
             } else {
                 this.refCounts.set(conn, n);
             }
@@ -112,6 +114,8 @@ export class HostVitalsModel {
             }
             const prev = globalStore.get(atom);
             const memPct = v.memtotal ? ((v.memtotal - v.memavail) / v.memtotal) * 100 : 0;
+            const alerts = computeVitalsAlerts(v);
+            HostAlertNotifier.getInstance().report(conn, "vitals", alerts);
             globalStore.set(atom, {
                 latest: v,
                 ts: resp.ts,
@@ -119,7 +123,7 @@ export class HostVitalsModel {
                 mem: push(prev?.mem ?? [], memPct),
                 rx: push(prev?.rx ?? [], v.rxrate),
                 tx: push(prev?.tx ?? [], v.txrate),
-                alerts: computeVitalsAlerts(v),
+                alerts,
                 error: null,
             });
         } catch (e) {
