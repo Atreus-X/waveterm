@@ -6,8 +6,17 @@ import { TabRpcClient } from "@/app/store/wshrpcutil";
 import { MetaKeyAtomFnType, WaveEnv, WaveEnvSubset } from "@/app/waveenv/waveenv";
 import { isBlank } from "@/util/util";
 import * as jotai from "jotai";
+import * as React from "react";
 import { HostInfoView } from "./hostinfo";
-import { diffHost, emptyChanges, HostChanges, HostSectionId, HostSections } from "./hostinfo-util";
+import {
+    computeAlerts,
+    diffHost,
+    emptyChanges,
+    HostAlert,
+    HostChanges,
+    HostSectionId,
+    HostSections,
+} from "./hostinfo-util";
 
 export type HostInfoEnv = WaveEnvSubset<{
     rpc: {
@@ -53,6 +62,8 @@ const RefreshMs: Record<string, number> = {
     docker: 15000,
 };
 const TickMs = 1000;
+// alerts watch these no matter which section is on screen
+const AlertSections = ["system", "services", "docker"];
 
 export type HostActionReq = {
     kind: "service" | "container" | "process";
@@ -78,6 +89,24 @@ function backendSection(id: HostSectionId): string {
     return HostSections.find((s) => s.id === id)?.backend ?? "system";
 }
 
+function alertBellIcon(count: number, crit: boolean): React.ReactNode {
+    if (count === 0) {
+        return React.createElement("i", { className: "fa-solid fa-bell" });
+    }
+    return React.createElement(
+        "span",
+        { className: "relative inline-flex" },
+        React.createElement("i", { className: `fa-solid fa-bell ${crit ? "text-error" : "text-warning"}` }),
+        React.createElement(
+            "span",
+            {
+                className: `absolute -right-1.5 -top-1.5 min-w-[13px] rounded-full px-[3px] text-center text-[9px] font-bold leading-[13px] text-black ${crit ? "bg-error" : "bg-warning"}`,
+            },
+            count > 9 ? "9+" : String(count)
+        )
+    );
+}
+
 export class HostInfoViewModel implements ViewModel {
     viewType: string;
     blockId: string;
@@ -100,10 +129,13 @@ export class HostInfoViewModel implements ViewModel {
     dockerStatsAtom = jotai.atom<boolean>(false) as jotai.PrimitiveAtom<boolean>;
     updatedAtAtom = jotai.atom<Record<string, number>>({}) as jotai.PrimitiveAtom<Record<string, number>>;
     actionAtom = jotai.atom<HostActionState>(null) as jotai.PrimitiveAtom<HostActionState>;
+    alertsOpenAtom = jotai.atom<boolean>(false) as jotai.PrimitiveAtom<boolean>;
+    dismissedAlertsAtom = jotai.atom(new Set<string>()) as jotai.PrimitiveAtom<Set<string>>;
 
     connection: jotai.Atom<string>;
     connStatus: jotai.Atom<ConnStatus>;
     changesAtom: jotai.Atom<HostChanges>;
+    alertsAtom: jotai.Atom<HostAlert[]>;
     endIconButtons: jotai.Atom<IconButtonDecl[]>;
 
     disposed = false;
@@ -133,9 +165,21 @@ export class HostInfoViewModel implements ViewModel {
             const cur = get(this.dataAtom);
             return base == null || cur == null ? emptyChanges() : diffHost(base, cur);
         });
+        this.alertsAtom = jotai.atom((get) => {
+            const dismissed = get(this.dismissedAlertsAtom);
+            return computeAlerts(get(this.dataAtom)).filter((a) => !dismissed.has(a.key));
+        });
         this.endIconButtons = jotai.atom((get) => {
             const paused = get(this.pausedAtom);
+            const alerts = get(this.alertsAtom);
+            const hasCrit = alerts.some((a) => a.level === "crit");
             return [
+                {
+                    elemtype: "iconbutton",
+                    icon: alertBellIcon(alerts.length, hasCrit),
+                    title: alerts.length > 0 ? `${alerts.length} alert${alerts.length === 1 ? "" : "s"}` : "No alerts",
+                    click: () => globalStore.set(this.alertsOpenAtom, !globalStore.get(this.alertsOpenAtom)),
+                },
                 {
                     elemtype: "iconbutton",
                     icon: paused ? "play" : "pause",
@@ -185,7 +229,7 @@ export class HostInfoViewModel implements ViewModel {
         }
         if (globalStore.get(this.pausedAtom) || document.hidden) return;
         const now = Date.now();
-        const wanted = new Set(["system", backendSection(globalStore.get(this.sectionAtom))]);
+        const wanted = new Set([...AlertSections, backendSection(globalStore.get(this.sectionAtom))]);
         const due = [...wanted].filter((s) => now - (this.lastFetch[s] ?? 0) >= (RefreshMs[s] ?? 15000));
         if (due.length > 0) {
             this.fetch(due, false);
@@ -200,6 +244,8 @@ export class HostInfoViewModel implements ViewModel {
         globalStore.set(this.baselineAtom, null);
         globalStore.set(this.errorAtom, null);
         globalStore.set(this.actionAtom, null);
+        globalStore.set(this.alertsOpenAtom, false);
+        globalStore.set(this.dismissedAlertsAtom, new Set());
         globalStore.set(this.updatedAtAtom, {});
         globalStore.set(this.loadingAtom, true);
     }
@@ -248,6 +294,7 @@ export class HostInfoViewModel implements ViewModel {
             }
         }
         globalStore.set(this.dataAtom, next);
+        this.pruneDismissedAlerts(next);
         const updated = { ...globalStore.get(this.updatedAtAtom) };
         sections.forEach((s) => (updated[s] = resp.ts));
         globalStore.set(this.updatedAtAtom, updated);
@@ -278,6 +325,31 @@ export class HostInfoViewModel implements ViewModel {
     setDockerStats(on: boolean) {
         globalStore.set(this.dockerStatsAtom, on);
         this.fetch(["docker"], false);
+    }
+
+    // a dismissed alert comes back if its condition clears and later returns
+    pruneDismissedAlerts(data: HostInfoData) {
+        const dismissed = globalStore.get(this.dismissedAlertsAtom);
+        if (dismissed.size === 0) return;
+        const live = new Set(computeAlerts(data).map((a) => a.key));
+        const kept = new Set([...dismissed].filter((k) => live.has(k)));
+        if (kept.size !== dismissed.size) {
+            globalStore.set(this.dismissedAlertsAtom, kept);
+        }
+    }
+
+    dismissAlert(key: string) {
+        globalStore.set(this.dismissedAlertsAtom, new Set([...globalStore.get(this.dismissedAlertsAtom), key]));
+    }
+
+    dismissAllAlerts() {
+        const keys = globalStore.get(this.alertsAtom).map((a) => a.key);
+        globalStore.set(this.dismissedAlertsAtom, new Set([...globalStore.get(this.dismissedAlertsAtom), ...keys]));
+    }
+
+    openAlert(alert: HostAlert) {
+        this.setSection(alert.section);
+        globalStore.set(this.alertsOpenAtom, false);
     }
 
     // treat the current snapshot as the new "nothing changed" point
