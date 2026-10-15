@@ -345,7 +345,7 @@ export const FleetView = memo(({ model }: ViewComponentProps<FleetViewModel>) =>
                 ) : (
                     <div className="min-w-[860px]">
                         <div
-                            className="sticky top-0 z-[1] grid gap-3 border-b border-border bg-panel px-3 py-1.5 text-[11px] font-semibold tracking-wide text-muted uppercase"
+                            className="sticky top-0 z-[1] grid gap-3 border-b border-border bg-modalbg px-3 py-1.5 text-[11px] font-semibold tracking-wide text-muted uppercase"
                             style={{ gridTemplateColumns: Cols }}
                         >
                             <span />

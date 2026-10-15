@@ -153,7 +153,7 @@ const Table = memo(
     }) => (
         <div className="min-w-0 rounded border border-border">
             <div
-                className="sticky top-0 z-[1] grid gap-3 border-b border-border bg-panel px-3 py-1.5 text-[11px] font-semibold tracking-wide text-muted uppercase"
+                className="sticky top-0 z-[1] grid gap-3 border-b border-border bg-modalbg px-3 py-1.5 text-[11px] font-semibold tracking-wide text-muted uppercase"
                 style={{ gridTemplateColumns: cols }}
             >
                 {header.map((h, i) => {
