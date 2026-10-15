@@ -264,9 +264,11 @@ const Card = memo(
         children: React.ReactNode;
         className?: string;
     }) => (
-        <div className={cn("rounded border border-border p-3", className)}>
+        <div className={cn("min-w-0 rounded border border-border p-3", className)}>
             <div className="mb-2 flex items-center justify-between gap-2">
-                <div className="text-[11px] font-semibold tracking-wide text-muted uppercase">{title}</div>
+                <div className="min-w-0 truncate text-[11px] font-semibold tracking-wide text-muted uppercase">
+                    {title}
+                </div>
                 {actions}
             </div>
             {children}
@@ -567,7 +569,7 @@ export const OverviewSection = memo(({ model, data }: SectionProps) => {
                             <div
                                 key={d.mount}
                                 className="grid items-center gap-2 text-xs"
-                                style={{ gridTemplateColumns: "minmax(50px,1fr) minmax(40px,1fr) auto 22px" }}
+                                style={{ gridTemplateColumns: "minmax(0,1fr) minmax(24px,1fr) auto 22px" }}
                                 title={`${d.device} · ${d.fstype}\n${fmtBytes(d.used)} of ${fmtBytes(d.total)}`}
                             >
                                 <div className="truncate">{d.mount}</div>
