@@ -198,47 +198,77 @@ function containerProblem(c: HostContainerInfo): string {
     return null;
 }
 
+function diskAlert(mount: string, usedPct: number, detail: string): HostAlert {
+    const level = usageLevel(usedPct);
+    if (level === "ok") return null;
+    return {
+        key: `disk|${mount}|${level}`,
+        level,
+        icon: "hard-drive",
+        title: `Disk ${usedPct.toFixed(0)}% full: ${mount}`,
+        detail,
+        section: "overview",
+    };
+}
+
+function memAlert(total: number, avail: number): HostAlert {
+    const used = pct(total - avail, total);
+    const level = usageLevel(used);
+    if (total <= 0 || level === "ok") return null;
+    return {
+        key: `mem|${level}`,
+        level,
+        icon: "memory",
+        title: `Memory ${used.toFixed(0)}% used`,
+        detail: `${fmtBytes(avail)} available of ${fmtBytes(total)}`,
+        section: "processes",
+    };
+}
+
+function loadAlert(load1: number, cpucount: number): HostAlert {
+    const perCore = cpucount > 0 ? load1 / cpucount : 0;
+    if (perCore < LoadWarnPerCore) return null;
+    const level = perCore >= LoadCritPerCore ? "crit" : "warn";
+    return {
+        key: `load|${level}`,
+        level,
+        icon: "gauge-high",
+        title: `High load: ${load1.toFixed(2)}`,
+        detail: `${perCore.toFixed(1)}x the ${cpucount} cores`,
+        section: "processes",
+    };
+}
+
+function sortAlerts(alerts: HostAlert[]): HostAlert[] {
+    return alerts.sort((a, b) => (a.level === b.level ? 0 : a.level === "crit" ? -1 : 1));
+}
+
+// the subset of alerts the lightweight vitals poll can raise (no service or container data)
+export function computeVitalsAlerts(v: HostVitalsInfo): HostAlert[] {
+    if (v == null) return [];
+    const found = [
+        v.diskmaxmount
+            ? diskAlert(v.diskmaxmount, v.diskmaxpct, `Fullest disk on this host (${v.diskmaxpct.toFixed(0)}%)`)
+            : null,
+        memAlert(v.memtotal, v.memavail),
+        loadAlert(v.load1, v.cpucount),
+    ];
+    return sortAlerts(found.filter((a) => a != null));
+}
+
 export function computeAlerts(data: HostInfoData): HostAlert[] {
     const alerts: HostAlert[] = [];
     const sys = data?.system;
     if (sys) {
         for (const d of sys.disks ?? []) {
-            const used = pct(d.used, d.total);
-            const level = usageLevel(used);
-            if (d.total <= 0 || level === "ok") continue;
-            alerts.push({
-                key: `disk|${d.mount}|${level}`,
-                level,
-                icon: "hard-drive",
-                title: `Disk ${used.toFixed(0)}% full: ${d.mount}`,
-                detail: `${fmtBytes(d.avail)} free of ${fmtBytes(d.total)}`,
-                section: "overview",
-            });
+            if (d.total <= 0) continue;
+            const a = diskAlert(d.mount, pct(d.used, d.total), `${fmtBytes(d.avail)} free of ${fmtBytes(d.total)}`);
+            if (a != null) alerts.push(a);
         }
-        const memPct = pct(sys.memtotal - sys.memavail, sys.memtotal);
-        const memLevel = usageLevel(memPct);
-        if (sys.memtotal > 0 && memLevel !== "ok") {
-            alerts.push({
-                key: `mem|${memLevel}`,
-                level: memLevel,
-                icon: "memory",
-                title: `Memory ${memPct.toFixed(0)}% used`,
-                detail: `${fmtBytes(sys.memavail)} available of ${fmtBytes(sys.memtotal)}`,
-                section: "processes",
-            });
-        }
-        const perCore = sys.cpucount > 0 ? sys.load1 / sys.cpucount : 0;
-        if (perCore >= LoadWarnPerCore) {
-            const level = perCore >= LoadCritPerCore ? "crit" : "warn";
-            alerts.push({
-                key: `load|${level}`,
-                level,
-                icon: "gauge-high",
-                title: `High load: ${sys.load1.toFixed(2)}`,
-                detail: `${perCore.toFixed(1)}x the ${sys.cpucount} cores`,
-                section: "processes",
-            });
-        }
+        const mem = memAlert(sys.memtotal, sys.memavail);
+        if (mem != null) alerts.push(mem);
+        const load = loadAlert(sys.load1, sys.cpucount);
+        if (load != null) alerts.push(load);
     }
     const failed = (data?.services?.available ? data.services.services : []).filter((s) => s.active === "failed");
     for (const s of failed) {
@@ -264,8 +294,7 @@ export function computeAlerts(data: HostInfoData): HostAlert[] {
             section: "docker",
         });
     }
-    alerts.sort((a, b) => (a.level === b.level ? 0 : a.level === "crit" ? -1 : 1));
-    return alerts.slice(0, MaxListedAlerts);
+    return sortAlerts(alerts).slice(0, MaxListedAlerts);
 }
 
 // ---- commands opened in terminal blocks (every argument is shell-quoted) ----

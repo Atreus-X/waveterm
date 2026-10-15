@@ -5,6 +5,7 @@ import { assert, expect, test } from "vitest";
 import {
     changeCount,
     computeAlerts,
+    computeVitalsAlerts,
     connHost,
     diffHost,
     fmtBytes,
@@ -163,4 +164,33 @@ test("computeAlerts is empty for a healthy or missing host", () => {
     expect(
         computeAlerts({ system: { cpucount: 2, load1: 0.1, memtotal: 100, memavail: 80, disks: [] } } as HostInfoData)
     ).toEqual([]);
+});
+
+test("computeVitalsAlerts raises the same keys as computeAlerts for the same conditions", () => {
+    const GiB = 1024 ** 3;
+    const vitals = {
+        cpupct: 5,
+        cpucount: 2,
+        load1: 7,
+        memtotal: 10 * GiB,
+        memavail: 0.5 * GiB,
+        uptimesec: 1,
+        rxrate: 0,
+        txrate: 0,
+        diskmaxpct: 95,
+        diskmaxmount: "/",
+    } as HostVitalsInfo;
+    const full = computeAlerts({
+        system: {
+            cpucount: 2,
+            load1: 7,
+            memtotal: 10 * GiB,
+            memavail: 0.5 * GiB,
+            disks: [{ mount: "/", total: 100 * GiB, used: 95 * GiB, avail: 5 * GiB }],
+        },
+    } as HostInfoData);
+    const light = computeVitalsAlerts(vitals);
+    expect(light.map((a) => a.key).sort()).toEqual(full.map((a) => a.key).sort());
+    expect(computeVitalsAlerts(null)).toEqual([]);
+    expect(computeVitalsAlerts({ ...vitals, diskmaxpct: 10, memavail: 9 * GiB, load1: 0.1 })).toEqual([]);
 });
