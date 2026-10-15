@@ -6,6 +6,17 @@ sidebar_position: 200
 
 # Release Notes
 
+### v0.17.4 (Atreus fork) &mdash; Oct 15, 2026
+
+Host alerts in the Host Inspector, on connection chips and in the Fleet block, sortable Host Inspector tables, and tickable checkboxes in markdown previews.
+
+- **Host Alerts** - A bell in the Host Inspector header lists what needs attention on the host: disks and memory nearly full, high load, failed services, and crashed or unhealthy containers. Click an alert to jump to its tab, dismiss it until it clears and returns, or ignore it permanently (an "Ignored (N)" list under the alerts lets you stop ignoring)
+- **Alerts Everywhere** - Connection chips and the Fleet block show a bell with the host's disk, memory and load alerts; clicking the chip's bell opens the Host Inspector
+- **Alert Notifications** - A desktop notification appears when a connected host raises a new critical alert while Wave isn't the focused window. One per host per batch, never repeated for an alert that stays active. Turn it off with `conn:notifyalerts` or in Settings
+- **Sortable Tables** - Click a column header in the Network, Ports, Processes, Services and Docker tabs to sort (numbers high to low first, text A to Z first, a third click restores the default order). The Overview disks list has sort buttons too
+- **Checklist Previews** - Task-list checkboxes in a markdown file's preview are clickable and write the change back to the file, locally, over SSH and over `wsh`. If the file changed on disk since you opened it, the click is dropped and the newer version shown instead of overwriting it
+- Table header rows in the Host Inspector and the Fleet block are opaque, so rows no longer show through them while scrolling
+
 ### v0.17.3 (Atreus fork) &mdash; Oct 5, 2026
 
 An editable path bar with autocomplete, cancellable transfers with progress, an open chooser for files with no preview, and several remote-edit and layout fixes.
