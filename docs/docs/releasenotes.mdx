@@ -6,6 +6,14 @@ sidebar_position: 200
 
 # Release Notes
 
+### v0.17.5 (Atreus fork) &mdash; Oct 16, 2026
+
+A compact Host Inspector Overview that summarizes the other tabs and fits the block.
+
+- **Compact Overview** - The Host Inspector's Overview tab no longer repeats CPU, memory, load and uptime, which the strip above it already shows. It is now a grid of small cards: System (CPU model, kernel, virtualization, swap, sessions), Disks (one line per mount), Processes (top five by CPU), Network (default route and the busiest real interfaces), Ports (listening versus reachable from the network), Services (failed units) and Docker (problem containers). Each card has a "View all" link to its full tab, and the Host note stays at the bottom
+- **Fits the block** - The Overview reflows to the block's width with no sideways scroll, side by side in a wide block and stacked in a narrow one. The other tabs still scroll sideways below about 480px
+- The Overview refreshes every section while it is open, so its summaries stay live
+
 ### v0.17.4 (Atreus fork) &mdash; Oct 15, 2026
 
 Host alerts in the Host Inspector, on connection chips and in the Fleet block, sortable Host Inspector tables, and tickable checkboxes in markdown previews.
