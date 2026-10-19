@@ -33,7 +33,7 @@ require (
 	github.com/wavetermdev/htmltoken v0.2.0
 	github.com/wavetermdev/waveterm/tsunami v0.12.3
 	golang.org/x/crypto v0.57.0
-	golang.org/x/mod v0.41.0
+	golang.org/x/mod v0.42.0
 	golang.org/x/sync v0.23.0
 	golang.org/x/sys v0.48.0
 	golang.org/x/term v0.46.0
