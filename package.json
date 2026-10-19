@@ -69,14 +69,14 @@
         "vitest": "^5.0.3"
     },
     "dependencies": {
-        "@ai-sdk/react": "^4.0.130",
+        "@ai-sdk/react": "^4.0.146",
         "@floating-ui/react": "^0.27.20",
         "@observablehq/plot": "^0.6.17",
         "@react-hook/resize-observer": "^2.0.2",
-        "@table-nav/core": "^0.0.7",
-        "@table-nav/react": "^0.0.7",
+        "@table-nav/core": "^0.0.10",
+        "@table-nav/react": "^0.0.10",
         "@tanstack/react-table": "^8.21.3",
-        "@tanstack/react-virtual": "^3.14.13",
+        "@tanstack/react-virtual": "^3.14.21",
         "@xterm/addon-fit": "^0.11.0",
         "@xterm/addon-search": "^0.16.0",
         "@xterm/addon-serialize": "^0.14.0",
@@ -131,7 +131,7 @@
         "throttle-debounce": "^5.0.2",
         "unist-util-visit": "^5.1.0",
         "use-device-pixel-ratio": "^1.1.2",
-        "uuid": "^14.0.2",
+        "uuid": "^14.0.3",
         "winston": "^3.19.0",
         "ws": "^8.22.0",
         "yaml": "^2.9.1"
