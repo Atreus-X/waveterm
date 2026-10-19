@@ -18,7 +18,7 @@ require (
 	github.com/invopop/jsonschema v0.14.0
 	github.com/jmoiron/sqlx v1.4.0
 	github.com/joho/godotenv v1.5.1
-	github.com/junegunn/fzf v0.74.4
+	github.com/junegunn/fzf v0.74.5
 	github.com/kevinburke/ssh_config v1.2.0
 	github.com/launchdarkly/eventsource v1.14.0
 	github.com/mattn/go-sqlite3 v1.14.52
