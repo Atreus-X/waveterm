@@ -6,6 +6,13 @@ sidebar_position: 200
 
 # Release Notes
 
+### v0.17.6 (Atreus fork) &mdash; Oct 19, 2026
+
+Security fixes and a round of dependency updates. No feature changes.
+
+- **Security** - Patched versions of `dompurify` (used by the Markdown preview, the editor and Mermaid diagrams), `sharp`, `tinypool` and `postcss-selector-parser` are now forced, closing 25 open advisories, one of them critical. The critical and most of the others were in documentation-build tooling; the `dompurify` fixes also reach the app
+- **Updated libraries** - `jotai` 2.9 to 2.20, the Vercel AI SDK, `@tanstack/react-virtual`, `@table-nav`, `uuid`, `vite`, `vitest`, `prettier`, `typescript-eslint`, `node-abi`, and the Go modules `google.golang.org/api`, `golang.org/x/mod` and `golang.org/x/term` and `fzf`
+
 ### v0.17.5 (Atreus fork) &mdash; Oct 16, 2026
 
 A compact Host Inspector Overview that summarizes the other tabs and fits the block.
