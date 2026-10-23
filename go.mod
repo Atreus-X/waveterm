@@ -20,7 +20,7 @@ require (
 	github.com/joho/godotenv v1.5.1
 	github.com/junegunn/fzf v0.74.5
 	github.com/kevinburke/ssh_config v1.2.0
-	github.com/launchdarkly/eventsource v1.14.0
+	github.com/launchdarkly/eventsource v1.14.1
 	github.com/mattn/go-sqlite3 v1.14.52
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/pkg/sftp v1.13.11
