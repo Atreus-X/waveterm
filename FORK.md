@@ -2,9 +2,9 @@
 
 This is [Atreus-X/waveterm](https://github.com/Atreus-X/waveterm), an unofficial fork of [Wave Terminal](https://github.com/wavetermdev/waveterm). It is not endorsed by Command Line Inc. This page lists what the fork changes, fixes or adds compared with upstream. For the full per-release history see the [release notes](./docs/docs/releasenotes.mdx).
 
-Current as of v0.17.6 (2026-10-19).
+Current as of v0.17.7 (2026-10-26).
 
-**Base:** upstream v0.14.5 plus later upstream fixes. The fork is caught up with upstream `main` (`9f1c9670`) as of v0.17.6; upstream has not tagged a release since v0.14.5. Fork releases are tagged `atreus-vX.Y.Z`.
+**Base:** upstream v0.14.5 plus later upstream fixes. The fork is caught up with upstream `main` (`9f1c9670`) as of v0.17.7; upstream has not tagged a release since v0.14.5. Fork releases are tagged `atreus-vX.Y.Z`.
 
 **Direction:** use the SSH hosts in `~/.ssh/config` **without installing `wsh`** on them. Every remote-host feature works over plain SSH (SFTP, tmux, exec) and, where a host has it, over `wsh`. A host without `wsh` keeps working.
 
@@ -65,7 +65,7 @@ All of it read-only and agentless: one script over the connection's own SSH clie
 - **Turn off Wave AI** _(v0.15.3)_ - `waveai:disabled` hides the AI panel and makes the backend refuse chat requests
 - **Own identity** _(v0.15)_ - app ID `com.atreusproject.waveterm`, upstream's `LICENSE` and `NOTICE` shipped, and About says this is an unofficial build
 - **Update source** _(v0.15, v0.15.3)_ - `autoupdate:source` picks this fork's builds (`atreus`, the default) or upstream's (`official`); About shows which fork you run and switches the feed live
-- **Release binaries** carry no builder paths _(v0.17.1)_
+- **Release binaries** carry no builder paths: Go paths are trimmed _(v0.17.1)_, and the Linux server binary's C debug information is gone _(v0.17.7)_. The release script fails the build if any shipped file still has them. Installers from earlier versions that did were withdrawn
 
 ## Fixes to upstream behaviour
 
