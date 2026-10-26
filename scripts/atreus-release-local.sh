@@ -15,7 +15,8 @@
 # them with scripts/upstream-review.sh before syncing.
 #
 # The version comes from package.json (bump it with `npm version X.Y.Z --no-git-tag-version`, commit,
-# push). Release notes come from the "### vX.Y.Z" section of docs/docs/releasenotes.mdx.
+# push). Release notes come from the "### vX.Y.Z" section of docs/docs/releasenotes.mdx, and
+# --publish refuses a release unless FORK.md's "Current as of vX.Y.Z" line names it.
 #
 # Toolchain (user-local is fine): Go 1.26+, Node 22 (nvm), Zig, Task, zip, mksquashfs, and wine
 # (electron-builder calls `wine`; a `wine` -> wine64 symlink works) for the Windows installer.
@@ -119,6 +120,10 @@ if [ "$PUBLISH" = 1 ] && [ ! -w "${FEED_DIR:-/nonexistent}" ]; then
 fi
 if [ "$PUBLISH" = 1 ] && gh release view "$TAG" --repo "$GH_REPO" >/dev/null 2>&1; then
     echo "release $TAG already exists on $GH_REPO; bump the version or delete it first" >&2
+    exit 1
+fi
+if [ "$PUBLISH" = 1 ] && [[ "$VERSION" != *-* ]] && ! grep -qF "Current as of v$VERSION " FORK.md; then
+    echo "FORK.md is not current for v$VERSION: add this release's changes and set its \"Current as of\" line first" >&2
     exit 1
 fi
 echo "== building $TAG from $SHA ($(node -v), $(go version | cut -d' ' -f3), zig $(zig version))"

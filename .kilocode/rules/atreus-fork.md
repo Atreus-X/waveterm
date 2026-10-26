@@ -33,6 +33,7 @@ The generic "Done:" / `attempt_completion` rules and the Kilo tool names (`write
 
 - One feature per branch from `main`. Avoid stacking; when a PR must stack, say so, give the merge order and known conflicts in the PR body. On conflicts between features, keep both sides and regenerate codegen output.
 - **"test build [beta N] with everything"**: local `test/<next-patch>-beta.N` branch from `main` plus every open feature PR branch, version bumped, `--windows-only` build, leak-scan the installer, copy the `.exe` to `~/wave-test-builds`, and give the user the scp command. Never push a test branch or publish it.
-- **"release"**: only on request, with `--publish`, after the upstream review and a changelog.
+- **"release"**: only on request, with `--publish`, after the upstream review, a changelog and an updated `FORK.md` (add the release's changes to the right section, set its "Current as of" line; `--publish` refuses otherwise).
+- **`FORK.md`** is the public list of what the fork changes versus upstream, linked from the top of `README.md`. Keep it current: user-visible features and fixes go in it, tagged with the release they first shipped in.
 - **Bug reports** ("X doesn't work"): before diagnosing, establish which build the user is on, which host, and whether that host is wsh or plain SSH.
 - **Vault notes** (`Notes/waveterm.md` in the Obsidian vault) must stay current. Worktree-isolated sessions cannot run git in the vault; finish by telling the user to run `! vault-note-pr Notes/waveterm.md -m "<message>"`.
