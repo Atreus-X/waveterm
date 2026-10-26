@@ -132,6 +132,9 @@ start=$(date +%s)
 # task fingerprints sources, not GOFLAGS or the dist/ it deletes, so a second run in a row skips build:wsh
 # and build:server and the installer ships without the wsh binaries
 rm -rf .task
+# task package runs clean (rm -rf make) and go:mod:tidy in parallel; with make/ left over from the previous
+# build, tidy can be walking it while it is deleted and fail with "no such file or directory"
+rm -rf make
 
 echo "== npm ci"
 rm -rf node_modules
