@@ -74,9 +74,9 @@ export GOFLAGS="${GOFLAGS:+$GOFLAGS }-trimpath"
 # its DWARF debug info and __FILE__ strings carry absolute paths under $HOME; task's build:server reads
 # GO_LDFLAGS from the environment, so strip the debug info and map $HOME away in the C code. Setting
 # CGO_CFLAGS replaces Go's default (-O2 -g), and without -O2 zig cc builds with sanitizers that fail to link.
-# -g0 instead of -g: the linker's -s leaves the C objects' DWARF in place, and zig's own libc shims are
-# built with it too, so the only way to keep $HOME out of the binary is not to generate it
-export GO_LDFLAGS="${GO_LDFLAGS:+$GO_LDFLAGS }-s -w"
+# -g0 instead of -g avoids our own C objects' DWARF, but zig's bundled libc shims (csu/init.c, stat64, ...)
+# carry theirs regardless, and go's -s alone does not remove it from the external link; --strip-all does
+export GO_LDFLAGS="${GO_LDFLAGS:+$GO_LDFLAGS }-s -w -extldflags=-Wl,--strip-all"
 export CGO_CFLAGS="${CGO_CFLAGS:--O2 -g0} -ffile-prefix-map=$HOME=/build"
 
 need() { command -v "$1" >/dev/null || { echo "missing required tool: $1" >&2; exit 1; }; }
