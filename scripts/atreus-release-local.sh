@@ -73,9 +73,11 @@ export GOFLAGS="${GOFLAGS:+$GOFLAGS }-trimpath"
 # -trimpath only rewrites Go source paths. wavesrv also links C code (sqlite) that zig cc compiles, and
 # its DWARF debug info and __FILE__ strings carry absolute paths under $HOME; task's build:server reads
 # GO_LDFLAGS from the environment, so strip the debug info and map $HOME away in the C code. Setting
-# CGO_CFLAGS replaces Go's default (-O2 -g), and without -O2 zig cc builds with sanitizers that fail to link
+# CGO_CFLAGS replaces Go's default (-O2 -g), and without -O2 zig cc builds with sanitizers that fail to link.
+# -g0 instead of -g: the linker's -s leaves the C objects' DWARF in place, and zig's own libc shims are
+# built with it too, so the only way to keep $HOME out of the binary is not to generate it
 export GO_LDFLAGS="${GO_LDFLAGS:+$GO_LDFLAGS }-s -w"
-export CGO_CFLAGS="${CGO_CFLAGS:--O2 -g} -ffile-prefix-map=$HOME=/build"
+export CGO_CFLAGS="${CGO_CFLAGS:--O2 -g0} -ffile-prefix-map=$HOME=/build"
 
 need() { command -v "$1" >/dev/null || { echo "missing required tool: $1" >&2; exit 1; }; }
 for t in node npm go zig task zip mksquashfs wine gh; do need "$t"; done
