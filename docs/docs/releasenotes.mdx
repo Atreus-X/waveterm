@@ -6,6 +6,13 @@ sidebar_position: 200
 
 # Release Notes
 
+### v0.17.7 (Atreus fork) &mdash; Oct 26, 2026
+
+A privacy fix for the Linux installers. No feature changes.
+
+- **Linux builds no longer carry the builder's paths** - The Linux server binary (`wavesrv`) in the AppImage and deb from v0.15.1 to v0.17.6 contained the build machine's home directory and login name in its embedded debug information. They are gone from this release, and the release script now stops the build if any shipped file contains them. The Windows installers were not affected by this. Please move to this version and do not keep the older Linux packages; they have been withdrawn from the downloads
+- **Release builds** - A rare failure where the build cleaned its output folder while `go mod tidy` was still reading it is fixed
+
 ### v0.17.6 (Atreus fork) &mdash; Oct 19, 2026
 
 Security fixes and a round of dependency updates. No feature changes.

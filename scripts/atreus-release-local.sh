@@ -71,6 +71,14 @@ export PATH="$HOME/.local/bin:$HOME/.local/go/bin:$PATH"
 export NODE_OPTIONS=--max-old-space-size=4096
 # without this every Go binary embeds the builder's home directory in its file paths
 export GOFLAGS="${GOFLAGS:+$GOFLAGS }-trimpath"
+# -trimpath only rewrites Go source paths. wavesrv also links C code (sqlite) that zig cc compiles, and
+# its DWARF debug info and __FILE__ strings carry absolute paths under $HOME; task's build:server reads
+# GO_LDFLAGS from the environment, so strip the debug info and map $HOME away in the C code. Setting
+# CGO_CFLAGS replaces Go's default (-O2 -g), and without -O2 zig cc builds with sanitizers that fail to link.
+# -g0 instead of -g avoids our own C objects' DWARF, but zig's bundled libc shims (csu/init.c, stat64, ...)
+# carry theirs regardless, and go's -s alone does not remove it from the external link; --strip-all does
+export GO_LDFLAGS="${GO_LDFLAGS:+$GO_LDFLAGS }-s -w -extldflags=-Wl,--strip-all"
+export CGO_CFLAGS="${CGO_CFLAGS:--O2 -g0} -ffile-prefix-map=$HOME=/build"
 
 need() { command -v "$1" >/dev/null || { echo "missing required tool: $1" >&2; exit 1; }; }
 for t in node npm go zig task zip mksquashfs wine gh; do need "$t"; done
@@ -132,6 +140,9 @@ start=$(date +%s)
 # task fingerprints sources, not GOFLAGS or the dist/ it deletes, so a second run in a row skips build:wsh
 # and build:server and the installer ships without the wsh binaries
 rm -rf .task
+# task package runs clean (rm -rf make) and go:mod:tidy in parallel; with make/ left over from the previous
+# build, tidy can be walking it while it is deleted and fail with "no such file or directory"
+rm -rf make
 
 echo "== npm ci"
 rm -rf node_modules
@@ -164,6 +175,17 @@ rm -f dist/bin/wavesrv.x64
 
 echo "== windows: electron-builder (nsis x64)"
 WAVE_WIN_TARGETS=nsis npm exec electron-builder -- -c electron-builder.config.cjs -p never --win --x64
+
+# a published installer is public for good, so stop here if any shipped file carries the builder's home
+# directory or login name (v0.15-v0.17.6 shipped a Linux wavesrv with both; the installers are archives, so
+# scan the unpacked app and the binaries they are made from)
+echo "== leak scan: builder paths in the build output"
+leaks=$(grep -rlaF -e "$HOME" -e "$(id -un)" dist/bin make/*-unpacked 2>/dev/null || true)
+if [ -n "$leaks" ]; then
+    echo "the build output contains the builder's home directory or login name:" >&2
+    echo "$leaks" >&2
+    exit 1
+fi
 
 shopt -s nullglob
 if [ "$WINDOWS_ONLY" = 1 ]; then
