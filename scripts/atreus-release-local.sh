@@ -147,6 +147,9 @@ rm -rf make
 echo "== npm ci"
 rm -rf node_modules
 npm ci --no-audit --no-fund
+# since Electron 42 npm ci no longer downloads the binary; the first require("electron") does, and that
+# download inside a test's 5s timeout fails the vitest gate on a fresh install
+npx install-electron --no
 
 # test builds are gated too: a beta with a known failure isn't worth the build time
 if [ "$SKIP_CHECKS" != 1 ]; then

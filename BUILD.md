@@ -73,6 +73,8 @@ See NodeJS's website for platform-specific instructions: https://nodejs.org/en/d
 
 We now use `npm`, so you can just run an `npm install` to install node dependencies.
 
+Electron 42 and later no longer download their binary during install. Run `npx install-electron --no` once after `npm install` (the first `npx electron` or test run would otherwise download it mid-run, which can time out the unit tests).
+
 ## Clone the Repo
 
 ```sh
