@@ -68,7 +68,7 @@ Learn more in upstream's [Wave AI documentation](https://docs.waveterm.dev/wavea
 
 ## Installation
 
-Download the latest installer from the [Releases page](https://github.com/Atreus-X/waveterm/releases) (tags look like `atreus-v0.17.6`).
+Download the latest installer from the [Releases page](https://github.com/Atreus-X/waveterm/releases) (tags look like `atreus-vX.Y.Z`).
 
 | Platform | Installer                                    |
 | -------- | -------------------------------------------- |
