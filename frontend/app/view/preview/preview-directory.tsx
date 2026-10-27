@@ -702,7 +702,8 @@ const ProgressBar = ({ frac, isError }: { frac: number | null; isError?: boolean
     </div>
 );
 
-const ProgressCardClass = "rounded border border-border bg-panel px-2 py-1 text-[11px] shadow-lg";
+// bg-panel is only 50% opaque, so the file rows behind the card showed through its text
+const ProgressCardClass = "rounded border border-border bg-modalbg px-2 py-1 text-[11px] shadow-lg";
 
 // shown at the bottom left of the block while files transfer: remote files downloading to open in an
 // external app, and uploads / drag-drop copies
