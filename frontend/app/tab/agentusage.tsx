@@ -49,6 +49,24 @@ function formatRemaining(resetAt: number, now: number): string {
     return `${mins}m`;
 }
 
+function formatAge(at: number, now: number): string {
+    const mins = Math.floor(Math.max(0, now - at) / 60000);
+    if (mins < 1) {
+        return "less than a minute ago";
+    }
+    if (mins < 60) {
+        return `${mins} min ago`;
+    }
+    return `${Math.floor(mins / 60)}h${mins % 60}m ago`;
+}
+
+function describeError(error: string): string {
+    if (error.includes("EC-TIME")) {
+        return "the host took too long to respond";
+    }
+    return error;
+}
+
 function usageColor(ratio: number): string {
     if (ratio >= 1) {
         return "bg-red-500";
@@ -175,6 +193,7 @@ const AgentUsageWidgetComponent = () => {
     const sessionHours = useAtomValue(getSettingsKeyAtom("agentusage:sessionhours")) ?? 5;
     const [usage, setUsage] = useState<AgentUsageData>(null);
     const [error, setError] = useState<string>(null);
+    const [updatedAt, setUpdatedAt] = useState<number>(null);
     const [connList, setConnList] = useState<string[]>([]);
     const [isOpen, setIsOpen] = useState(false);
     const { refs, floatingStyles, context } = useFloating({
@@ -189,11 +208,19 @@ const AgentUsageWidgetComponent = () => {
     useEffect(() => {
         setUsage(null);
         setError(null);
+        setUpdatedAt(null);
         if (agent === "off") {
             return;
         }
         let cancelled = false;
+        // a scan of a big remote log directory can outlast the poll interval; starting another on top of it
+        // only adds load to the host that is already slow
+        let busy = false;
         const load = async () => {
+            if (busy) {
+                return;
+            }
+            busy = true;
             try {
                 const data = await RpcApi.AgentUsageCommand(
                     TabRpcClient,
@@ -204,11 +231,14 @@ const AgentUsageWidgetComponent = () => {
                     return;
                 }
                 setUsage(data);
+                setUpdatedAt(Date.now());
                 setError(null);
             } catch (e) {
                 if (!cancelled) {
                     setError(String(e?.message ?? e));
                 }
+            } finally {
+                busy = false;
             }
         };
         load();
@@ -237,7 +267,7 @@ const AgentUsageWidgetComponent = () => {
     let meter: React.ReactNode;
     if (agent === "off") {
         meter = <i className="fa fa-gauge-high" />;
-    } else if (error != null) {
+    } else if (error != null && usage == null) {
         meter = <i className="fa fa-triangle-exclamation text-yellow-500" />;
     } else if (usage == null) {
         meter = <span className="text-muted">…</span>;
@@ -267,6 +297,12 @@ const AgentUsageWidgetComponent = () => {
                         </span>
                     );
                 })}
+                {error != null && (
+                    <i
+                        className="fa fa-triangle-exclamation text-yellow-500"
+                        title="Couldn't refresh; showing the last result"
+                    />
+                )}
             </>
         );
     }
@@ -306,7 +342,15 @@ const AgentUsageWidgetComponent = () => {
                                 No {AgentLabels[agent] ?? agent} logs found on {conn === "" ? "this machine" : conn}.
                             </div>
                         )}
-                        {error != null && <div className="text-xs text-red-400 break-words">{error}</div>}
+                        {error != null && usage == null && (
+                            <div className="text-xs text-red-400 break-words">{describeError(error)}</div>
+                        )}
+                        {error != null && usage != null && (
+                            <div className="text-xs text-yellow-500 break-words">
+                                Couldn't refresh ({describeError(error)}); showing the result from{" "}
+                                {formatAge(updatedAt, Date.now())}.
+                            </div>
+                        )}
                         <div className="text-[11px] text-muted">
                             Counts input + output + cache-write tokens read from the agent's local logs. For Claude
                             Code, plan percentages and reset times come from ~/.claude/rate-limits.json when its
