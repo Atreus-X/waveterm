@@ -2,9 +2,9 @@
 
 This is [Atreus-X/waveterm](https://github.com/Atreus-X/waveterm), an unofficial fork of [Wave Terminal](https://github.com/wavetermdev/waveterm). It is not endorsed by Command Line Inc. This page lists what the fork changes, fixes or adds compared with upstream. For the full per-release history see the [release notes](./docs/docs/releasenotes.mdx).
 
-Current as of v0.17.7 (2026-10-26).
+Current as of v0.17.8 (2026-10-29).
 
-**Base:** upstream v0.14.5 plus later upstream fixes. The fork is caught up with upstream `main` (`9f1c9670`) as of v0.17.7; upstream has not tagged a release since v0.14.5. Fork releases are tagged `atreus-vX.Y.Z`.
+**Base:** upstream v0.14.5 plus later upstream fixes. The fork is caught up with upstream `main` (`9f1c9670`) as of v0.17.8; upstream has not tagged a release since v0.14.5. Fork releases are tagged `atreus-vX.Y.Z`.
 
 **Direction:** use the SSH hosts in `~/.ssh/config` **without installing `wsh`** on them. Every remote-host feature works over plain SSH (SFTP, tmux, exec) and, where a host has it, over `wsh`. A host without `wsh` keeps working.
 
@@ -42,7 +42,7 @@ All of it read-only and agentless: one script over the connection's own SSH clie
 - **Edit remote files locally** _(v0.15.2)_ - remote files are downloaded, opened locally and uploaded back on every save, with a conflict prompt if the remote changed
 - **Drag and drop upload** and **folders first** _(v0.15.3)_ - `preview:dirsfirst`
 - **Download as Zip**, multi-select _(v0.16)_
-- **Progress and cancel** _(v0.17, v0.17.3)_ - uploads, downloads, zips and copies show a progress card with speed and time remaining, and can be cancelled
+- **Progress and cancel** _(v0.17, v0.17.3)_ - uploads, downloads, zips and copies show a progress card with speed and time remaining, and can be cancelled; the card has a solid background so file rows no longer show through it _(v0.17.8)_
 - **Editable path with autocomplete** _(v0.17.3)_, an **open chooser** for files with no preview, and the Edit/Save/Preview buttons on their own row
 - **Clickable task-list checkboxes** in Markdown previews, written back to the file _(v0.17.4)_
 
@@ -74,12 +74,14 @@ All of it read-only and agentless: one script over the connection's own SSH clie
 - A CSV with an empty header cell no longer crashes the block _(v0.17.3)_
 - Remote files edited externally upload on save more reliably, and reopening shows the latest remote content _(v0.17.3)_
 - A beta install can switch to the `latest` update channel without restarting _(v0.17.1)_
+- The agent usage meter no longer starts a second scan while one is still running on a slow remote host, and when a refresh fails it keeps showing the last result with a warning instead of replacing the meter with an error _(v0.17.8)_
 
 ## Build, platforms and dependencies
 
 - **Installers:** Windows x64 (NSIS) and Linux x64 (AppImage and deb). macOS builds are not published; build from source with [BUILD.md](./BUILD.md). Installers are unsigned
 - **Local builds only:** releases are built on the maintainer's machine with `scripts/atreus-release-local.sh`, gated by `scripts/atreus-check.sh`. The only GitHub Action is CodeQL
 - **Upstream gate:** a release stops when upstream has commits the fork lacks, until they have been reviewed (`scripts/upstream-review.sh`)
+- **Runtime:** Electron 42 _(v0.17.8)_. Building from source needs `npx install-electron --no` after `npm install` (see [BUILD.md](./BUILD.md))
 - **Dependencies:** kept current with Dependabot. Security overrides force patched versions of `dompurify`, `sharp`, `tinypool` and `postcss-selector-parser` _(v0.17.6)_
 
 ## Keeping this page current
