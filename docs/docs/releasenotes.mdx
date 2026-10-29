@@ -6,6 +6,15 @@ sidebar_position: 200
 
 # Release Notes
 
+### v0.17.8 (Atreus fork) &mdash; Oct 29, 2026
+
+Electron 42, two small fixes and a round of library updates.
+
+- **Electron 42** - The app now runs on Electron 42 instead of 41. Seven open security advisories against Electron (one of them rated high) were fixed only in 42, and there is no patched 41 release. Windows and Linux builds only, as before. Building from source now needs `npx install-electron --no` after `npm install`, because Electron 42 no longer downloads its binary during install
+- **Usage meter** - On a slow remote host the agent usage meter could start a second scan on top of one still running, and a timeout replaced the whole meter with a warning triangle and a raw error. It now skips a refresh while one is running, keeps showing the last result with a small warning mark when a refresh fails, and the popover says how old the shown result is
+- **Transfer progress card** - The upload and download progress card in the file browser has a solid background, so file rows no longer show through its text
+- **Updated libraries** - `@ai-sdk/react`, `@tanstack/react-virtual`, `overlayscrollbars-react`, `zod`, `body-parser`, `launch-editor`, `undici`, `fast-uri`, `typescript-eslint`, and the Go modules `launchdarkly/eventsource` and `Microsoft/go-winio`
+
 ### v0.17.7 (Atreus fork) &mdash; Oct 26, 2026
 
 A privacy fix for the Linux installers. No feature changes.
