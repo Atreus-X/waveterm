@@ -2,9 +2,9 @@
 
 This is [Atreus-X/waveterm](https://github.com/Atreus-X/waveterm), an unofficial fork of [Wave Terminal](https://github.com/wavetermdev/waveterm). It is not endorsed by Command Line Inc. This page lists what the fork changes, fixes or adds compared with upstream. For the full per-release history see the [release notes](./docs/docs/releasenotes.mdx).
 
-Current as of v0.17.8 (2026-10-29).
+Current as of v0.17.9 (2026-11-02).
 
-**Base:** upstream v0.14.5 plus later upstream fixes. The fork is caught up with upstream `main` (`9f1c9670`) as of v0.17.8; upstream has not tagged a release since v0.14.5. Fork releases are tagged `atreus-vX.Y.Z`.
+**Base:** upstream v0.14.5 plus later upstream fixes. The fork is caught up with upstream `main` (`9f1c9670`) as of v0.17.9; upstream has not tagged a release since v0.14.5. Fork releases are tagged `atreus-vX.Y.Z`.
 
 **Direction:** use the SSH hosts in `~/.ssh/config` **without installing `wsh`** on them. Every remote-host feature works over plain SSH (SFTP, tmux, exec) and, where a host has it, over `wsh`. A host without `wsh` keeps working.
 
