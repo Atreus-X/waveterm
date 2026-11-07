@@ -7,6 +7,7 @@ Fork-specific. Where these conflict with the generic Wave rules imported above, 
 - **Privacy.** Never put personal or infra details in commits, PRs, logs, installers or test data: no git identity, hostnames, IPs, ports, usernames, key names. Test data uses `192.0.2.x`, `198.51.100.x`, `example.com`. Run `privacy-scan --text -` on every PR body and release note; commit and push hooks scan the rest. If something could leak, ask first.
 - **SSH and wsh, always both.** Every remote-host feature or fix must work over the plain-SSH route (SFTP / tmux / exec) and the wsh route. Implement, test and list both in the PR body.
 - **No wsh dependency.** A remote host without wsh installed must keep working.
+- **New settings go in the graphical settings editor.** Every new setting gets a field in `frontend/app/view/waveconfig/settingsvisual.tsx` in the same PR, in a new section if none fits, not only in `settingsconfig.go`, the defaults and `config.mdx`. A test fails otherwise; see the add-config skill.
 - **Local builds only.** The only GitHub Action is CodeQL. Releases are built locally with `scripts/atreus-release-local.sh`.
 - **Test builds are Windows-only** (`--windows-only`); only the `.exe` is kept. Releases build all platforms.
 - **Upstream gate.** Releases stop when `upstream/main` is ahead. Run `scripts/upstream-review.sh`, report what changed, and wait for the user's go-ahead before syncing.

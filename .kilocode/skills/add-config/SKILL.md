@@ -463,6 +463,7 @@ When adding a new configuration setting:
 - [ ] Document in `docs/docs/config.mdx`
 - [ ] Run `task generate` to update TypeScript types
 - [ ] Use appropriate atom (`getOverrideConfigAtom` or `getSettingsKeyAtom`) in frontend
+- [ ] Add a field to the graphical settings editor, `frontend/app/view/waveconfig/settingsvisual.tsx` (Atreus fork rule). Add a new section when none fits. Label, tooltip, `defaultValue` matching `defaultconfig/settings.json`, and `applies` if it needs a restart. `settingsvisual-coverage.test.ts` fails for a setting that has no field. Only a setting that is not a user preference (diagnostics, secrets, values the app saves itself) goes in `settings-not-in-editor.json` under `internal`, with a reason
 
 ## Related Documentation
 
