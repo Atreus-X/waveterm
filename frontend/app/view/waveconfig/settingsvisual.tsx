@@ -25,7 +25,7 @@ type SettingField = {
 } & (
     | { kind: "toggle"; invert?: boolean }
     | { kind: "select"; options: SelectOption[] | ((fullConfig: FullConfigType) => SelectOption[]) }
-    | { kind: "number"; min?: number; max?: number; step?: number; placeholder?: string }
+    | { kind: "number"; min?: number; max?: number; step?: number; integer?: boolean; placeholder?: string }
     | { kind: "text"; placeholder?: string }
 );
 
@@ -247,6 +247,23 @@ const SettingSections: SettingSection[] = [
                 tooltip: "Wraps long lines to the editor's width instead of scrolling sideways.",
                 label: "Word wrap",
                 kind: "toggle",
+            },
+        ],
+    },
+    {
+        title: "File browser",
+        fields: [
+            {
+                key: "preview:autorefresh",
+                tooltip:
+                    "How often an open folder re-reads itself, in seconds, so files created or removed elsewhere (a terminal, another program) show up. Only the focused window refreshes, never during a transfer or while a remote host is disconnected. 0 turns it off; 1 to 4 count as 5.",
+                label: "Refresh listing (seconds)",
+                description: "0 turns automatic refresh off.",
+                kind: "number",
+                min: 0,
+                step: 1,
+                integer: true,
+                placeholder: "10",
             },
         ],
     },
@@ -575,7 +592,11 @@ const SettingRow = memo(
                         placeholder={field.placeholder}
                         onCommit={(v) => {
                             const num = parseFloat(v);
-                            onSet(field.key, v.trim() === "" || isNaN(num) ? null : num);
+                            if (v.trim() === "" || isNaN(num)) {
+                                onSet(field.key, null);
+                                return;
+                            }
+                            onSet(field.key, field.integer ? Math.round(num) : num);
                         }}
                     />
                 );
