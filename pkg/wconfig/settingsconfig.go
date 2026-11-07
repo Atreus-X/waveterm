@@ -144,6 +144,7 @@ type SettingsType struct {
 	PreviewDirsFirst       *bool  `json:"preview:dirsfirst,omitempty"`
 	PreviewDoubleClickOpen string `json:"preview:doubleclickopen,omitempty" jsonschema:"enum=auto,enum=external,enum=preview"`
 	PreviewExternalEditor  string `json:"preview:externaleditor,omitempty"`
+	PreviewAutoRefresh     *int64 `json:"preview:autorefresh,omitempty"`
 
 	TabPreset       string `json:"tab:preset,omitempty"`
 	TabConfirmClose bool   `json:"tab:confirmclose,omitempty"`
