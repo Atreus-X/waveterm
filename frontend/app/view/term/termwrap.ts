@@ -42,9 +42,11 @@ import {
     bufferLinesToText,
     createTempFileFromBlob,
     extractAllClipboardData,
+    isRemoteSshConnection,
     normalizeCursorStyle,
     quoteForPosixShell,
     trimTerminalSelection,
+    uploadDroppedFiles,
 } from "./termutil";
 
 const dlog = debug("wave:termwrap");
@@ -285,17 +287,24 @@ export class TermWrap {
             if (!e.dataTransfer || e.dataTransfer.files.length === 0) {
                 return;
             }
-            const paths: string[] = [];
+            const localPaths: string[] = [];
             for (let i = 0; i < e.dataTransfer.files.length; i++) {
                 const file = e.dataTransfer.files[i];
                 const filePath = getApi().getPathForFile(file);
                 if (filePath) {
-                    paths.push(quoteForPosixShell(filePath));
+                    localPaths.push(filePath);
                 }
             }
-            if (paths.length > 0) {
-                this.terminal.paste(paths.join(" ") + " ");
+            const paths = localPaths.map((p) => quoteForPosixShell(p));
+            if (paths.length === 0) {
+                return;
             }
+            const connection = globalStore.get(getBlockMetaKeyAtom(this.blockId, "connection")) ?? "";
+            if (!isRemoteSshConnection(connection)) {
+                this.terminal.paste(paths.join(" ") + " ");
+                return;
+            }
+            fireAndForget(() => this.uploadAndPasteDroppedFiles(localPaths, connection));
         };
         this.connectElem.addEventListener("dragover", dragoverHandler);
         this.connectElem.addEventListener("drop", dropHandler);
@@ -598,6 +607,16 @@ export class TermWrap {
                 this.runProcessIdleTimeout();
             });
         }, 5000);
+    }
+
+    async uploadAndPasteDroppedFiles(localPaths: string[], connection: string): Promise<void> {
+        const result = await uploadDroppedFiles(localPaths, connection);
+        if (result.paths.length > 0) {
+            this.terminal.paste(result.paths.map((p) => quoteForPosixShell(p)).join(" ") + " ");
+        }
+        if (result.failures.length > 0) {
+            this.terminal.write(`\r\n[wave] could not upload: ${result.failures.join("; ")}\r\n`);
+        }
     }
 
     async pasteHandler(e?: ClipboardEvent): Promise<void> {
