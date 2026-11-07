@@ -8,6 +8,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/base64"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -60,7 +61,11 @@ func useLocalCopyBackend(t *testing.T) *int {
 		scChildURI = old[7].(func(context.Context, string, string) (string, error))
 	})
 	scStat = func(ctx context.Context, uri string) (*wshrpc.FileInfo, error) { return info(local(uri)) }
-	scList = func(ctx context.Context, uri string, _ *wshrpc.FileListOpts) ([]*wshrpc.FileInfo, error) {
+	scList = func(ctx context.Context, uri string, opts *wshrpc.FileListOpts) ([]*wshrpc.FileInfo, error) {
+		// wshremote and sftpfs both refuse a recursive listing, so a copy must ask for one directory level
+		if opts != nil && opts.All {
+			return nil, fmt.Errorf("recursive directory listings are not supported")
+		}
 		ents, err := os.ReadDir(local(uri))
 		if err != nil {
 			return nil, err

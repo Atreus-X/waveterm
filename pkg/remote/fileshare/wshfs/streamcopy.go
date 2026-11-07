@@ -281,7 +281,8 @@ func streamCopyDir(ctx context.Context, srcUri, destUri string, depth int, prog 
 			return fmt.Errorf("cannot create folder %q: %w", destUri, err)
 		}
 	}
-	children, err := scList(ctx, srcUri, &wshrpc.FileListOpts{All: true})
+	// All means a recursive walk, which wshremote and sftpfs both refuse; this recurses by itself, one level at a time
+	children, err := scList(ctx, srcUri, &wshrpc.FileListOpts{})
 	if err != nil {
 		return fmt.Errorf("cannot list %q: %w", srcUri, err)
 	}
