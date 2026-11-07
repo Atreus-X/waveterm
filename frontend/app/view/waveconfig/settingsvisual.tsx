@@ -24,7 +24,12 @@ type SettingField = {
     applies?: "restart" | "terminal";
 } & (
     | { kind: "toggle"; invert?: boolean }
-    | { kind: "select"; options: SelectOption[] | ((fullConfig: FullConfigType) => SelectOption[]) }
+    | {
+          kind: "select";
+          options: SelectOption[] | ((fullConfig: FullConfigType) => SelectOption[]);
+          // for a bool setting with an unset state: saves true / false instead of the strings
+          boolean?: boolean;
+      }
     | { kind: "number"; min?: number; max?: number; step?: number; integer?: boolean; placeholder?: string }
     | { kind: "text"; placeholder?: string }
 );
@@ -219,6 +224,106 @@ const SettingSections: SettingSection[] = [
                 applies: "terminal",
                 kind: "toggle",
             },
+            {
+                key: "term:tmux",
+                tooltip:
+                    "For SSH hosts (with or without wsh), runs each terminal inside its own tmux session on the host, so it survives restarting Wave or losing the network and re-attaches to the same session. Closing the block ends the session. The host needs tmux installed.",
+                label: "Keep SSH terminals in tmux",
+                description: "Sessions survive restarts and disconnects. Needs tmux on the host.",
+                applies: "terminal",
+                kind: "toggle",
+                defaultValue: false,
+            },
+            {
+                key: "term:durable",
+                tooltip:
+                    "Makes remote terminal sessions durable across network disconnects. Needs wsh on the host; a host without wsh can use the tmux option instead.",
+                label: "Durable remote sessions",
+                applies: "terminal",
+                kind: "toggle",
+                defaultValue: false,
+            },
+            {
+                key: "term:reconnectcmd",
+                tooltip:
+                    "A command typed into each new SSH terminal after it connects. With tmux sessions it runs only when the tmux session is created. It is usually set per connection instead of here.",
+                label: "Command on connect",
+                description: "Typed into each new SSH terminal. Usually set per connection.",
+                applies: "terminal",
+                kind: "text",
+                placeholder: "none",
+            },
+            {
+                key: "term:localshellpath",
+                tooltip: "The shell that local terminals start. When empty, Wave uses your system's default shell.",
+                label: "Local shell",
+                description: "Full path to the shell program.",
+                applies: "terminal",
+                kind: "text",
+                placeholder: "System default",
+            },
+            {
+                key: "term:gitbashpath",
+                tooltip:
+                    "Windows only. Where Git Bash is installed. When empty, Wave looks for it in the standard install folders.",
+                label: "Git Bash path",
+                description: "Windows only. Empty finds Git Bash automatically.",
+                applies: "terminal",
+                kind: "text",
+                placeholder: "Automatic",
+            },
+            {
+                key: "term:shiftenternewline",
+                tooltip:
+                    "Makes Shift+Enter insert a new line without running the command (it sends Escape then newline). Useful in Claude Code and other tools that take multi-line input.",
+                label: "Shift+Enter inserts a newline",
+                kind: "toggle",
+                defaultValue: true,
+            },
+            {
+                key: "term:trimtrailingwhitespace",
+                tooltip: "Removes spaces at the end of each line when you copy terminal text.",
+                label: "Trim trailing spaces when copying",
+                kind: "toggle",
+                defaultValue: true,
+            },
+            {
+                key: "term:osc52",
+                tooltip:
+                    "Lets programs in the terminal write to your clipboard. Always allows it at any time. Focused only allows it while the window and that terminal are focused.",
+                label: "Terminal clipboard access",
+                kind: "select",
+                defaultValue: "always",
+                options: [
+                    { value: "always", label: "Always" },
+                    { value: "focus", label: "Focused terminal only" },
+                ],
+            },
+            {
+                key: "term:transparency",
+                tooltip: "How see-through the terminal background is, from 0 (solid) to 1 (fully transparent).",
+                label: "Terminal transparency",
+                kind: "number",
+                min: 0,
+                max: 1,
+                step: 0.05,
+                placeholder: "0.5",
+            },
+            {
+                key: "term:showsplitbuttons",
+                tooltip: "Shows split-horizontal and split-vertical buttons in each terminal block's header.",
+                label: "Split buttons in header",
+                kind: "toggle",
+                defaultValue: false,
+            },
+            {
+                key: "term:macoptionismeta",
+                tooltip:
+                    "macOS only. Treats the Option key as Meta, so Option+key sends the escape-key combinations terminal programs expect.",
+                label: "Option is Meta (macOS)",
+                kind: "toggle",
+                defaultValue: false,
+            },
         ],
     },
     {
@@ -378,6 +483,19 @@ const SettingSections: SettingSection[] = [
                     { value: "off", label: "Off" },
                     { value: "on", label: "All blocks" },
                     { value: "term", label: "Terminals only" },
+                ],
+            },
+            {
+                key: "app:ctrlvpaste",
+                tooltip:
+                    "Whether Ctrl+V pastes in terminals on Windows and Linux. Automatic pastes on Windows only. Off leaves Ctrl+V to the program in the terminal. Ctrl+Shift+V always pastes, and macOS always uses Cmd+V.",
+                label: "Ctrl+V pastes",
+                kind: "select",
+                boolean: true,
+                options: [
+                    { value: UnsetValue, label: "Automatic (Windows only)" },
+                    { value: "true", label: "On" },
+                    { value: "false", label: "Off" },
                 ],
             },
         ],
@@ -617,7 +735,13 @@ const SettingRow = memo(
                 control = (
                     <select
                         value={value}
-                        onChange={(e) => onSet(field.key, e.target.value === UnsetValue ? null : e.target.value)}
+                        onChange={(e) => {
+                            if (e.target.value === UnsetValue) {
+                                onSet(field.key, null);
+                                return;
+                            }
+                            onSet(field.key, field.boolean ? e.target.value === "true" : e.target.value);
+                        }}
                         className="w-48 cursor-pointer rounded border border-border bg-background px-2 py-1 text-sm outline-none focus:border-accent"
                     >
                         {options.map((opt) => (
