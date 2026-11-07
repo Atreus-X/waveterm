@@ -18,7 +18,7 @@ import { checkKeyPressed, isCharacterKeyEvent } from "@/util/keyutil";
 import { PLATFORM, PlatformMacOS } from "@/util/platformutil";
 import { addOpenMenuItems, openFileExternally, openPreviewInNewBlock } from "@/util/previewutil";
 import { isTextCapableFile } from "@/util/textfiles";
-import { cn, fireAndForget } from "@/util/util";
+import { cn, fireAndForget, isLocalConnName } from "@/util/util";
 import { formatRemoteUri } from "@/util/waveutil";
 import { offset, useDismiss, useFloating, useInteractions } from "@floating-ui/react";
 import {
@@ -881,6 +881,11 @@ function DirectoryPreview({ model }: DirectoryPreviewProps) {
             if (listingInFlightRef.current || Date.now() - lastListingRef.current < MinAutoRefreshGapMs) {
                 return;
             }
+            // a listing call on a down connection can start a reconnect, so a background poll must never
+            // be what brings back a host the user disconnected or that dropped
+            if (!isLocalConnName(conn) && !globalStore.get(model.connStatus)?.connected) {
+                return;
+            }
             if (Object.keys(globalStore.get(OpenExternalProgressModel.getInstance().transfersAtom)).length > 0) {
                 return;
             }
@@ -893,7 +898,7 @@ function DirectoryPreview({ model }: DirectoryPreviewProps) {
             clearInterval(timer);
             window.removeEventListener("focus", tick);
         };
-    }, [autoRefreshSecs, setRefreshVersion]);
+    }, [autoRefreshSecs, conn, setRefreshVersion]);
 
     useEffect(
         () =>
