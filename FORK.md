@@ -2,9 +2,9 @@
 
 This is [Atreus-X/waveterm](https://github.com/Atreus-X/waveterm), an unofficial fork of [Wave Terminal](https://github.com/wavetermdev/waveterm). It is not endorsed by Command Line Inc. This page lists what the fork changes, fixes or adds compared with upstream. For the full per-release history see the [release notes](./docs/docs/releasenotes.mdx).
 
-Current as of v0.17.9 (2026-11-02).
+Current as of v0.17.10 (2026-11-07).
 
-**Base:** upstream v0.14.5 plus later upstream fixes. The fork is caught up with upstream `main` (`9f1c9670`) as of v0.17.9; upstream has not tagged a release since v0.14.5. Fork releases are tagged `atreus-vX.Y.Z`.
+**Base:** upstream v0.14.5 plus later upstream fixes. The fork is caught up with upstream `main` (`9f1c9670`) as of v0.17.10; upstream has not tagged a release since v0.14.5. Fork releases are tagged `atreus-vX.Y.Z`.
 
 **Direction:** use the SSH hosts in `~/.ssh/config` **without installing `wsh`** on them. Every remote-host feature works over plain SSH (SFTP, tmux, exec) and, where a host has it, over `wsh`. A host without `wsh` keeps working.
 
@@ -18,6 +18,7 @@ Each entry is tagged with the release it first appeared in, as _(vX.Y)_.
 - **SFTP file backend** _(v0.15)_ - the file browser, previews and file operations work over the existing SSH connection with nothing installed on the remote. Uploads and cross-host copies stream, with no size limit and folders on SFTP _(v0.16)_
 - **`~/.ssh/config` sync** _(v0.15)_ - hosts from `~/.ssh/config`, including `Include`d files, are added to `connections.json` automatically (`conn:syncsshconfig`); existing entries are never modified
 - **`cmd` blocks and the agent usage meter** work on hosts without `wsh` _(v0.17)_
+- **Paste images and drop files into SSH terminals** _(v0.17.10)_ - pasting an image, or dropping files or folders, uploads them to `/tmp` on the host and types the host path, so Claude Code there can read them. Over SFTP, or `wsh` where the host has it
 - **Fixes** _(v0.15.1)_ - connections without `wsh` no longer stick on "Connection Degraded", no longer start durable sessions that could never start, and now appear in the file browser's connection picker
 
 ## Host Inspector, Fleet and monitoring
@@ -45,6 +46,8 @@ All of it read-only and agentless: one script over the connection's own SSH clie
 - **Progress and cancel** _(v0.17, v0.17.3)_ - uploads, downloads, zips and copies show a progress card with speed and time remaining, and can be cancelled; the card has a solid background so file rows no longer show through it _(v0.17.8)_
 - **Editable path with autocomplete** _(v0.17.3)_, an **open chooser** for files with no preview, and the Edit/Save/Preview buttons on their own row
 - **Clickable task-list checkboxes** in Markdown previews, written back to the file _(v0.17.4)_
+- **Auto-refresh** _(v0.17.10)_ - an open folder re-reads itself every `preview:autorefresh` seconds (default 10, 0 turns it off); paused while the window is unfocused, a transfer is running or the host is disconnected. Also in Settings under File browser
+- **Folder copies and uploads fixed** _(v0.17.10)_ - copying or uploading a folder failed with "recursive directory listings are not supported"
 
 ## Connections and tabs
 
