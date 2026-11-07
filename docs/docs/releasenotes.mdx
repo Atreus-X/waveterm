@@ -6,6 +6,16 @@ sidebar_position: 200
 
 # Release Notes
 
+### v0.17.10 (Atreus fork) &mdash; Nov 7, 2026
+
+Pasting images and dropping files into SSH terminals, a file browser that refreshes itself, and a fix for copying folders.
+
+- **Paste images into SSH terminals** - Pasting an image into a terminal connected to an SSH host saves it as a file in `/tmp` on that host (owner-only permissions) and types its path, so Claude Code and other tools there can read it. It works on hosts with and without `wsh`. Local and WSL terminals still use a local file. If the paste fails, the terminal shows a `[wave]` message instead of nothing
+- **Drop files and folders onto SSH terminals** - Dropping files or folders onto a terminal connected to an SSH host uploads them to `/tmp` on that host and types their paths. The terminal used to type the local path, which the host cannot open. Every item gets its own unique name, the transfer card shows progress and has a Cancel button, and a failed item is reported while the others still arrive. Local terminals still type the local path
+- **File browser refreshes itself** - An open folder re-reads its contents every 10 seconds, so files made in a terminal or by another program show up without pressing refresh. It only runs while the window is focused, never during a transfer or while a remote host is disconnected, and a failed refresh keeps the list on screen. `preview:autorefresh` sets the interval in seconds (0 turns it off), and Settings has a new File browser section for it
+- **Folder copies and uploads work again** - Copying or uploading a folder (file browser uploads, dropping a folder, copies between hosts) failed with "recursive directory listings are not supported" since the streaming copy was added. Folders now copy with their contents
+- **Updated libraries** - `tailwindcss`, `typescript-eslint`, `vitest`, `globals`, `node-abi`, `eslint-plugin-mdx`, and the Go modules `shirou/gopsutil` and `launchdarkly/eventsource`
+
 ### v0.17.9 (Atreus fork) &mdash; Nov 2, 2026
 
 A round of library updates. No feature changes.
