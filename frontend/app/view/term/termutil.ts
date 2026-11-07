@@ -4,6 +4,7 @@
 export const DefaultTermTheme = "default-dark";
 import { RpcApi } from "@/app/store/wshclientapi";
 import { TabRpcClient } from "@/app/store/wshrpcutil";
+import { formatRemoteUri } from "@/util/waveutil";
 import * as TermTypes from "@xterm/xterm";
 import base64 from "base64-js";
 import { colord } from "colord";
@@ -76,16 +77,28 @@ export const MIME_TO_EXT: Record<string, string> = {
     "image/vnd.microsoft.icon": "ico",
 };
 
+const RemoteTempDir = "/tmp";
+
+/**
+ * Whether a block connection name refers to a remote SSH host. A local terminal has no connection (or "local"),
+ * and a WSL distro runs on this machine, so neither needs the file to be uploaded.
+ */
+export function isRemoteSshConnection(connection: string): boolean {
+    return connection != null && connection !== "" && connection !== "local" && !connection.startsWith("wsl://");
+}
+
 /**
  * Creates a temporary file from a Blob (typically an image).
- * Validates size, generates a unique filename, saves to temp directory,
- * and returns the file path.
+ * Validates size, generates a unique filename, saves to a temp directory, and returns the file path.
+ * With an SSH connection the file is written to /tmp on that host (over SFTP, or over wsh where the host has it)
+ * and the path is the one on the host, so an agent running there can open it.
  *
  * @param blob - The Blob to save
+ * @param connection - The terminal block's connection, if any
  * @returns The path to the created temporary file
  * @throws Error if blob is too large (>5MB) or data URL is invalid
  */
-export async function createTempFileFromBlob(blob: Blob): Promise<string> {
+export async function createTempFileFromBlob(blob: Blob, connection?: string): Promise<string> {
     // Check size limit (5MB)
     if (blob.size > 5 * 1024 * 1024) {
         throw new Error("Image too large (>5MB)");
@@ -97,19 +110,23 @@ export async function createTempFileFromBlob(blob: Blob): Promise<string> {
     }
     const ext = MIME_TO_EXT[blob.type];
 
-    // Generate unique filename with timestamp and random component
+    // the name is guessable-proof because /tmp on a shared host is writable by everyone
     const timestamp = Date.now();
-    const random = Math.random().toString(36).substring(2, 8);
+    const randomBytes = Array.from(crypto.getRandomValues(new Uint8Array(8)));
+    const random = randomBytes.map((b) => b.toString(16).padStart(2, "0")).join("");
     const filename = `waveterm_paste_${timestamp}_${random}.${ext}`;
 
-    const arrayBuffer = await new Promise<ArrayBuffer>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result as ArrayBuffer);
-        reader.onerror = reject;
-        reader.readAsArrayBuffer(blob);
-    });
-
+    const arrayBuffer = await blob.arrayBuffer();
     const base64Data = base64.fromByteArray(new Uint8Array(arrayBuffer));
+
+    if (isRemoteSshConnection(connection)) {
+        const remotePath = `${RemoteTempDir}/${filename}`;
+        await RpcApi.FileWriteCommand(TabRpcClient, {
+            info: { path: formatRemoteUri(remotePath, connection), mode: 0o600 },
+            data64: base64Data,
+        });
+        return remotePath;
+    }
 
     // Write image to temp file and get path
     const tempPath = await RpcApi.WriteTempFileCommand(TabRpcClient, {

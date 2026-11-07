@@ -9,6 +9,7 @@ import { TabRpcClient } from "@/app/store/wshrpcutil";
 import {
     fetchWaveFile,
     getApi,
+    getBlockMetaKeyAtom,
     getOverrideConfigAtom,
     getSettingsKeyAtom,
     globalStore,
@@ -606,14 +607,20 @@ export class TermWrap {
 
         try {
             const clipboardData = await extractAllClipboardData(e);
+            const connection = globalStore.get(getBlockMetaKeyAtom(this.blockId, "connection")) ?? "";
             let firstImage = true;
             for (const data of clipboardData) {
                 if (data.image && SupportsImageInput) {
                     if (!firstImage) {
                         await new Promise((r) => setTimeout(r, 150));
                     }
-                    const tempPath = await createTempFileFromBlob(data.image);
-                    this.terminal.paste(tempPath + " ");
+                    try {
+                        const tempPath = await createTempFileFromBlob(data.image, connection);
+                        this.terminal.paste(tempPath + " ");
+                    } catch (err) {
+                        console.error("Paste image error:", err);
+                        this.terminal.write(`\r\n[wave] could not paste the image: ${err?.message ?? err}\r\n`);
+                    }
                     firstImage = false;
                 }
                 if (data.text) {
