@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 export const DefaultTermTheme = "default-dark";
+import { OpenExternalProgressModel } from "@/app/store/openexternal-progress";
+import type { AbortableRpcOpts } from "@/app/store/wshclient";
 import { RpcApi } from "@/app/store/wshclientapi";
 import { TabRpcClient } from "@/app/store/wshrpcutil";
 import { formatRemoteUri } from "@/util/waveutil";
@@ -431,4 +433,53 @@ export function isLikelyOnSameHost(lastCommand: string): boolean {
 
 export function quoteForPosixShell(filePath: string): string {
     return "'" + filePath.replace(/'/g, "'\\''") + "'";
+}
+
+const DropUploadTimeout = 31536000000;
+
+export function remoteDropPath(localPath: string): string {
+    const base = localPath.replace(/\\/g, "/").split("/").filter(Boolean).at(-1) ?? "file";
+    const safe = base.replace(/[^A-Za-z0-9._-]/g, "_");
+    const randomBytes = Array.from(crypto.getRandomValues(new Uint8Array(4)));
+    const random = randomBytes.map((b) => b.toString(16).padStart(2, "0")).join("");
+    return `${RemoteTempDir}/waveterm_drop_${Date.now()}_${random}_${safe}`;
+}
+
+export type DropUploadResult = { paths: string[]; failures: string[]; canceled: boolean };
+
+// Each item goes to its own uniquely named path so two drops of "report.pdf" never collide, and
+// the copy never needs a parent directory that might not exist.
+export async function uploadDroppedFiles(localPaths: string[], connection: string): Promise<DropUploadResult> {
+    const result: DropUploadResult = { paths: [], failures: [], canceled: false };
+    const progressModel = OpenExternalProgressModel.getInstance();
+    const xfer = progressModel.beginTransfer(connection, localPaths.length);
+    try {
+        for (const [i, localPath] of localPaths.entries()) {
+            const srcPath = localPath.replace(/\\/g, "/");
+            const name = srcPath.split("/").at(-1);
+            const remotePath = remoteDropPath(localPath);
+            progressModel.setTransferItem(xfer.id, name, i);
+            try {
+                await RpcApi.FileCopyCommand(
+                    TabRpcClient,
+                    {
+                        srcuri: formatRemoteUri(srcPath, "local"),
+                        desturi: formatRemoteUri(remotePath, connection),
+                        opts: { timeout: DropUploadTimeout, recursive: true, xferid: xfer.id },
+                    },
+                    { timeout: DropUploadTimeout, abortSignal: xfer.signal } as AbortableRpcOpts
+                );
+                result.paths.push(remotePath);
+            } catch (e) {
+                if (xfer.signal.aborted) {
+                    result.canceled = true;
+                    return result;
+                }
+                result.failures.push(`${name}: ${e?.message ?? e}`);
+            }
+        }
+    } finally {
+        progressModel.endTransfer(xfer.id);
+    }
+    return result;
 }

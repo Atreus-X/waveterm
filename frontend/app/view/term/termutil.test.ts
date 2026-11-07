@@ -3,17 +3,26 @@
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { fileWrite, writeTempFile } = vi.hoisted(() => ({
+const { fileWrite, fileCopy, writeTempFile } = vi.hoisted(() => ({
     fileWrite: vi.fn(async () => {}),
+    fileCopy: vi.fn(async (..._args: any[]) => {}),
     writeTempFile: vi.fn(async () => "/local/tmp/waveterm-x/pasted.png"),
 }));
 
 vi.mock("@/app/store/wshclientapi", () => ({
-    RpcApi: { FileWriteCommand: fileWrite, WriteTempFileCommand: writeTempFile },
+    RpcApi: { FileWriteCommand: fileWrite, FileCopyCommand: fileCopy, WriteTempFileCommand: writeTempFile },
 }));
 vi.mock("@/app/store/wshrpcutil", () => ({ TabRpcClient: {} }));
+vi.mock("@/app/store/openexternal-progress", () => {
+    const model = {
+        beginTransfer: () => ({ id: "x1", signal: new AbortController().signal }),
+        setTransferItem: () => {},
+        endTransfer: () => {},
+    };
+    return { OpenExternalProgressModel: { getInstance: () => model } };
+});
 
-import { createTempFileFromBlob, isRemoteSshConnection } from "./termutil";
+import { createTempFileFromBlob, isRemoteSshConnection, remoteDropPath, uploadDroppedFiles } from "./termutil";
 
 const PngBlob = () => new Blob([new Uint8Array([137, 80, 78, 71])], { type: "image/png" });
 
@@ -66,5 +75,42 @@ describe("createTempFileFromBlob", () => {
     it("propagates a failed upload so the paste handler can report it", async () => {
         fileWrite.mockRejectedValueOnce(new Error("sftp: permission denied"));
         await expect(createTempFileFromBlob(PngBlob(), "user@host.example.com")).rejects.toThrow("permission denied");
+    });
+});
+
+describe("remoteDropPath", () => {
+    it("keeps the extension, drops unsafe characters and handles Windows paths", () => {
+        expect(remoteDropPath("D:\\drop\\My Report (final).pdf")).toMatch(
+            /^\/tmp\/waveterm_drop_\d+_[0-9a-f]{8}_My_Report__final_.pdf$/
+        );
+        expect(remoteDropPath("/srv/drop/a.txt")).toMatch(/_a\.txt$/);
+    });
+
+    it("is unique for the same file dropped twice", () => {
+        expect(remoteDropPath("/x/a.txt")).not.toBe(remoteDropPath("/x/a.txt"));
+    });
+});
+
+describe("uploadDroppedFiles", () => {
+    beforeEach(() => fileCopy.mockClear());
+
+    it("copies each item local to the host, recursive, and returns the host paths", async () => {
+        const res = await uploadDroppedFiles(["D:\\drop\\a.png", "/srv/drop/dir"], "user@host.example.com");
+        expect(res.failures).toEqual([]);
+        expect(res.paths).toHaveLength(2);
+        expect(fileCopy).toHaveBeenCalledTimes(2);
+        const first = (fileCopy.mock.calls[0] as any[])[1];
+        expect(first.srcuri).toBe("wsh://local/D:/drop/a.png");
+        expect(first.desturi).toBe(`wsh://user@host.example.com/${res.paths[0]}`);
+        expect(first.opts.recursive).toBe(true);
+        expect(first.opts.xferid).toBe("x1");
+    });
+
+    it("reports a failed item and still uploads the rest", async () => {
+        fileCopy.mockRejectedValueOnce(new Error("permission denied"));
+        const res = await uploadDroppedFiles(["/a/bad.txt", "/a/good.txt"], "user@host.example.com");
+        expect(res.paths).toHaveLength(1);
+        expect(res.paths[0]).toMatch(/good\.txt$/);
+        expect(res.failures).toEqual(["bad.txt: permission denied"]);
     });
 });
