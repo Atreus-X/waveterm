@@ -254,6 +254,54 @@ const SettingSections: SettingSection[] = [
         title: "File browser",
         fields: [
             {
+                key: "preview:showhiddenfiles",
+                tooltip: "Shows files and folders whose names start with a dot in the file browser.",
+                label: "Show hidden files",
+                kind: "toggle",
+                defaultValue: true,
+            },
+            {
+                key: "preview:dirsfirst",
+                tooltip: "Lists folders before files, whichever column or direction the list is sorted by.",
+                label: "Folders first",
+                kind: "toggle",
+                defaultValue: true,
+            },
+            {
+                key: "preview:defaultsort",
+                tooltip:
+                    "How a folder is sorted when you open it. Name sorts A to Z. Last modified puts the newest first. You can still click a column header to change it.",
+                label: "Sort folders by",
+                kind: "select",
+                defaultValue: "name",
+                options: [
+                    { value: "name", label: "Name" },
+                    { value: "modtime", label: "Last modified" },
+                ],
+            },
+            {
+                key: "preview:doubleclickopen",
+                tooltip:
+                    "What double-clicking a file does. Automatic opens text files in a Wave preview and everything else in the system's default app. Default app always uses the system app (Windows shows the Open with picker if nothing is associated). Wave preview always opens it inside Wave. Remote files are downloaded, opened, and uploaded back each time you save.",
+                label: "Double-click a file",
+                kind: "select",
+                defaultValue: "auto",
+                options: [
+                    { value: "auto", label: "Automatic" },
+                    { value: "external", label: "Default app" },
+                    { value: "preview", label: "Wave preview" },
+                ],
+            },
+            {
+                key: "preview:externaleditor",
+                tooltip:
+                    "The program used by the Open in... item in a file's menu, for example C:\\Program Files\\Notepad++\\notepad++.exe. When empty, Wave looks for Notepad++ in its standard Windows install folder.",
+                label: "External editor",
+                description: "Full path to the program. Empty uses Notepad++ if it is installed.",
+                kind: "text",
+                placeholder: "Notepad++ if installed",
+            },
+            {
                 key: "preview:autorefresh",
                 tooltip:
                     "How often an open folder re-reads itself, in seconds, so files created or removed elsewhere (a terminal, another program) show up. Only the focused window refreshes, never during a transfer or while a remote host is disconnected. 0 turns it off; 1 to 4 count as 5.",
