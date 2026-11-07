@@ -110,3 +110,36 @@ func TestWshfsDispatchAcrossSftpHosts(t *testing.T) {
 		t.Error("non-alt host should not be handled")
 	}
 }
+
+// The terminal's image paste writes to wsh://<conn>//tmp/<name> (absolute path) with mode 0600 on hosts without
+// wsh, so that path form and the mode have to survive the dispatch to the SFTP backend.
+func TestWshfsPutFileAbsolutePathWithMode(t *testing.T) {
+	back, home := newTestBackend(t)
+	prev := wshfs.AltFsForHost
+	wshfs.AltFsForHost = func(ctx context.Context, host string) wshfs.AltFs {
+		if host == "me@hosta" {
+			return back
+		}
+		return nil
+	}
+	t.Cleanup(func() { wshfs.AltFsForHost = prev })
+
+	target := filepath.Join(home, "waveterm_paste_1_ab.png")
+	err := wshfs.PutFile(context.Background(), wshrpc.FileData{
+		Info:   &wshrpc.FileInfo{Path: "wsh://me@hosta/" + target, Mode: 0o600},
+		Data64: base64.StdEncoding.EncodeToString([]byte("png-bytes")),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := os.ReadFile(target); string(got) != "png-bytes" {
+		t.Errorf("content %q", got)
+	}
+	st, err := os.Stat(target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if st.Mode().Perm() != 0o600 {
+		t.Errorf("mode %v, want 0600", st.Mode().Perm())
+	}
+}
