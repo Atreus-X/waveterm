@@ -18,7 +18,7 @@ import { checkKeyPressed, isCharacterKeyEvent } from "@/util/keyutil";
 import { PLATFORM, PlatformMacOS } from "@/util/platformutil";
 import { addOpenMenuItems, openFileExternally, openPreviewInNewBlock } from "@/util/previewutil";
 import { isTextCapableFile } from "@/util/textfiles";
-import { cn, fireAndForget } from "@/util/util";
+import { cn, fireAndForget, isLocalConnName } from "@/util/util";
 import { formatRemoteUri } from "@/util/waveutil";
 import { offset, useDismiss, useFloating, useInteractions } from "@floating-ui/react";
 import {
@@ -50,6 +50,7 @@ import {
     zipNameFor,
 } from "./dir-selection";
 import "./directorypreview.scss";
+import { listingSignature } from "./dirlisting";
 import { EntryManagerOverlay, EntryManagerOverlayProps, EntryManagerType } from "./entry-manager";
 import {
     cleanMimetype,
@@ -68,6 +69,8 @@ import { type PreviewModel } from "./preview-model";
 import type { PreviewEnv } from "./previewenv";
 
 const PageJumpSize = 20;
+const MinAutoRefreshSecs = 5;
+const MinAutoRefreshGapMs = 2000;
 
 interface DirectoryTableHeaderCellProps {
     header: Header<FileInfo, unknown>;
@@ -843,6 +846,11 @@ function DirectoryPreview({ model }: DirectoryPreviewProps) {
     const showHiddenFiles = useAtomValue(model.showHiddenFiles);
     const [selectedPath, setSelectedPath] = useState("");
     const [refreshVersion, setRefreshVersion] = useAtom(model.refreshVersion);
+    const autoRefreshSecs = useAtomValue(env.getSettingsKeyAtom("preview:autorefresh")) ?? 10;
+    const silentRefreshRef = useRef(false);
+    const listingInFlightRef = useRef(false);
+    const lastListingRef = useRef(0);
+    const listingSignatureRef = useRef("");
     const conn = useAtomValue(model.connection);
     const blockData = useAtomValue(model.blockAtom);
     const finfo = useAtomValue(model.statFile);
@@ -862,9 +870,42 @@ function DirectoryPreview({ model }: DirectoryPreviewProps) {
         };
     }, [setRefreshVersion]);
 
+    useEffect(() => {
+        if (autoRefreshSecs <= 0) {
+            return;
+        }
+        const tick = () => {
+            if (document.visibilityState !== "visible" || !document.hasFocus()) {
+                return;
+            }
+            if (listingInFlightRef.current || Date.now() - lastListingRef.current < MinAutoRefreshGapMs) {
+                return;
+            }
+            // a listing call on a down connection can start a reconnect, so a background poll must never
+            // be what brings back a host the user disconnected or that dropped
+            if (!isLocalConnName(conn) && !globalStore.get(model.connStatus)?.connected) {
+                return;
+            }
+            if (Object.keys(globalStore.get(OpenExternalProgressModel.getInstance().transfersAtom)).length > 0) {
+                return;
+            }
+            silentRefreshRef.current = true;
+            setRefreshVersion((v) => v + 1);
+        };
+        const timer = setInterval(tick, Math.max(autoRefreshSecs, MinAutoRefreshSecs) * 1000);
+        window.addEventListener("focus", tick);
+        return () => {
+            clearInterval(timer);
+            window.removeEventListener("focus", tick);
+        };
+    }, [autoRefreshSecs, conn, setRefreshVersion]);
+
     useEffect(
         () =>
             fireAndForget(async () => {
+                const silent = silentRefreshRef.current;
+                silentRefreshRef.current = false;
+                listingInFlightRef.current = true;
                 const entries: FileInfo[] = [];
                 try {
                     const remotePath = await model.formatRemoteUri(dirPath, globalStore.get);
@@ -884,12 +925,26 @@ function DirectoryPreview({ model }: DirectoryPreviewProps) {
                         });
                     }
                 } catch (e) {
+                    listingInFlightRef.current = false;
+                    lastListingRef.current = Date.now();
+                    // a failed background refresh must not blank a listing that is still on screen
+                    if (silent) {
+                        console.error("Directory auto-refresh error", e);
+                        return;
+                    }
                     console.error("Directory Read Error", e);
                     setErrorMsg({
                         status: "Cannot Read Directory",
                         text: `${e}`,
                     });
                 }
+                listingInFlightRef.current = false;
+                lastListingRef.current = Date.now();
+                const signature = listingSignature(entries);
+                if (silent && signature === listingSignatureRef.current) {
+                    return;
+                }
+                listingSignatureRef.current = signature;
                 setUnfilteredData(entries);
             }),
         [conn, dirPath, refreshVersion]

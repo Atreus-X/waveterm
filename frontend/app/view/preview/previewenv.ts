@@ -38,6 +38,7 @@ export type PreviewEnv = WaveEnvSubset<{
         | "preview:defaultsort"
         | "preview:dirsfirst"
         | "preview:doubleclickopen"
+        | "preview:autorefresh"
     >;
     getConnStatusAtom: WaveEnv["getConnStatusAtom"];
 }>;

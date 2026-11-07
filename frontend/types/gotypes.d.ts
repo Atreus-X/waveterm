@@ -1750,6 +1750,7 @@ declare global {
         "preview:dirsfirst"?: boolean;
         "preview:doubleclickopen"?: string;
         "preview:externaleditor"?: string;
+        "preview:autorefresh"?: number;
         "tab:preset"?: string;
         "tab:confirmclose"?: boolean;
         "tab:background"?: string;
