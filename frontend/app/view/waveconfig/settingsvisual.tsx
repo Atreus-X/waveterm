@@ -10,7 +10,8 @@ import { TabRpcClient } from "@/app/store/wshrpcutil";
 import type { WaveConfigViewModel } from "@/app/view/waveconfig/waveconfig-model";
 import { cn } from "@/util/util";
 import { useAtomValue } from "jotai";
-import { memo, useEffect, useState } from "react";
+import { memo, useEffect, useMemo, useState } from "react";
+import { filterSections } from "./settingsvisual-search";
 
 type SelectOption = { value: string; label: string };
 
@@ -749,6 +750,130 @@ const SettingSections: SettingSection[] = [
                 kind: "toggle",
                 defaultValue: true,
             },
+            {
+                key: "conn:wshenabled",
+                tooltip:
+                    "When off, Wave does not use wsh on your hosts and works over plain SSH (SFTP, tmux and exec). A host's own setting in connections.json overrides this. It applies the next time a connection is made.",
+                label: "Use wsh on hosts",
+                description: "Off works over plain SSH only.",
+                kind: "toggle",
+                defaultValue: true,
+            },
+            {
+                key: "conn:askbeforewshinstall",
+                tooltip: "Asks before installing wsh on a host the first time you connect to it.",
+                label: "Ask before installing wsh",
+                kind: "toggle",
+                defaultValue: true,
+            },
+            {
+                key: "conn:localhostdisplayname",
+                tooltip:
+                    "The name shown for this computer, for example My Laptop. Empty shows your user name and computer name. To hide the name completely, set the key to an empty string in settings.json.",
+                label: "Name for this computer",
+                kind: "text",
+                placeholder: "user@computer",
+            },
+        ],
+    },
+    {
+        title: "Web",
+        fields: [
+            {
+                key: "web:openlinksinternally",
+                tooltip:
+                    "Opens links you click in Wave in a new Wave web block. When off, they open in your default browser.",
+                label: "Open links inside Wave",
+                kind: "toggle",
+                defaultValue: false,
+            },
+            {
+                key: "web:defaulturl",
+                tooltip: "The page a new web block opens when it has no address.",
+                label: "Web block home page",
+                kind: "text",
+                placeholder: "https://github.com/Atreus-X/waveterm",
+            },
+            {
+                key: "web:defaultsearch",
+                tooltip:
+                    "The address used for searches typed in a web block. {query} is replaced by what you typed, for example https://www.google.com/search?q={query}.",
+                label: "Web search address",
+                kind: "text",
+                placeholder: "https://www.google.com/search?q={query}",
+            },
+        ],
+    },
+    {
+        title: "Agent usage",
+        fields: [
+            {
+                key: "agentusage:agent",
+                tooltip:
+                    "Which AI coding agent the usage meter in the tab bar tracks. Usage is read from the agent's local session logs. Off turns the meter off and leaves only a gauge icon.",
+                label: "Agent to track",
+                kind: "select",
+                defaultValue: "claude",
+                options: [
+                    { value: "claude", label: "Claude Code" },
+                    { value: "codex", label: "Codex" },
+                    { value: "off", label: "Off" },
+                ],
+            },
+            {
+                key: "agentusage:conn",
+                tooltip:
+                    "The host the agent runs on, for example user@host. Empty means this computer. A remote host is read through wsh when it is installed and over SFTP otherwise.",
+                label: "Agent runs on",
+                kind: "text",
+                placeholder: "this computer",
+            },
+            {
+                key: "agentusage:sessionhours",
+                tooltip:
+                    "Length of the plan's rolling usage session, in hours. A session opens with your first message, rounded down to the hour. Claude Pro and Max use 5.",
+                label: "Session length (hours)",
+                kind: "number",
+                min: 1,
+                step: 1,
+                integer: true,
+                placeholder: "5",
+            },
+            {
+                key: "agentusage:sessionlimit",
+                tooltip:
+                    "Your own token budget for one session, used to draw the bar. 0 shows raw usage without a bar. Exact plan percentages from Claude Code replace it when they are available.",
+                label: "Session token budget",
+                kind: "number",
+                min: 0,
+                step: 1000,
+                integer: true,
+                placeholder: "0",
+            },
+            {
+                key: "agentusage:weeklylimit",
+                tooltip:
+                    "Your own token budget for the last 7 days, used to draw the bar. 0 shows raw usage without a bar. Exact plan percentages from Claude Code replace it when they are available.",
+                label: "Weekly token budget",
+                kind: "number",
+                min: 0,
+                step: 1000,
+                integer: true,
+                placeholder: "0",
+            },
+        ],
+    },
+    {
+        title: "Privacy",
+        fields: [
+            {
+                key: "telemetry:enabled",
+                tooltip:
+                    "Turns telemetry on or off. It is off by default in this fork. While it is off, the daily diagnostic ping and Wave's cloud AI modes are disabled too.",
+                label: "Telemetry",
+                kind: "toggle",
+                defaultValue: false,
+            },
         ],
     },
     {
@@ -1011,6 +1136,7 @@ SettingRow.displayName = "SettingRow";
 export const SettingsVisualContent = memo(({ model }: { model: WaveConfigViewModel }) => {
     const fullConfig = useAtomValue(model.env.atoms.fullConfigAtom);
     const [saveError, setSaveError] = useState<string>(null);
+    const [query, setQuery] = useState("");
 
     const onSet = (key: keyof SettingsType, value: any) => {
         setSaveError(null);
@@ -1024,11 +1150,46 @@ export const SettingsVisualContent = memo(({ model }: { model: WaveConfigViewMod
             .catch((e) => setSaveError(`Failed to save ${key}: ${e?.message ?? String(e)}`));
     };
 
+    const visibleSections = useMemo(() => filterSections(SettingSections, query), [query]);
+
     return (
         <div className="h-full overflow-y-auto">
+            <div className="sticky top-0 z-10 border-b border-border/50 bg-background">
+                <div className="mx-auto max-w-2xl px-6 py-3">
+                    <div className="relative">
+                        <i className="fa-solid fa-magnifying-glass pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted" />
+                        <input
+                            type="text"
+                            value={query}
+                            onChange={(e) => setQuery(e.target.value)}
+                            onKeyDown={(e) => {
+                                if (e.key === "Escape") setQuery("");
+                            }}
+                            placeholder="Search settings"
+                            aria-label="Search settings"
+                            className="w-full rounded border border-border bg-transparent py-1.5 pl-8 pr-8 text-sm outline-none focus:border-accent"
+                        />
+                        {query !== "" && (
+                            <button
+                                onClick={() => setQuery("")}
+                                aria-label="Clear search"
+                                className="absolute right-2 top-1/2 -translate-y-1/2 cursor-pointer text-muted hover:text-secondary"
+                            >
+                                <i className="fa-solid fa-xmark text-xs" />
+                            </button>
+                        )}
+                    </div>
+                </div>
+            </div>
             <div className="mx-auto flex max-w-2xl flex-col gap-6 p-6">
                 {saveError && <div className="rounded bg-error px-3 py-2 text-sm text-primary">{saveError}</div>}
-                {SettingSections.map((section) => (
+                {visibleSections.length === 0 && (
+                    <div className="text-sm text-muted">
+                        No settings match "{query}". Less common ones are in the{" "}
+                        <span className="text-secondary">Advanced Options (JSON)</span> tab.
+                    </div>
+                )}
+                {visibleSections.map((section) => (
                     <div key={section.title}>
                         <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted">
                             {section.title}
