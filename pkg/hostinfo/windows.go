@@ -386,6 +386,8 @@ if (W 'system') {
             cpumodel  = ([string]$cpu[0].Name).Trim()
             cpucount  = $cpuCount
             cpupct    = [Math]::Round($cpuPct, 1)
+            cpumhz    = [double]$cpu[0].CurrentClockSpeed
+            cpumaxmhz = [double]$cpu[0].MaxClockSpeed
             memtotal  = MemTotal
             memavail  = MemAvail
             swaptotal = [uint64]$osi.SizeStoredInPagingFiles * 1024

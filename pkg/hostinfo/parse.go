@@ -174,7 +174,24 @@ func parseNetDev(lines []string) map[string][2]uint64 {
 
 func parseSystem(sec *section, smp *sample) *wshrpc.HostSystemInfo {
 	info := &wshrpc.HostSystemInfo{Disks: []wshrpc.HostDiskInfo{}}
+	var curKhz, infoMhz []float64
+	var maxKhz float64
 	for _, l := range sec.lines {
+		if prefix, val, ok := strings.Cut(l, " "); ok && (prefix == "cpucur" || prefix == "cpumax" || prefix == "cpumhz") {
+			f, err := strconv.ParseFloat(strings.TrimSpace(val), 64)
+			if err != nil || f <= 0 {
+				continue
+			}
+			switch prefix {
+			case "cpucur":
+				curKhz = append(curKhz, f)
+			case "cpumax":
+				maxKhz = max(maxKhz, f)
+			case "cpumhz":
+				infoMhz = append(infoMhz, f)
+			}
+			continue
+		}
 		if strings.HasPrefix(l, "mem ") {
 			fields := strings.Fields(strings.TrimPrefix(l, "mem "))
 			if len(fields) < 2 {
@@ -229,11 +246,26 @@ func parseSystem(sec *section, smp *sample) *wshrpc.HostSystemInfo {
 			info.Users, _ = strconv.Atoi(val)
 		}
 	}
+	// cpufreq (sysfs, kHz) is the live clock; /proc/cpuinfo is the fallback on VMs and boards without cpufreq
+	if len(curKhz) > 0 {
+		info.CpuMhz = average(curKhz) / 1000
+	} else if len(infoMhz) > 0 {
+		info.CpuMhz = average(infoMhz)
+	}
+	info.CpuMaxMhz = maxKhz / 1000
 	if smp != nil {
 		info.CpuPct = cpuPercent(smp.cpu1, smp.cpu2)
 	}
 	info.Disks = parseDf(sec.subs["disks"])
 	return info
+}
+
+func average(vals []float64) float64 {
+	total := 0.0
+	for _, v := range vals {
+		total += v
+	}
+	return total / float64(len(vals))
 }
 
 // parseDf reads `df -PkT`: Filesystem Type 1024-blocks Used Available Capacity Mounted-on (may contain spaces).

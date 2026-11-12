@@ -13,6 +13,8 @@ import {
     failedServices,
     fmtBytes,
     fmtDuration,
+    fmtGBPair,
+    fmtGHzPair,
     groupPorts,
     HostCommands,
     isContainerIface,
@@ -22,6 +24,22 @@ import {
     topProcesses,
     usageLevel,
 } from "./hostinfo-util";
+
+test("fmtGBPair shows used and total in GB", () => {
+    const gb = 1024 ** 3;
+    expect(fmtGBPair(5.2 * gb, 15.6 * gb)).toBe("5.2 / 15.6 GB");
+    expect(fmtGBPair(0, 8 * gb)).toBe("0.0 / 8.0 GB");
+    expect(fmtGBPair(1, 0)).toBe("-");
+    expect(fmtGBPair(undefined, 8 * gb)).toBe("-");
+});
+
+test("fmtGHzPair shows current and max, degrading when one is missing", () => {
+    expect(fmtGHzPair(2900, 4700)).toBe("2.90 / 4.70 GHz");
+    expect(fmtGHzPair(2600, 0)).toBe("2.60 GHz");
+    expect(fmtGHzPair(0, 4700)).toBe("4.70 GHz max");
+    expect(fmtGHzPair(0, 0)).toBe("-");
+    expect(fmtGHzPair(undefined, undefined)).toBe("-");
+});
 
 test("fmtBytes and fmtDuration", () => {
     expect(fmtBytes(512)).toBe("512 B");
