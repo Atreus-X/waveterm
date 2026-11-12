@@ -10,7 +10,8 @@ import { TabRpcClient } from "@/app/store/wshrpcutil";
 import type { WaveConfigViewModel } from "@/app/view/waveconfig/waveconfig-model";
 import { cn } from "@/util/util";
 import { useAtomValue } from "jotai";
-import { memo, useEffect, useState } from "react";
+import { memo, useEffect, useMemo, useState } from "react";
+import { filterSections } from "./settingsvisual-search";
 
 type SelectOption = { value: string; label: string };
 
@@ -1003,6 +1004,7 @@ SettingRow.displayName = "SettingRow";
 export const SettingsVisualContent = memo(({ model }: { model: WaveConfigViewModel }) => {
     const fullConfig = useAtomValue(model.env.atoms.fullConfigAtom);
     const [saveError, setSaveError] = useState<string>(null);
+    const [query, setQuery] = useState("");
 
     const onSet = (key: keyof SettingsType, value: any) => {
         setSaveError(null);
@@ -1016,11 +1018,46 @@ export const SettingsVisualContent = memo(({ model }: { model: WaveConfigViewMod
             .catch((e) => setSaveError(`Failed to save ${key}: ${e?.message ?? String(e)}`));
     };
 
+    const visibleSections = useMemo(() => filterSections(SettingSections, query), [query]);
+
     return (
         <div className="h-full overflow-y-auto">
+            <div className="sticky top-0 z-10 border-b border-border/50 bg-background">
+                <div className="mx-auto max-w-2xl px-6 py-3">
+                    <div className="relative">
+                        <i className="fa-solid fa-magnifying-glass pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted" />
+                        <input
+                            type="text"
+                            value={query}
+                            onChange={(e) => setQuery(e.target.value)}
+                            onKeyDown={(e) => {
+                                if (e.key === "Escape") setQuery("");
+                            }}
+                            placeholder="Search settings"
+                            aria-label="Search settings"
+                            className="w-full rounded border border-border bg-transparent py-1.5 pl-8 pr-8 text-sm outline-none focus:border-accent"
+                        />
+                        {query !== "" && (
+                            <button
+                                onClick={() => setQuery("")}
+                                aria-label="Clear search"
+                                className="absolute right-2 top-1/2 -translate-y-1/2 cursor-pointer text-muted hover:text-secondary"
+                            >
+                                <i className="fa-solid fa-xmark text-xs" />
+                            </button>
+                        )}
+                    </div>
+                </div>
+            </div>
             <div className="mx-auto flex max-w-2xl flex-col gap-6 p-6">
                 {saveError && <div className="rounded bg-error px-3 py-2 text-sm text-primary">{saveError}</div>}
-                {SettingSections.map((section) => (
+                {visibleSections.length === 0 && (
+                    <div className="text-sm text-muted">
+                        No settings match "{query}". Less common ones are in the{" "}
+                        <span className="text-secondary">Advanced Options (JSON)</span> tab.
+                    </div>
+                )}
+                {visibleSections.map((section) => (
                     <div key={section.title}>
                         <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted">
                             {section.title}
