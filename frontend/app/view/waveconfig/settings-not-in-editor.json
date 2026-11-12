@@ -40,7 +40,6 @@
         "tab:background",
         "tab:preset",
         "telemetry:enabled",
-        "term:allowbracketedpaste",
         "term:localshellopts",
         "waveai:defaultmode",
         "waveai:showcloudmodes",

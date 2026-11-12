@@ -399,6 +399,14 @@ const SettingSections: SettingSection[] = [
                 placeholder: "Automatic",
             },
             {
+                key: "term:allowbracketedpaste",
+                tooltip:
+                    "When on, programs that ask for bracketed paste (most shells and editors do) get pasted text wrapped in markers, so they can tell a paste from typing and, for example, don't run a pasted command until you press Enter. Turn it off if a program shows stray characters around pasted text. Applies right away.",
+                label: "Bracketed paste",
+                kind: "toggle",
+                defaultValue: true,
+            },
+            {
                 key: "term:shiftenternewline",
                 tooltip:
                     "Makes Shift+Enter insert a new line without running the command (it sends Escape then newline). Useful in Claude Code and other tools that take multi-line input.",
