@@ -28,6 +28,23 @@ export function fmtBytes(n: number): string {
     return `${v >= 100 || i === 0 ? Math.round(v) : v.toFixed(1)} ${units[i]}`;
 }
 
+const BytesPerGB = 1024 ** 3;
+
+// "5.2 / 15.6 GB" (GB here is 2^30 bytes, what free and Task Manager show)
+export function fmtGBPair(usedBytes: number, totalBytes: number): string {
+    if (usedBytes == null || totalBytes == null || !Number.isFinite(usedBytes) || !(totalBytes > 0)) return "-";
+    return `${(usedBytes / BytesPerGB).toFixed(1)} / ${(totalBytes / BytesPerGB).toFixed(1)} GB`;
+}
+
+// "2.90 / 4.70 GHz"; just the current clock when the host doesn't report a max, "-" when it reports neither
+export function fmtGHzPair(curMhz: number, maxMhz: number): string {
+    const hasCur = curMhz > 0;
+    const hasMax = maxMhz > 0;
+    if (!hasCur && !hasMax) return "-";
+    if (hasCur && hasMax) return `${(curMhz / 1000).toFixed(2)} / ${(maxMhz / 1000).toFixed(2)} GHz`;
+    return `${((hasCur ? curMhz : maxMhz) / 1000).toFixed(2)} GHz${hasCur ? "" : " max"}`;
+}
+
 export function fmtRate(bytesPerSec: number): string {
     if (bytesPerSec == null || !Number.isFinite(bytesPerSec)) return "-";
     if (bytesPerSec < 1) return "0 B/s";

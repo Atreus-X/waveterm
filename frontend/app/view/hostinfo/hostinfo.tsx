@@ -17,7 +17,16 @@ import {
     ServicesSection,
     UsageBar,
 } from "./hostinfo-sections";
-import { changeCount, fmtDuration, groupPorts, HostChanges, HostSectionId, HostSections, pct } from "./hostinfo-util";
+import {
+    changeCount,
+    fmtDuration,
+    fmtGBPair,
+    groupPorts,
+    HostChanges,
+    HostSectionId,
+    HostSections,
+    pct,
+} from "./hostinfo-util";
 
 const RailCollapsedWidth = 44;
 
@@ -79,8 +88,11 @@ const VitalsStrip = memo(({ model, data }: { model: HostInfoViewModel; data: Hos
                         <Vital label="CPU">{sys.cpupct.toFixed(0)}%</Vital>
                         <UsageBar percent={sys.cpupct} className="mt-0.5" />
                     </div>
-                    <div className="w-24">
-                        <Vital label="Memory">{memPct.toFixed(0)}%</Vital>
+                    <div className="w-40">
+                        <Vital label="Memory">
+                            {memPct.toFixed(0)}%{" "}
+                            <span className="text-muted">· {fmtGBPair(sys.memtotal - sys.memavail, sys.memtotal)}</span>
+                        </Vital>
                         <UsageBar percent={memPct} className="mt-0.5" />
                     </div>
                     <Vital label="Load">

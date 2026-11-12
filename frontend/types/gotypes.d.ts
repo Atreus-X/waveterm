@@ -1265,6 +1265,8 @@ declare global {
         cpumodel?: string;
         cpucount: number;
         cpupct: number;
+        cpumhz?: number;
+        cpumaxmhz?: number;
         memtotal: number;
         memavail: number;
         swaptotal: number;

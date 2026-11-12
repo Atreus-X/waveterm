@@ -37,6 +37,11 @@ uptime=86400.50
 loadavg=0.52 0.40 0.31 2/812 4242
 cpumodel= Example 8-Core Processor
 cpucount=12
+cpucur 2000000
+cpucur 3000000
+cpumax 4500000
+cpumax 4000000
+cpumhz 800.000
 users=2
 mem MemTotal:       32768000 kB
 mem MemAvailable:   16384000 kB
@@ -118,6 +123,10 @@ func TestParseOutputAllSections(t *testing.T) {
 	}
 	if sys.CpuModel != "Example 8-Core Processor" {
 		t.Errorf("cpumodel %q", sys.CpuModel)
+	}
+	// cpufreq wins over /proc/cpuinfo: average of the cores' live clock, highest max
+	if !near(sys.CpuMhz, 2500) || !near(sys.CpuMaxMhz, 4500) {
+		t.Errorf("cpu speed = %v / %v MHz, want 2500 / 4500", sys.CpuMhz, sys.CpuMaxMhz)
 	}
 	if !near(sys.Load1, 0.52) || !near(sys.Load15, 0.31) || !near(sys.UptimeSec, 86400.5) {
 		t.Errorf("load/uptime: %v %v %v", sys.Load1, sys.Load15, sys.UptimeSec)
@@ -373,5 +382,20 @@ func TestVitalsNotInDefaultSections(t *testing.T) {
 	}
 	if got := validSections([]string{"vitals", "bogus", "vitals"}); len(got) != 1 || got[0] != "vitals" {
 		t.Errorf("validSections: %v", got)
+	}
+}
+
+func TestParseSystemCpuSpeedFallback(t *testing.T) {
+	sec := &section{lines: []string{"cpumhz 2400.000", "cpumhz 2800.000", "cpucur junk", "cpumax 0"}}
+	sys := parseSystem(sec, nil)
+	if !near(sys.CpuMhz, 2600) || sys.CpuMaxMhz != 0 {
+		t.Errorf("fallback speed = %v / %v MHz, want 2600 / 0", sys.CpuMhz, sys.CpuMaxMhz)
+	}
+}
+
+func TestParseSystemNoCpuSpeed(t *testing.T) {
+	sys := parseSystem(&section{lines: []string{"cpucount=2"}}, nil)
+	if sys.CpuMhz != 0 || sys.CpuMaxMhz != 0 {
+		t.Errorf("speed = %v / %v MHz, want 0 / 0", sys.CpuMhz, sys.CpuMaxMhz)
 	}
 }

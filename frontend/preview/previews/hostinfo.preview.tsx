@@ -26,6 +26,8 @@ const baseData: HostInfoData = {
         cpumodel: "Example 8-Core Processor",
         cpucount: 8,
         cpupct: 23.4,
+        cpumhz: 3150,
+        cpumaxmhz: 4700,
         memtotal: 32 * GiB,
         memavail: 9.5 * GiB,
         swaptotal: 4 * GiB,

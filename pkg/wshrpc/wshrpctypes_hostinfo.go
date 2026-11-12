@@ -58,6 +58,8 @@ type HostSystemInfo struct {
 	CpuModel  string         `json:"cpumodel,omitempty"`
 	CpuCount  int            `json:"cpucount"`
 	CpuPct    float64        `json:"cpupct"`
+	CpuMhz    float64        `json:"cpumhz,omitempty"`
+	CpuMaxMhz float64        `json:"cpumaxmhz,omitempty"`
 	MemTotal  uint64         `json:"memtotal"`
 	MemAvail  uint64         `json:"memavail"`
 	SwapTotal uint64         `json:"swaptotal"`

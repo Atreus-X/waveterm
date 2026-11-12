@@ -49,6 +49,9 @@ echo "uptime=$(cut -d' ' -f1 /proc/uptime 2>/dev/null)"
 echo "loadavg=$(cat /proc/loadavg 2>/dev/null)"
 echo "cpumodel=$(grep -m1 -E '^(model name|Model|Hardware)' /proc/cpuinfo 2>/dev/null | cut -d: -f2-)"
 echo "cpucount=$(grep -c '^processor' /proc/cpuinfo 2>/dev/null)"
+cat /sys/devices/system/cpu/cpu[0-9]*/cpufreq/scaling_cur_freq 2>/dev/null | sed 's/^/cpucur /'
+cat /sys/devices/system/cpu/cpu[0-9]*/cpufreq/cpuinfo_max_freq 2>/dev/null | sed 's/^/cpumax /'
+grep '^cpu MHz' /proc/cpuinfo 2>/dev/null | sed 's/^[^:]*:/cpumhz /'
 echo "users=$(who 2>/dev/null | wc -l)"
 grep -E '^(MemTotal|MemAvailable|SwapTotal|SwapFree):' /proc/meminfo 2>/dev/null | sed 's/^/mem /'
 echo "@@hi-sub disks"

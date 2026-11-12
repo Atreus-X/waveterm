@@ -14,6 +14,8 @@ import {
     failedServices,
     fmtBytes,
     fmtDuration,
+    fmtGBPair,
+    fmtGHzPair,
     fmtRate,
     getHostCommands,
     groupPorts,
@@ -531,6 +533,8 @@ export const OverviewSection = memo(({ model, data }: SectionProps) => {
             >
                 <OverviewList>
                     <KV k="CPU" v={<span title={sys.cpumodel}>{sys.cpumodel || `${sys.cpucount} cores`}</span>} />
+                    <KV k="CPU speed" v={fmtGHzPair(sys.cpumhz, sys.cpumaxmhz)} />
+                    <KV k="Memory" v={fmtGBPair(sys.memtotal - sys.memavail, sys.memtotal)} />
                     <KV k="Kernel" v={sys.kernel || "-"} />
                     {sys.virt && <KV k="Runs on" v={sys.virt} />}
                     <KV k="Swap" v={sys.swaptotal ? `${fmtBytes(swapUsed)} of ${fmtBytes(sys.swaptotal)}` : "none"} />
