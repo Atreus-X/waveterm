@@ -55,19 +55,6 @@
         "web:defaulturl",
         "web:openlinksinternally",
         "widget:showhelp",
-        "window:bgcolor",
-        "window:blur",
-        "window:disablehardwareacceleration",
-        "window:fullscreenonlaunch",
-        "window:magnifiedblockblurprimarypx",
-        "window:magnifiedblockblursecondarypx",
-        "window:magnifiedblockopacity",
-        "window:magnifiedblocksize",
-        "window:maxtabcachesize",
-        "window:nativetitlebar",
-        "window:reducedmotion",
-        "window:savelastwindow",
-        "window:tilegapsize",
         "window:zoom"
     ]
 }
