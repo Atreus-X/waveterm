@@ -62,6 +62,54 @@
         background-color: rgb(from var(--block-bg-color) r g b / 70%);
     }
 
+    // Minimized blocks keep their view mounted (a terminal keeps running) and only hide it. display: none
+    // gives the terminal's fit logic no size to read, so the pty is not resized while it is minimized.
+    &.minimized.block-frame-default .block-frame-default-inner {
+        > :not(.block-frame-default-header):not(.block-minimized-strip) {
+            display: none;
+        }
+
+        .block-frame-default-header {
+            border-bottom: none;
+        }
+    }
+
+    &.minimized-strip.block-frame-default .block-frame-default-inner > :not(.block-minimized-strip) {
+        display: none;
+    }
+
+    .block-minimized-strip {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 8px;
+        width: 100%;
+        height: 100%;
+        padding: 8px 0;
+        overflow: hidden;
+        cursor: pointer;
+
+        &:hover {
+            background-color: var(--hover-bg-color, rgb(255 255 255 / 6%));
+        }
+
+        .block-minimized-strip-icon {
+            font-size: var(--header-icon-size);
+            opacity: 0.7;
+        }
+
+        .block-minimized-strip-title {
+            flex: 1;
+            min-height: 0;
+            overflow: hidden;
+            font: var(--header-font);
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            writing-mode: vertical-rl;
+            opacity: 0.8;
+        }
+    }
+
     &.block-frame-default {
         position: relative;
         padding: 1px;
