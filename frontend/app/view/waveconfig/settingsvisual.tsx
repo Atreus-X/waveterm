@@ -479,6 +479,27 @@ const SettingSections: SettingSection[] = [
                 label: "Word wrap",
                 kind: "toggle",
             },
+            {
+                key: "editor:stickyscrollenabled",
+                tooltip:
+                    "Pins the heading of the code you are in, such as a class or function name, to the top of the editor while you scroll.",
+                label: "Sticky scroll",
+                kind: "toggle",
+                defaultValue: false,
+            },
+            {
+                key: "editor:inlinediff",
+                tooltip:
+                    "How file differences are shown. Inline puts removed and added lines in one column. Side by side shows the two versions next to each other. Automatic switches by window width.",
+                label: "Diff layout",
+                kind: "select",
+                boolean: true,
+                options: [
+                    { value: UnsetValue, label: "Automatic" },
+                    { value: "true", label: "Inline" },
+                    { value: "false", label: "Side by side" },
+                ],
+            },
         ],
     },
     {
@@ -623,6 +644,48 @@ const SettingSections: SettingSection[] = [
                     { value: "true", label: "On" },
                     { value: "false", label: "Off" },
                 ],
+            },
+            {
+                key: "app:defaultnewblock",
+                tooltip: "Which block the new-block shortcuts open: a terminal, or the launcher.",
+                label: "New block opens",
+                kind: "select",
+                defaultValue: "term",
+                options: [
+                    { value: "term", label: "Terminal" },
+                    { value: "launcher", label: "Launcher" },
+                ],
+            },
+            {
+                key: "app:globalhotkey",
+                tooltip:
+                    "A system-wide shortcut that opens your most recent Wave window from any app. Write key names separated by colons, for example F5 or Ctrl:Option:e. Names: Ctrl, Cmd, Shift, Alt, Option, Meta, Super, letters a to z, F1 to F20. Empty turns it off.",
+                label: "Global hotkey",
+                kind: "text",
+                placeholder: "none",
+            },
+            {
+                key: "app:showoverlayblocknums",
+                tooltip: "Shows a number on each block while you hold Ctrl+Shift.",
+                label: "Block numbers on Ctrl+Shift",
+                kind: "toggle",
+                defaultValue: true,
+            },
+            {
+                key: "app:disablectrlshiftdisplay",
+                tooltip: "Shows the visual indicator that appears while you hold Ctrl+Shift.",
+                label: "Ctrl+Shift indicator",
+                kind: "toggle",
+                invert: true,
+                defaultValue: false,
+            },
+            {
+                key: "app:disablectrlshiftarrows",
+                tooltip: "Lets Ctrl+Shift with the arrow keys or h, j, k, l move between blocks.",
+                label: "Ctrl+Shift block navigation",
+                kind: "toggle",
+                invert: true,
+                defaultValue: false,
             },
         ],
     },
