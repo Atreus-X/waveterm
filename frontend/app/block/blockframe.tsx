@@ -3,15 +3,17 @@
 
 import { BlockModel } from "@/app/block/block-model";
 import { BlockFrame_Header } from "@/app/block/blockframe-header";
-import { blockViewToIcon, getViewIconElem, useTabBackground } from "@/app/block/blockutil";
+import { blockViewToIcon, blockViewToName, getViewIconElem, useTabBackground } from "@/app/block/blockutil";
 import { ConnStatusOverlay } from "@/app/block/connstatusoverlay";
 import { ChangeConnectionBlockModal } from "@/app/modals/conntypeahead";
 import { getBlockComponentModel, globalStore, useBlockAtom } from "@/app/store/global";
+import { uxCloseBlock } from "@/app/store/keymodel";
 import { useTabModel } from "@/app/store/tab-model";
 import { TabRpcClient } from "@/app/store/wshrpcutil";
 import { useWaveEnv } from "@/app/waveenv/waveenv";
 import { WorkspaceLayoutModel } from "@/app/workspace/workspace-layout-model";
 import { ErrorBoundary } from "@/element/errorboundary";
+import { IconButton } from "@/element/iconbutton";
 import { NodeModel } from "@/layout/index";
 import { makeORef } from "@/store/wos";
 import * as util from "@/util/util";
@@ -91,6 +93,51 @@ const BlockMask = React.memo(({ nodeModel }: { nodeModel: NodeModel }) => {
     );
 });
 
+// A block minimized in a row collapses to this narrow strip; its view stays mounted (hidden by CSS) so
+// a terminal keeps running. Click anywhere on it to restore.
+const MinimizedStrip = React.memo(({ nodeModel, viewModel }: { nodeModel: NodeModel; viewModel: ViewModel }) => {
+    const waveEnv = useWaveEnv<BlockEnv>();
+    const metaView = jotai.useAtomValue(waveEnv.getBlockMetaKeyAtom(nodeModel.blockId, "view"));
+    const metaFrameTitle = jotai.useAtomValue(waveEnv.getBlockMetaKeyAtom(nodeModel.blockId, "frame:title"));
+    const iconColor = jotai.useAtomValue(waveEnv.getBlockMetaKeyAtom(nodeModel.blockId, "icon:color"));
+    const viewIconUnion = util.useAtomValueSafe(viewModel?.viewIcon) ?? blockViewToIcon(metaView);
+    const viewModelName = util.useAtomValueSafe(viewModel?.viewName);
+    const viewName = metaFrameTitle ?? viewModelName ?? blockViewToName(metaView);
+    return (
+        <div
+            className="block-minimized-strip"
+            title={`${viewName} (click to restore)`}
+            onClick={() => nodeModel.toggleMinimize()}
+        >
+            <div className="block-minimized-strip-icon">{getViewIconElem(viewIconUnion, iconColor)}</div>
+            <div className="block-minimized-strip-title">{viewName}</div>
+            <IconButton
+                decl={{
+                    elemtype: "iconbutton",
+                    icon: "window-restore",
+                    title: "Restore",
+                    click: (e) => {
+                        e.stopPropagation();
+                        nodeModel.toggleMinimize();
+                    },
+                }}
+            />
+            <IconButton
+                decl={{
+                    elemtype: "iconbutton",
+                    icon: "xmark-large",
+                    title: "Close",
+                    click: (e) => {
+                        e.stopPropagation();
+                        uxCloseBlock(nodeModel.blockId);
+                    },
+                }}
+            />
+        </div>
+    );
+});
+MinimizedStrip.displayName = "MinimizedStrip";
+
 const BlockFrame_Default_Component = (props: BlockFrameProps) => {
     const waveEnv = useWaveEnv<BlockEnv>();
     const { nodeModel, viewModel, blockModel, preview, numBlocksInTab, children } = props;
@@ -105,6 +152,8 @@ const BlockFrame_Default_Component = (props: BlockFrameProps) => {
     }) as jotai.PrimitiveAtom<boolean>;
     const connModalOpen = jotai.useAtomValue(changeConnModalAtom);
     const isMagnified = jotai.useAtomValue(nodeModel.isMagnified);
+    const isMinimized = jotai.useAtomValue(nodeModel.isMinimized);
+    const minimizedAsStrip = jotai.useAtomValue(nodeModel.minimizedAsStrip);
     const isEphemeral = jotai.useAtomValue(nodeModel.isEphemeral);
     const [magnifiedBlockBlurAtom] = React.useState(() =>
         waveEnv.getSettingsKeyAtom("window:magnifiedblockblurprimarypx")
@@ -118,6 +167,10 @@ const BlockFrame_Default_Component = (props: BlockFrameProps) => {
     const connName = jotai.useAtomValue(waveEnv.getBlockMetaKeyAtom(nodeModel.blockId, "connection"));
     const iconColor = jotai.useAtomValue(waveEnv.getBlockMetaKeyAtom(nodeModel.blockId, "icon:color"));
     const noHeader = util.useAtomValueSafe(viewModel?.noHeader);
+
+    React.useEffect(() => {
+        return () => BlockModel.getInstance().clearPointerOverBlock(nodeModel.blockId);
+    }, [nodeModel.blockId]);
 
     React.useEffect(() => {
         if (!manageConnection) {
@@ -173,10 +226,16 @@ const BlockFrame_Default_Component = (props: BlockFrameProps) => {
                 "block-no-highlight": numBlocksInTab === 1 && !aiPanelVisible,
                 ephemeral: isEphemeral,
                 magnified: isMagnified,
+                minimized: isMinimized,
+                "minimized-strip": isMinimized && minimizedAsStrip,
             })}
             data-blockid={nodeModel.blockId}
             onClick={blockModel?.onClick}
-            onPointerEnter={blockModel?.onPointerEnter}
+            onPointerEnter={(e) => {
+                BlockModel.getInstance().setPointerOverBlock(nodeModel.blockId);
+                blockModel?.onPointerEnter?.(e);
+            }}
+            onPointerLeave={() => BlockModel.getInstance().clearPointerOverBlock(nodeModel.blockId)}
             onFocusCapture={blockModel?.onFocusCapture}
             ref={blockModel?.blockRef}
             style={
@@ -196,6 +255,7 @@ const BlockFrame_Default_Component = (props: BlockFrameProps) => {
                 />
             )}
             <div className="block-frame-default-inner" style={innerStyle}>
+                {isMinimized && minimizedAsStrip && <MinimizedStrip nodeModel={nodeModel} viewModel={viewModel} />}
                 {noHeader || <ErrorBoundary fallback={headerElemNoView}>{headerElem}</ErrorBoundary>}
                 {preview ? previewElem : children}
             </div>

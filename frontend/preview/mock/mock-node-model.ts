@@ -16,6 +16,7 @@ export function makeMockNodeModel(opts: MockNodeModelOpts): NodeModel {
     const isFocusedAtom = atom(true);
     const isMagnifiedAtom = atom(false);
     const isPinnedAtom = atom(false);
+    const isMinimizedAtom = atom(false);
 
     return {
         additionalProps: atom({} as any),
@@ -33,6 +34,13 @@ export function makeMockNodeModel(opts: MockNodeModelOpts): NodeModel {
         isPinned: isPinnedAtom,
         togglePin: () => {
             globalStore.set(isPinnedAtom, !globalStore.get(isPinnedAtom));
+            return true;
+        },
+        isMinimized: isMinimizedAtom,
+        minimizedAsStrip: atom(false),
+        canMinimize: atom((opts.numLeafs ?? 1) > 1),
+        toggleMinimize: () => {
+            globalStore.set(isMinimizedAtom, !globalStore.get(isMinimizedAtom));
             return true;
         },
         isEphemeral: atom(false),
