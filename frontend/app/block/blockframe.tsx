@@ -169,6 +169,10 @@ const BlockFrame_Default_Component = (props: BlockFrameProps) => {
     const noHeader = util.useAtomValueSafe(viewModel?.noHeader);
 
     React.useEffect(() => {
+        return () => BlockModel.getInstance().clearPointerOverBlock(nodeModel.blockId);
+    }, [nodeModel.blockId]);
+
+    React.useEffect(() => {
         if (!manageConnection) {
             return;
         }
@@ -227,7 +231,11 @@ const BlockFrame_Default_Component = (props: BlockFrameProps) => {
             })}
             data-blockid={nodeModel.blockId}
             onClick={blockModel?.onClick}
-            onPointerEnter={blockModel?.onPointerEnter}
+            onPointerEnter={(e) => {
+                BlockModel.getInstance().setPointerOverBlock(nodeModel.blockId);
+                blockModel?.onPointerEnter?.(e);
+            }}
+            onPointerLeave={() => BlockModel.getInstance().clearPointerOverBlock(nodeModel.blockId)}
             onFocusCapture={blockModel?.onFocusCapture}
             ref={blockModel?.blockRef}
             style={

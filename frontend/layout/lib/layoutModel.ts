@@ -1576,17 +1576,26 @@ export class LayoutModel {
     /**
      * Minimizes a block to a header-height bar (in a column) or a narrow strip (in a row), or restores it
      * to the share of its parent it had before. Its view stays mounted, so a terminal keeps running.
-     * @returns false when the block can't be minimized (not found, magnified, or no sibling to take its space).
+     * @returns false when nothing changed: not found, magnified, or no sibling to take its space.
      */
     toggleMinimizeNode(nodeId: string): boolean {
         const node = findNode(this.treeState.rootNode, nodeId);
+        return this.setNodeMinimized(nodeId, !isMinimized(node));
+    }
+
+    /**
+     * Minimizes (true) or restores (false) a block, doing nothing when it is already in that state.
+     * @returns whether anything changed, so a key binding can pass the key through when it didn't.
+     */
+    setNodeMinimized(nodeId: string, minimized: boolean): boolean {
+        const node = findNode(this.treeState.rootNode, nodeId);
         const parent = findParent(this.treeState.rootNode, nodeId);
-        if (!node || !parent?.children) return false;
-        if (isMinimized(node)) {
-            restoreChild(parent, node);
-        } else {
+        if (!node || !parent?.children || isMinimized(node) === minimized) return false;
+        if (minimized) {
             if (!this.canMinimizeNode(node, parent, this.treeState.magnifiedNodeId)) return false;
             minimizeChild(parent, node);
+        } else {
+            restoreChild(parent, node);
         }
         this.updateTree(false);
         this.setter(this.localTreeStateAtom, { ...this.treeState });

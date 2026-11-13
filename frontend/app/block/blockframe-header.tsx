@@ -61,7 +61,7 @@ function handleHeaderContextMenu(
     }
     if (minimized || canMinimize) {
         menu.push({
-            label: minimized ? "Restore Block" : "Minimize Block",
+            label: minimized ? "Restore Block (Ctrl+Up)" : "Minimize Block (Ctrl+Down)",
             click: () => nodeModel.toggleMinimize(),
         });
     }
@@ -223,7 +223,7 @@ const HeaderEndIcons = React.memo(({ viewModel, nodeModel, blockId }: HeaderEndI
                     decl={{
                         elemtype: "iconbutton",
                         icon: minimized ? "window-restore" : "window-minimize",
-                        title: minimized ? "Restore" : "Minimize",
+                        title: minimized ? "Restore (Ctrl+Up)" : "Minimize (Ctrl+Down)",
                         click: (e) => {
                             e.stopPropagation();
                             nodeModel.toggleMinimize();
