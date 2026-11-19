@@ -14,7 +14,11 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
+	"slices"
 	"strings"
+	"syscall"
+	"time"
 
 	"github.com/wavetermdev/waveterm/pkg/wavebase"
 )
@@ -176,6 +180,47 @@ func DetectMimeTypeWithDirEnt(path string, dirEnt fs.DirEntry) string {
 	return ""
 }
 
+// Windows fails a rename over a file that another process has open ("being used by another process"). That
+// is usually momentary: antivirus or the search indexer scanning a file we just wrote, or another reader.
+// The values are ERROR_ACCESS_DENIED, ERROR_SHARING_VIOLATION and ERROR_LOCK_VIOLATION.
+const (
+	renameRetryAttempts = 12
+	renameRetryMaxDelay = 250 * time.Millisecond
+)
+
+var windowsFileBusyErrnos = []syscall.Errno{5, 32, 33}
+
+func isWindowsFileBusyErr(err error) bool {
+	var errno syscall.Errno
+	if !errors.As(err, &errno) {
+		return false
+	}
+	return slices.Contains(windowsFileBusyErrnos, errno)
+}
+
+// retryRename retries while busy(err) is true, backing off from 10ms to renameRetryMaxDelay (about 2s in all).
+func retryRename(rename func() error, busy func(error) bool, sleep func(time.Duration)) error {
+	delay := 10 * time.Millisecond
+	var err error
+	for attempt := 0; attempt < renameRetryAttempts; attempt++ {
+		err = rename()
+		if err == nil || !busy(err) || attempt == renameRetryAttempts-1 {
+			return err
+		}
+		sleep(delay)
+		delay = min(delay*2, renameRetryMaxDelay)
+	}
+	return err
+}
+
+func renameWithRetry(oldPath string, newPath string) error {
+	rename := func() error { return os.Rename(oldPath, newPath) }
+	if runtime.GOOS != "windows" {
+		return rename()
+	}
+	return retryRename(rename, isWindowsFileBusyErr, time.Sleep)
+}
+
 func AtomicWriteFile(fileName string, data []byte, perm os.FileMode) error {
 	tmpFileName := fileName + TempFileSuffix
 	if err := os.WriteFile(tmpFileName, data, perm); err != nil {
@@ -184,7 +229,7 @@ func AtomicWriteFile(fileName string, data []byte, perm os.FileMode) error {
 		}
 		return err
 	}
-	if err := os.Rename(tmpFileName, fileName); err != nil {
+	if err := renameWithRetry(tmpFileName, fileName); err != nil {
 		if removeErr := os.Remove(tmpFileName); removeErr != nil && !os.IsNotExist(removeErr) {
 			return fmt.Errorf("failed to rename temp file %q to %q: %w (also failed to remove temp file: %v)", tmpFileName, fileName, err, removeErr)
 		}
