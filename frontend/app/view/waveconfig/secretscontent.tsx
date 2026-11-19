@@ -381,7 +381,7 @@ export const SecretsContent = memo(({ model }: SecretsContentProps) => {
     };
 
     return (
-        <div className="w-full h-full">
+        <div className="w-full h-full overflow-y-auto visible-scrollbar">
             {errorMessage && (
                 <div className="p-4">
                     <ErrorDisplay message={errorMessage} />
