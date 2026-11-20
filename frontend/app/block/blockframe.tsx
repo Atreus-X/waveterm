@@ -23,6 +23,7 @@ import clsx from "clsx";
 import * as jotai from "jotai";
 import * as React from "react";
 import { BlockEnv } from "./blockenv";
+import { restoreSettleMs, useMinimizedBodyHidden } from "./minimizedbody";
 import { BlockFrameProps } from "./blocktypes";
 
 const BlockMask = React.memo(({ nodeModel }: { nodeModel: NodeModel }) => {
@@ -154,6 +155,8 @@ const BlockFrame_Default_Component = (props: BlockFrameProps) => {
     const isMagnified = jotai.useAtomValue(nodeModel.isMagnified);
     const isMinimized = jotai.useAtomValue(nodeModel.isMinimized);
     const minimizedAsStrip = jotai.useAtomValue(nodeModel.minimizedAsStrip);
+    const animationTimeS = jotai.useAtomValue(nodeModel.animationTimeS);
+    const bodyHidden = useMinimizedBodyHidden(isMinimized, restoreSettleMs(animationTimeS, isMagnified));
     const isEphemeral = jotai.useAtomValue(nodeModel.isEphemeral);
     const [magnifiedBlockBlurAtom] = React.useState(() =>
         waveEnv.getSettingsKeyAtom("window:magnifiedblockblurprimarypx")
@@ -226,7 +229,7 @@ const BlockFrame_Default_Component = (props: BlockFrameProps) => {
                 "block-no-highlight": numBlocksInTab === 1 && !aiPanelVisible,
                 ephemeral: isEphemeral,
                 magnified: isMagnified,
-                minimized: isMinimized,
+                minimized: bodyHidden,
                 "minimized-strip": isMinimized && minimizedAsStrip,
             })}
             data-blockid={nodeModel.blockId}
