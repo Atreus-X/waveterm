@@ -74,6 +74,12 @@
         }
     }
 
+    // Docked blocks are listed in the dock bar and take no room in the layout. Hidden like this their view
+    // stays mounted, and the terminal gets no size to fit to, so the pty keeps its size.
+    &.minimized-docked {
+        display: none;
+    }
+
     &.minimized-strip.block-frame-default .block-frame-default-inner > :not(.block-minimized-strip) {
         display: none;
     }

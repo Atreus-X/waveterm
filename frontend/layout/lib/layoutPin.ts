@@ -112,9 +112,23 @@ export function hiddenChildren(children: LayoutNode[], dock: boolean): LayoutNod
     return children.filter(isMinimized);
 }
 
-export function visibleChildren(children: LayoutNode[], dock: boolean): LayoutNode[] {
-    const hidden = hiddenChildren(children, dock);
-    return hidden.length === 0 ? children : children.filter((c) => !hidden.includes(c));
+export const MinimizedBarPositions = ["bottom", "top", "left", "right", "inplace"];
+
+export function normalizeMinimizedBarPosition(position: string): string {
+    return MinimizedBarPositions.includes(position) ? position : "bottom";
+}
+
+export function isDockPosition(position: string): boolean {
+    return position !== "inplace";
+}
+
+/**
+ * The minimized leaves that are listed in the dock bar instead of the layout, in tree order.
+ */
+export function collectDocked(root: LayoutNode, dock: boolean): LayoutNode[] {
+    if (!dock || !root?.children) return [];
+    const hidden = hiddenChildren(root.children, true);
+    return root.children.flatMap((c) => (hidden.includes(c) ? [c] : collectDocked(c, true)));
 }
 
 /**

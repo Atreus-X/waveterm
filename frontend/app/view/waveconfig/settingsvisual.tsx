@@ -174,6 +174,21 @@ const SettingSections: SettingSection[] = [
                 integer: true,
                 placeholder: "3",
             },
+            {
+                key: "window:minimizedbarposition",
+                tooltip:
+                    "Where minimized blocks go. On an edge, they leave the layout and sit as buttons in a bar there; click one to restore it. In place, each collapses where it is.",
+                label: "Minimized blocks",
+                kind: "select",
+                defaultValue: "bottom",
+                options: [
+                    { value: "bottom", label: "Bar at the bottom" },
+                    { value: "top", label: "Bar at the top" },
+                    { value: "left", label: "Bar at the left" },
+                    { value: "right", label: "Bar at the right" },
+                    { value: "inplace", label: "Collapse in place" },
+                ],
+            },
         ],
     },
     {

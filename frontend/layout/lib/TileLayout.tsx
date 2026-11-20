@@ -21,6 +21,7 @@ import { debounce, throttle } from "throttle-debounce";
 import { useDevicePixelRatio } from "use-device-pixel-ratio";
 import { LayoutModel } from "./layoutModel";
 import { useNodeModel, useTileLayout } from "./layoutModelHooks";
+import { isDockPosition } from "./layoutPin";
 import "./tilelayout.scss";
 import {
     LayoutNode,
@@ -106,6 +107,16 @@ function TileLayoutComponent({ tabAtom, contents, getCursorPoint }: TileLayoutPr
         }, 50);
     }, []);
 
+    const dockPosition = useAtomValue(layoutModel.dockPositionAtom);
+    const dockedNodes = useAtomValue(layoutModel.dockedNodesAtom);
+    const lastDockPositionRef = useRef(dockPosition);
+    useEffect(() => {
+        if (lastDockPositionRef.current === dockPosition) return;
+        lastDockPositionRef.current = dockPosition;
+        layoutModel.onDockPositionChanged();
+    }, [dockPosition]);
+    const dockClass = dockedNodes.length > 0 && isDockPosition(dockPosition) ? `dock-${dockPosition}` : null;
+
     const gapSizePx = useAtomValue(layoutModel.gapSizePx);
     const animationTimeS = useAtomValue(layoutModel.animationTimeS);
     const tileStyle = useMemo(
@@ -120,7 +131,7 @@ function TileLayoutComponent({ tabAtom, contents, getCursorPoint }: TileLayoutPr
     return (
         <Suspense>
             <div
-                className={clsx("tile-layout", contents.className, { animate: animate && !isResizing })}
+                className={clsx("tile-layout", contents.className, dockClass, { animate: animate && !isResizing })}
                 style={tileStyle}
             >
                 <div key="display" ref={layoutModel.displayContainerRef} className="display-container">
@@ -130,6 +141,7 @@ function TileLayoutComponent({ tabAtom, contents, getCursorPoint }: TileLayoutPr
                 </div>
                 <Placeholder key="placeholder" layoutModel={layoutModel} style={{ top: 10000, ...overlayTransform }} />
                 <OverlayNodeWrapper layoutModel={layoutModel} />
+                {dockClass && <DockBar layoutModel={layoutModel} contents={contents} nodes={dockedNodes} />}
             </div>
         </Suspense>
     );
@@ -190,6 +202,31 @@ function NodeBackdrops({ layoutModel }: { layoutModel: LayoutModel }) {
         </>
     );
 }
+
+interface DockBarProps {
+    layoutModel: LayoutModel;
+    contents: TileLayoutContents;
+    nodes: LayoutNode[];
+}
+
+const DockBar = memo(({ layoutModel, contents, nodes }: DockBarProps) => {
+    return (
+        <div className="dock-bar">
+            {nodes.map((node) => (
+                <DockItem key={node.id} layoutModel={layoutModel} contents={contents} node={node} />
+            ))}
+        </div>
+    );
+});
+DockBar.displayName = "DockBar";
+
+const DockItem = memo(
+    ({ layoutModel, contents, node }: { layoutModel: LayoutModel; contents: TileLayoutContents; node: LayoutNode }) => {
+        const nodeModel = useNodeModel(layoutModel, node);
+        return <>{contents.renderDockItem?.(nodeModel)}</>;
+    }
+);
+DockItem.displayName = "DockItem";
 
 interface DisplayNodesWrapperProps {
     /**
