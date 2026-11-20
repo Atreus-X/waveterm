@@ -1,12 +1,18 @@
 // Copyright 2026, Atreus-X (fork of Wave Terminal by Command Line Inc.)
 // SPDX-License-Identifier: Apache-2.0
 
-import { LayoutNode } from "./types";
+import { FlexDirection, LayoutNode } from "./types";
 
 // Pinned blocks keep their pixel size along their parent's direction (node.pinnedPx) while the
 // window or the rest of the layout changes; their unpinned siblings share whatever is left in their
 // existing proportions. The layout still works in proportional sizes, so this rewrites the siblings'
 // sizes to match (the parent's total is unchanged), which keeps resize handles and drag math intact.
+// Minimized blocks (node.minimized) are held the same way, at a fixed small size: a header-height bar in
+// a column, a narrow vertical strip in a row.
+
+// header (30px) + its border + the block frame's padding
+export const MinimizedBarPx = 34;
+export const MinimizedStripPx = 36;
 
 export type InsertLocation = { node: LayoutNode; index: number };
 
@@ -19,7 +25,7 @@ export type InsertLocation = { node: LayoutNode; index: number };
 export function adjustInsertForPinned(root: LayoutNode, loc: InsertLocation): InsertLocation {
     if (!loc?.node) return loc;
     if (!loc.node.children) {
-        if (!isPinned(loc.node)) return loc;
+        if (!isFixedSize(loc.node)) return loc;
         const parent = findParentNode(root, loc.node.id);
         if (!parent) return loc;
         return adjustInsertForPinned(root, { node: parent, index: parent.children.indexOf(loc.node) });
@@ -47,7 +53,7 @@ function hoistOutOfPinnedBranch(root: LayoutNode, loc: InsertLocation): InsertLo
 }
 
 function containsPinned(node: LayoutNode): boolean {
-    return isPinned(node) || !!node.children?.some(containsPinned);
+    return isFixedSize(node) || !!node.children?.some(containsPinned);
 }
 
 function findPath(node: LayoutNode, id: string): LayoutNode[] {
@@ -73,22 +79,46 @@ export function isPinned(node: LayoutNode): boolean {
     return node?.pinnedPx != null && node.pinnedPx > 0;
 }
 
+export function isMinimized(node: LayoutNode): boolean {
+    return node?.minimized === true;
+}
+
+export function isFixedSize(node: LayoutNode): boolean {
+    return isPinned(node) || isMinimized(node);
+}
+
+// Pixels a child holds along its parent's direction, or 0 when it takes a proportional share.
+export function fixedPx(node: LayoutNode, parentIsRow: boolean): number {
+    if (isMinimized(node)) return parentIsRow ? MinimizedStripPx : MinimizedBarPx;
+    return isPinned(node) ? node.pinnedPx : 0;
+}
+
 /**
- * Rewrites children's sizes so pinned children get their pinned pixels (scaled down if they wouldn't
- * leave every unpinned sibling at least minPx) and unpinned children split the rest. Returns whether
- * anything changed. No-op when none or all children are pinned, or the parent has no size yet.
+ * Whether the block is shown minimized. A minimized block with no sibling left to take its space (the
+ * others were closed or are fixed too) is shown normally, since there's nothing to collapse into.
  */
-export function applyPinnedSizes(children: LayoutNode[], parentPx: number, minPx: number): boolean {
+export function isShownMinimized(parent: LayoutNode, node: LayoutNode): boolean {
+    if (!isMinimized(node) || !parent?.children) return false;
+    const parentIsRow = parent.flexDirection === FlexDirection.Row;
+    return parent.children.some((c) => c !== node && fixedPx(c, parentIsRow) === 0);
+}
+
+/**
+ * Rewrites children's sizes so pinned and minimized children get their fixed pixels (scaled down if they
+ * wouldn't leave every other sibling at least minPx) and the rest split what's left. Returns whether
+ * anything changed. No-op when none or all children are fixed, or the parent has no size yet.
+ */
+export function applyPinnedSizes(children: LayoutNode[], parentPx: number, minPx: number, parentIsRow = true): boolean {
     if (!children?.length || !(parentPx > 0)) return false;
-    const pinned = children.filter(isPinned);
-    const unpinned = children.filter((c) => !isPinned(c));
+    const pinned = children.filter((c) => fixedPx(c, parentIsRow) > 0);
+    const unpinned = children.filter((c) => fixedPx(c, parentIsRow) === 0);
     if (pinned.length === 0 || unpinned.length === 0) return false;
 
     const totalSize = children.reduce((acc, c) => acc + c.size, 0);
     if (!(totalSize > 0)) return false;
     const sizePerPx = totalSize / parentPx;
 
-    const wantPinnedPx = pinned.reduce((acc, c) => acc + c.pinnedPx, 0);
+    const wantPinnedPx = pinned.reduce((acc, c) => acc + fixedPx(c, parentIsRow), 0);
     const maxPinnedPx = Math.max(0, parentPx - unpinned.length * minPx);
     const scale = wantPinnedPx > maxPinnedPx ? maxPinnedPx / wantPinnedPx : 1;
 
@@ -101,7 +131,7 @@ export function applyPinnedSizes(children: LayoutNode[], parentPx: number, minPx
     };
     let usedPx = 0;
     for (const c of pinned) {
-        const px = c.pinnedPx * scale;
+        const px = fixedPx(c, parentIsRow) * scale;
         usedPx += px;
         setSize(c, px * sizePerPx);
     }
@@ -112,4 +142,25 @@ export function applyPinnedSizes(children: LayoutNode[], parentPx: number, minPx
         setSize(c, restPx * share * sizePerPx);
     }
     return changed;
+}
+
+/**
+ * Marks a child minimized, remembering the share of its parent it had so restoreChild can give it back.
+ */
+export function minimizeChild(parent: LayoutNode, node: LayoutNode) {
+    const total = parent.children.reduce((acc, c) => acc + c.size, 0);
+    node.minimizedFrac = total > 0 ? node.size / total : 1 / parent.children.length;
+    node.minimized = true;
+}
+
+/**
+ * Clears a child's minimized state and sizes it to the share of its parent it had before, measured
+ * against what its siblings hold now (they absorbed its space while it was minimized).
+ */
+export function restoreChild(parent: LayoutNode, node: LayoutNode) {
+    const othersSize = parent.children.filter((c) => c !== node).reduce((acc, c) => acc + c.size, 0);
+    const frac = Math.min(0.9, Math.max(0.05, node.minimizedFrac ?? 1 / parent.children.length));
+    node.size = (frac / (1 - frac)) * othersSize;
+    delete node.minimized;
+    delete node.minimizedFrac;
 }

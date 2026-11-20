@@ -38,6 +38,20 @@ export class BlockModel {
         globalStore.set(this.blockHighlightAtom, highlight);
     }
 
+    // The block the mouse pointer is over, for key bindings that act on it rather than on the focused block.
+    // Not an atom: nothing renders from it.
+    hoveredBlockId: string = null;
+
+    setPointerOverBlock(blockId: string) {
+        this.hoveredBlockId = blockId;
+    }
+
+    clearPointerOverBlock(blockId: string) {
+        if (this.hoveredBlockId === blockId) {
+            this.hoveredBlockId = null;
+        }
+    }
+
     static getInstance(): BlockModel {
         if (!BlockModel.instance) {
             BlockModel.instance = new BlockModel();

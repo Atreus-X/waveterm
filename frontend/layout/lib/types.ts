@@ -301,6 +301,10 @@ export interface LayoutNode {
     size: number;
     // pinned: keeps this many pixels along the parent's direction as the window resizes (layoutPin.ts)
     pinnedPx?: number;
+    // minimized: collapsed to a bar or strip at a fixed size (layoutPin.ts); minimizedFrac is the share of
+    // the parent it had before, used to restore it
+    minimized?: boolean;
+    minimizedFrac?: number;
 }
 
 export type LayoutTreeStateSetter = (value: LayoutState) => void;
@@ -397,6 +401,11 @@ export interface NodeModel {
     // pinned: keeps its pixel size as the window resizes (layoutPin.ts)
     isPinned: Atom<boolean>;
     togglePin: () => boolean;
+    // minimized: collapsed to a header-height bar (in a column) or a narrow vertical strip (in a row)
+    isMinimized: Atom<boolean>;
+    minimizedAsStrip: Atom<boolean>;
+    canMinimize: Atom<boolean>;
+    toggleMinimize: () => boolean;
     isEphemeral: Atom<boolean>;
     ready: Atom<boolean>;
     disablePointerEvents: Atom<boolean>;

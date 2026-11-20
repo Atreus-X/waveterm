@@ -3,7 +3,16 @@
 
 import { describe, expect, it } from "vitest";
 import { newLayoutNode } from "../lib/layoutNode";
-import { adjustInsertForPinned, applyPinnedSizes } from "../lib/layoutPin";
+import {
+    adjustInsertForPinned,
+    applyPinnedSizes,
+    fixedPx,
+    isShownMinimized,
+    minimizeChild,
+    MinimizedBarPx,
+    MinimizedStripPx,
+    restoreChild,
+} from "../lib/layoutPin";
 import { insertNode, insertNodeAtIndex } from "../lib/layoutTree";
 import { FlexDirection, LayoutNode, LayoutTreeActionType, LayoutTreeState } from "../lib/types";
 
@@ -133,5 +142,97 @@ describe("new blocks and pinned blocks", () => {
         } as LayoutTreeState;
         insert(state, "new");
         expect(order(state.rootNode)).not.toEqual(["main", "new", "[a,b]"]);
+    });
+});
+
+describe("minimized blocks", () => {
+    function minimizedLeaf(id: string, size: number): LayoutNode {
+        return { id, size, flexDirection: FlexDirection.Row, minimized: true };
+    }
+
+    it("holds a bar's height in a column and a strip's width in a row", () => {
+        expect(fixedPx(minimizedLeaf("a", 50), false)).toBe(MinimizedBarPx);
+        expect(fixedPx(minimizedLeaf("a", 50), true)).toBe(MinimizedStripPx);
+        expect(fixedPx(leaf("a", 50), true)).toBe(0);
+        expect(fixedPx(leaf("a", 50, 300), true)).toBe(300);
+    });
+
+    it("collapses to a bar in a column and gives its siblings the space", () => {
+        const kids = [minimizedLeaf("a", 50), leaf("b", 25), leaf("c", 25)];
+        applyPinnedSizes(kids, 800, 40, false);
+        expect(pixels(kids, 800)).toEqual([MinimizedBarPx, 383, 383]);
+    });
+
+    it("collapses to a strip in a row", () => {
+        const kids = [leaf("a", 50), minimizedLeaf("b", 50)];
+        applyPinnedSizes(kids, 1000, 40, true);
+        expect(pixels(kids, 1000)).toEqual([1000 - MinimizedStripPx, MinimizedStripPx]);
+    });
+
+    it("keeps the parent's total size", () => {
+        const kids = [minimizedLeaf("a", 40), leaf("b", 30), leaf("c", 30)];
+        applyPinnedSizes(kids, 900, 40, false);
+        expect(kids.reduce((a, c) => a + c.size, 0)).toBeCloseTo(100);
+    });
+
+    it("works next to a pinned block", () => {
+        const kids = [leaf("main", 50), leaf("side", 25, 300), minimizedLeaf("min", 25)];
+        applyPinnedSizes(kids, 1000, 40, true);
+        expect(pixels(kids, 1000)).toEqual([1000 - 300 - MinimizedStripPx, 300, MinimizedStripPx]);
+    });
+
+    it("is only shown minimized while a sibling can take the space", () => {
+        const min = minimizedLeaf("a", 50);
+        const free = leaf("b", 50);
+        const parent = newLayoutNode(FlexDirection.Row, 100, [min, free]);
+        expect(isShownMinimized(parent, min)).toBe(true);
+        expect(isShownMinimized(parent, free)).toBe(false);
+        const pinnedOnly = newLayoutNode(FlexDirection.Row, 100, [min, leaf("p", 50, 300)]);
+        expect(isShownMinimized(pinnedOnly, min)).toBe(false);
+        expect(isShownMinimized(newLayoutNode(FlexDirection.Row, 100, [min]), min)).toBe(false);
+    });
+
+    it("a new block lands left of a minimized block on the right edge and never splits it", () => {
+        const min = block("side");
+        min.minimized = true;
+        const root = newLayoutNode(FlexDirection.Row, 100, [block("main"), min]);
+        expect(adjustInsertForPinned(root, { node: min, index: 1 })).toEqual({ node: root, index: 1 });
+        const state: LayoutTreeState = { rootNode: root } as LayoutTreeState;
+        insert(state, "new");
+        expect(order(state.rootNode)).toEqual(["main", "new", "side"]);
+    });
+
+    it("restores to the share of the parent it had before", () => {
+        const kids = [leaf("a", 30), leaf("b", 50), leaf("c", 20)];
+        const parent = newLayoutNode(FlexDirection.Column, 100, kids);
+        minimizeChild(parent, kids[1]);
+        expect(kids[1].minimized).toBe(true);
+        expect(kids[1].minimizedFrac).toBeCloseTo(0.5);
+        applyPinnedSizes(kids, 800, 40, false);
+        restoreChild(parent, kids[1]);
+        expect(kids[1].minimized).toBeUndefined();
+        expect(kids[1].minimizedFrac).toBeUndefined();
+        const total = kids.reduce((a, c) => a + c.size, 0);
+        expect(kids[1].size / total).toBeCloseTo(0.5);
+        expect(kids[0].size / kids[2].size).toBeCloseTo(1.5);
+    });
+
+    it("restores sensibly after the siblings were resized while it was minimized", () => {
+        const kids = [leaf("a", 50), leaf("b", 50)];
+        const parent = newLayoutNode(FlexDirection.Row, 100, kids);
+        minimizeChild(parent, kids[1]);
+        kids[0].size = 200;
+        restoreChild(parent, kids[1]);
+        expect(kids[1].size / (kids[0].size + kids[1].size)).toBeCloseTo(0.5);
+    });
+
+    it("clamps a missing or extreme remembered share", () => {
+        const kids = [leaf("a", 50), { ...leaf("b", 50), minimized: true, minimizedFrac: 1 }];
+        const parent = newLayoutNode(FlexDirection.Row, 100, kids);
+        restoreChild(parent, kids[1]);
+        expect(kids[1].size / (kids[0].size + kids[1].size)).toBeCloseTo(0.9);
+        const noFrac = [leaf("a", 50), { ...leaf("b", 50), minimized: true }];
+        restoreChild(newLayoutNode(FlexDirection.Row, 100, noFrac), noFrac[1]);
+        expect(noFrac[1].size).toBeCloseTo(50);
     });
 });

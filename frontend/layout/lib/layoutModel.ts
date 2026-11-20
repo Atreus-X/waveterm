@@ -12,7 +12,15 @@ import { createRef, CSSProperties } from "react";
 import { debounce } from "throttle-debounce";
 import { getLayoutStateAtomFromTab } from "./layoutAtom";
 import { balanceNode, findNode, findParent, newLayoutNode, walkNodes } from "./layoutNode";
-import { applyPinnedSizes, isPinned } from "./layoutPin";
+import {
+    applyPinnedSizes,
+    fixedPx,
+    isMinimized,
+    isPinned,
+    isShownMinimized,
+    minimizeChild,
+    restoreChild,
+} from "./layoutPin";
 import {
     clearTree,
     computeMoveNode,
@@ -834,7 +842,7 @@ export class LayoutModel {
         // pinned children keep their pixels; skipped while one of these children is being dragged
         const resizingHere = resizeAction?.resizeOperations.some((op) => node.children.some((c) => c.id === op.nodeId));
         if (!resizingHere) {
-            applyPinnedSizes(node.children, nodePixels, MinNodeSizePx);
+            applyPinnedSizes(node.children, nodePixels, MinNodeSizePx, nodeIsRow);
         }
         const totalChildrenSize = node.children.reduce((acc, child) => acc + getNodeSize(child), 0);
         const pixelToSizeRatio = totalChildrenSize / nodePixels;
@@ -1089,6 +1097,29 @@ export class LayoutModel {
                     return isPinned(findNode(treeState.rootNode, nodeid));
                 }),
                 togglePin: () => this.togglePinNode(nodeid),
+                isMinimized: atom((get) => {
+                    const treeState = get(this.localTreeStateAtom);
+                    // a magnified block is always shown in full; it goes back to its bar or strip afterwards
+                    if (treeState.magnifiedNodeId === nodeid) return false;
+                    return isShownMinimized(
+                        findParent(treeState.rootNode, nodeid),
+                        findNode(treeState.rootNode, nodeid)
+                    );
+                }),
+                minimizedAsStrip: atom((get) => {
+                    const treeState = get(this.localTreeStateAtom);
+                    return findParent(treeState.rootNode, nodeid)?.flexDirection === FlexDirection.Row;
+                }),
+                canMinimize: atom((get) => {
+                    const treeState = get(this.localTreeStateAtom);
+                    const node = findNode(treeState.rootNode, nodeid);
+                    const parent = findParent(treeState.rootNode, nodeid);
+                    if (treeState.magnifiedNodeId === nodeid) return false;
+                    return (
+                        isShownMinimized(parent, node) || this.canMinimizeNode(node, parent, treeState.magnifiedNodeId)
+                    );
+                }),
+                toggleMinimize: () => this.toggleMinimizeNode(nodeid),
                 isEphemeral: atom((get) => {
                     const ephemeralNode = get(this.ephemeralNode);
                     return ephemeralNode?.id === nodeid;
@@ -1524,6 +1555,47 @@ export class LayoutModel {
             const rect = this.getter(this.additionalProps)[nodeId]?.rect;
             if (!rect) return false;
             node.pinnedPx = parent.flexDirection === FlexDirection.Row ? rect.width : rect.height;
+        }
+        this.updateTree(false);
+        this.setter(this.localTreeStateAtom, { ...this.treeState });
+        this.persistToBackend();
+        return true;
+    }
+
+    /**
+     * A block can be minimized when it sits next to at least one sibling that takes a proportional share
+     * of the parent, which then gets the freed space, and isn't the magnified block.
+     */
+    canMinimizeNode(node: LayoutNode, parent: LayoutNode, magnifiedNodeId: string): boolean {
+        if (!node || !parent?.children || node.children?.length > 0) return false;
+        if (magnifiedNodeId === node.id) return false;
+        const parentIsRow = parent.flexDirection === FlexDirection.Row;
+        return parent.children.some((c) => c !== node && fixedPx(c, parentIsRow) === 0);
+    }
+
+    /**
+     * Minimizes a block to a header-height bar (in a column) or a narrow strip (in a row), or restores it
+     * to the share of its parent it had before. Its view stays mounted, so a terminal keeps running.
+     * @returns false when nothing changed: not found, magnified, or no sibling to take its space.
+     */
+    toggleMinimizeNode(nodeId: string): boolean {
+        const node = findNode(this.treeState.rootNode, nodeId);
+        return this.setNodeMinimized(nodeId, !isMinimized(node));
+    }
+
+    /**
+     * Minimizes (true) or restores (false) a block, doing nothing when it is already in that state.
+     * @returns whether anything changed, so a key binding can pass the key through when it didn't.
+     */
+    setNodeMinimized(nodeId: string, minimized: boolean): boolean {
+        const node = findNode(this.treeState.rootNode, nodeId);
+        const parent = findParent(this.treeState.rootNode, nodeId);
+        if (!node || !parent?.children || isMinimized(node) === minimized) return false;
+        if (minimized) {
+            if (!this.canMinimizeNode(node, parent, this.treeState.magnifiedNodeId)) return false;
+            minimizeChild(parent, node);
+        } else {
+            restoreChild(parent, node);
         }
         this.updateTree(false);
         this.setter(this.localTreeStateAtom, { ...this.treeState });
