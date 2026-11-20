@@ -324,6 +324,8 @@ export type WritableLayoutTreeStateAtom = WritableAtom<LayoutTreeState, [value: 
 
 export type ContentRenderer = (nodeModel: NodeModel) => React.ReactNode;
 
+export type DockItemRenderer = (nodeModel: NodeModel) => React.ReactNode;
+
 export type PreviewRenderer = (nodeModel: NodeModel) => React.ReactElement;
 
 export const DefaultNodeSize = 10;
@@ -356,6 +358,11 @@ export interface TileLayoutContents {
      * A callback that accepts the data from the leaf node and returns a preview that can be shown when the user drags a node.
      */
     renderPreview?: PreviewRenderer;
+
+    /**
+     * Renders the button a minimized block gets in the dock bar.
+     */
+    renderDockItem?: DockItemRenderer;
     /**
      * A callback that is called when a node gets deleted from the LayoutTreeState.
      * @param data The contents of the node that was deleted.
@@ -404,6 +411,8 @@ export interface NodeModel {
     // minimized: collapsed to a header-height bar (in a column) or a narrow vertical strip (in a row)
     isMinimized: Atom<boolean>;
     minimizedAsStrip: Atom<boolean>;
+    // minimized and listed in the dock bar instead of the layout
+    minimizedDocked: Atom<boolean>;
     canMinimize: Atom<boolean>;
     toggleMinimize: () => boolean;
     isEphemeral: Atom<boolean>;

@@ -366,6 +366,16 @@
         "window:magnifiedblocksize": {
           "type": "number"
         },
+        "window:minimizedbarposition": {
+          "type": "string",
+          "enum": [
+            "bottom",
+            "top",
+            "left",
+            "right",
+            "inplace"
+          ]
+        },
         "window:magnifiedblockblurprimarypx": {
           "type": "integer"
         },

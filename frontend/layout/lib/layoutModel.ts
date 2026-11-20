@@ -14,11 +14,15 @@ import { getLayoutStateAtomFromTab } from "./layoutAtom";
 import { balanceNode, findNode, findParent, newLayoutNode, walkNodes } from "./layoutNode";
 import {
     applyPinnedSizes,
+    collectDocked,
     fixedPx,
+    hiddenChildren,
+    isDockPosition,
     isMinimized,
     isPinned,
     isShownMinimized,
     minimizeChild,
+    normalizeMinimizedBarPosition,
     restoreChild,
 } from "./layoutPin";
 import {
@@ -226,6 +230,8 @@ export class LayoutModel {
      */
     lastEphemeralNodeId: string;
     magnifiedNodeSizeAtom: Atom<number>;
+    dockPositionAtom: Atom<string>;
+    dockedNodesAtom: Atom<LayoutNode[]>;
 
     /**
      * The size of the resize handles, in CSS pixels.
@@ -335,6 +341,13 @@ export class LayoutModel {
 
         this.ephemeralNode = atom();
         this.magnifiedNodeSizeAtom = getSettingsKeyAtom("window:magnifiedblocksize");
+        const barPositionSettingAtom = getSettingsKeyAtom("window:minimizedbarposition");
+        this.dockPositionAtom = atom((get) => normalizeMinimizedBarPosition(get(barPositionSettingAtom)));
+        this.dockedNodesAtom = atom((get) => {
+            const treeState = get(this.localTreeStateAtom);
+            const docked = collectDocked(treeState.rootNode, isDockPosition(get(this.dockPositionAtom)));
+            return docked.filter((n) => n.id !== treeState.magnifiedNodeId);
+        });
 
         this.magnifiedNodeIdAtom = atom((get) => {
             const treeState = get(this.localTreeStateAtom);
@@ -839,15 +852,18 @@ export class LayoutModel {
         const nodeRect: Dimensions = node.id === this.treeState.rootNode.id ? boundingRect : additionalProps.rect;
         const nodeIsRow = node.flexDirection === FlexDirection.Row;
         const nodePixels = nodeIsRow ? nodeRect.width : nodeRect.height;
+        const dock = isDockPosition(this.getter(this.dockPositionAtom));
+        const hidden = hiddenChildren(node.children, dock);
         // pinned children keep their pixels; skipped while one of these children is being dragged
         const resizingHere = resizeAction?.resizeOperations.some((op) => node.children.some((c) => c.id === op.nodeId));
         if (!resizingHere) {
-            applyPinnedSizes(node.children, nodePixels, MinNodeSizePx, nodeIsRow);
+            applyPinnedSizes(node.children, nodePixels, MinNodeSizePx, nodeIsRow, dock);
         }
         const totalChildrenSize = node.children.reduce((acc, child) => acc + getNodeSize(child), 0);
         const pixelToSizeRatio = totalChildrenSize / nodePixels;
 
         let lastChildRect: Dimensions;
+        let lastChildIndex = -1;
         const resizeHandles: ResizeHandleProps[] = [];
         node.children.forEach((child, i) => {
             const childSize = getNodeSize(child);
@@ -863,10 +879,13 @@ export class LayoutModel {
                 transform,
                 treeKey: additionalProps.treeKey + i,
             };
+            if (hidden.includes(child)) {
+                return;
+            }
 
             // We only want the resize handles in between nodes, this ensures we have n-1 handles.
             if (lastChildRect) {
-                const resizeHandleIndex = resizeHandles.length;
+                const resizeHandleIndex = lastChildIndex;
                 const halfResizeHandleSizePx = resizeHandleSizePx / 2;
                 const resizeHandleDimensions: Dimensions = {
                     top: nodeIsRow
@@ -889,6 +908,7 @@ export class LayoutModel {
                 });
             }
             lastChildRect = rect;
+            lastChildIndex = i;
         });
 
         additionalPropsMap[node.id] = {
@@ -1108,7 +1128,15 @@ export class LayoutModel {
                 }),
                 minimizedAsStrip: atom((get) => {
                     const treeState = get(this.localTreeStateAtom);
+                    if (isDockPosition(get(this.dockPositionAtom))) return false;
                     return findParent(treeState.rootNode, nodeid)?.flexDirection === FlexDirection.Row;
+                }),
+                minimizedDocked: atom((get) => {
+                    const treeState = get(this.localTreeStateAtom);
+                    if (treeState.magnifiedNodeId === nodeid) return false;
+                    return collectDocked(treeState.rootNode, isDockPosition(get(this.dockPositionAtom))).some(
+                        (n) => n.id === nodeid
+                    );
                 }),
                 canMinimize: atom((get) => {
                     const treeState = get(this.localTreeStateAtom);
@@ -1171,7 +1199,7 @@ export class LayoutModel {
         const addlProps = this.getter(this.additionalProps);
         for (const leaf of leafs) {
             const pos = addlProps[leaf.id]?.rect;
-            if (pos) {
+            if (pos?.width > 0 && pos?.height > 0) {
                 nodePositions.set(leaf.id, pos);
             }
         }
@@ -1461,7 +1489,9 @@ export class LayoutModel {
         if (this.resizeContext?.handleId !== resizeHandle.id) {
             const parentNode = findNode(this.treeState.rootNode, resizeHandle.parentNodeId);
             const beforeNode = parentNode.children![resizeHandle.parentIndex];
-            const afterNode = parentNode.children![resizeHandle.parentIndex + 1];
+            const dock = isDockPosition(this.getter(this.dockPositionAtom));
+            const hidden = hiddenChildren(parentNode.children, dock);
+            const afterNode = parentNode.children!.slice(resizeHandle.parentIndex + 1).find((c) => !hidden.includes(c));
 
             const addlProps = this.getter(this.additionalProps);
             const pixelToSizeRatio = addlProps[resizeHandle.parentNodeId]?.pixelToSizeRatio;
@@ -1581,6 +1611,16 @@ export class LayoutModel {
     toggleMinimizeNode(nodeId: string): boolean {
         const node = findNode(this.treeState.rootNode, nodeId);
         return this.setNodeMinimized(nodeId, !isMinimized(node));
+    }
+
+    /**
+     * Re-lays out the tree after the minimized bar position setting changed, since blocks are sized
+     * differently when they are docked.
+     */
+    onDockPositionChanged() {
+        this.updateTree(false);
+        this.setter(this.localTreeStateAtom, { ...this.treeState });
+        this.persistToBackend();
     }
 
     /**

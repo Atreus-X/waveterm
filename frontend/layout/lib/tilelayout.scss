@@ -26,6 +26,82 @@
         z-index: var(--zindex-layout-display-container);
     }
 
+    // The dock bar holds minimized blocks along one edge; the layout containers give up that edge to it.
+    --dock-bar-px: 34px;
+    --dock-side-px: 176px;
+
+    &.dock-bottom {
+        .overlay-container,
+        .display-container,
+        .placeholder-container {
+            height: calc(100% - var(--dock-bar-px));
+        }
+    }
+    &.dock-top {
+        .overlay-container,
+        .display-container,
+        .placeholder-container {
+            top: var(--dock-bar-px);
+            height: calc(100% - var(--dock-bar-px));
+        }
+    }
+    &.dock-left {
+        .overlay-container,
+        .display-container,
+        .placeholder-container {
+            left: var(--dock-side-px);
+            width: calc(100% - var(--dock-side-px));
+        }
+    }
+    &.dock-right {
+        .overlay-container,
+        .display-container,
+        .placeholder-container {
+            width: calc(100% - var(--dock-side-px));
+        }
+    }
+
+    .dock-bar {
+        position: absolute;
+        display: flex;
+        gap: 4px;
+        padding: 3px;
+        box-sizing: border-box;
+        z-index: var(--zindex-layout-display-container);
+    }
+    &.dock-bottom .dock-bar,
+    &.dock-top .dock-bar {
+        left: 0;
+        right: 0;
+        height: var(--dock-bar-px);
+        flex-direction: row;
+        align-items: stretch;
+        overflow-x: auto;
+        overflow-y: hidden;
+    }
+    &.dock-bottom .dock-bar {
+        bottom: 0;
+    }
+    &.dock-top .dock-bar {
+        top: 0;
+    }
+    &.dock-left .dock-bar,
+    &.dock-right .dock-bar {
+        top: 0;
+        bottom: 0;
+        width: var(--dock-side-px);
+        flex-direction: column;
+        align-items: stretch;
+        overflow-y: auto;
+        overflow-x: hidden;
+    }
+    &.dock-left .dock-bar {
+        left: 0;
+    }
+    &.dock-right .dock-bar {
+        right: 0;
+    }
+
     .placeholder-container {
         z-index: var(--zindex-layout-placeholder-container);
     }
