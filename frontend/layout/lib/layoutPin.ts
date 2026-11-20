@@ -104,15 +104,39 @@ export function isShownMinimized(parent: LayoutNode, node: LayoutNode): boolean 
 }
 
 /**
- * Rewrites children's sizes so pinned and minimized children get their fixed pixels (scaled down if they
- * wouldn't leave every other sibling at least minPx) and the rest split what's left. Returns whether
- * anything changed. No-op when none or all children are fixed, or the parent has no size yet.
+ * With the dock bar, minimized children take no space in the layout at all: they are listed in the dock
+ * instead. Like the in-place bar, that needs a sibling left to take their space.
  */
-export function applyPinnedSizes(children: LayoutNode[], parentPx: number, minPx: number, parentIsRow = true): boolean {
+export function hiddenChildren(children: LayoutNode[], dock: boolean): LayoutNode[] {
+    if (!dock || !children?.some((c) => !isFixedSize(c))) return [];
+    return children.filter(isMinimized);
+}
+
+export function visibleChildren(children: LayoutNode[], dock: boolean): LayoutNode[] {
+    const hidden = hiddenChildren(children, dock);
+    return hidden.length === 0 ? children : children.filter((c) => !hidden.includes(c));
+}
+
+/**
+ * Rewrites children's sizes so pinned and minimized children get their fixed pixels (scaled down if they
+ * wouldn't leave every other sibling at least minPx) and the rest split what's left. With dock set,
+ * minimized children are hidden instead: size 0, and their space goes to the rest. Returns whether
+ * anything changed. No-op when nothing is hidden and none or all children are fixed, or the parent has
+ * no size yet.
+ */
+export function applyPinnedSizes(
+    children: LayoutNode[],
+    parentPx: number,
+    minPx: number,
+    parentIsRow = true,
+    dock = false
+): boolean {
     if (!children?.length || !(parentPx > 0)) return false;
-    const pinned = children.filter((c) => fixedPx(c, parentIsRow) > 0);
-    const unpinned = children.filter((c) => fixedPx(c, parentIsRow) === 0);
-    if (pinned.length === 0 || unpinned.length === 0) return false;
+    const hidden = hiddenChildren(children, dock);
+    const shown = hidden.length === 0 ? children : children.filter((c) => !hidden.includes(c));
+    const pinned = shown.filter((c) => fixedPx(c, parentIsRow) > 0);
+    const unpinned = shown.filter((c) => fixedPx(c, parentIsRow) === 0);
+    if (hidden.length === 0 && (pinned.length === 0 || unpinned.length === 0)) return false;
 
     const totalSize = children.reduce((acc, c) => acc + c.size, 0);
     if (!(totalSize > 0)) return false;
@@ -129,6 +153,9 @@ export function applyPinnedSizes(children: LayoutNode[], parentPx: number, minPx
             changed = true;
         }
     };
+    for (const c of hidden) {
+        setSize(c, 0);
+    }
     let usedPx = 0;
     for (const c of pinned) {
         const px = fixedPx(c, parentIsRow) * scale;

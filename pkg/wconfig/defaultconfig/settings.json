@@ -33,6 +33,7 @@
     "window:showversion": "always",
     "window:magnifiedblockopacity": 0.6,
     "window:magnifiedblocksize": 0.95,
+    "window:minimizedbarposition": "bottom",
     "window:magnifiedblockblurprimarypx": 10,
     "window:fullscreenonlaunch": false,
     "window:magnifiedblockblursecondarypx": 2,
