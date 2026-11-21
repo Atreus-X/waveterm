@@ -195,13 +195,40 @@ export function minimizeChild(parent: LayoutNode, node: LayoutNode) {
 }
 
 /**
- * Clears a child's minimized state and sizes it to the share of its parent it had before, measured
- * against what its siblings hold now (they absorbed its space while it was minimized).
+ * Clears a child's minimized state and sizes it to the share of its parent it had before, taking that share
+ * from its siblings (they absorbed its space while it was minimized). The total of the children's sizes is
+ * kept: resizing a pair of blocks is refused once either size passes MaxNodeSize, so a total that grew a
+ * little on every minimize and restore would eventually make every drag snap back.
  */
 export function restoreChild(parent: LayoutNode, node: LayoutNode) {
-    const othersSize = parent.children.filter((c) => c !== node).reduce((acc, c) => acc + c.size, 0);
+    const others = parent.children.filter((c) => c !== node);
+    const othersSize = others.reduce((acc, c) => acc + c.size, 0);
+    const total = othersSize + node.size;
     const frac = Math.min(0.9, Math.max(0.05, node.minimizedFrac ?? 1 / parent.children.length));
-    node.size = (frac / (1 - frac)) * othersSize;
+    if (othersSize > 0 && total > 0) {
+        const nodeSize = frac * total;
+        const scale = (total - nodeSize) / othersSize;
+        others.forEach((c) => (c.size *= scale));
+        node.size = nodeSize;
+    } else {
+        node.size = (frac / (1 - frac)) * othersSize;
+    }
     delete node.minimized;
     delete node.minimizedFrac;
+}
+
+// The most a node's size can be in a resize (layoutTree.ts rejects more), so children's sizes are kept to a
+// total of this.
+export const MaxNodeSize = 100;
+
+/**
+ * Scales children's sizes down, keeping their proportions, when they add up to more than MaxNodeSize. That
+ * repairs layouts saved with inflated sizes, which otherwise can't be resized. Returns whether it changed.
+ */
+export function capChildSizes(children: LayoutNode[]): boolean {
+    const total = children?.reduce((acc, c) => acc + c.size, 0);
+    if (!(total > MaxNodeSize)) return false;
+    const scale = MaxNodeSize / total;
+    children.forEach((c) => (c.size *= scale));
+    return true;
 }
