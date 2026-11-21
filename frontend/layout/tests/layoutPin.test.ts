@@ -6,6 +6,7 @@ import { newLayoutNode } from "../lib/layoutNode";
 import {
     adjustInsertForPinned,
     applyPinnedSizes,
+    capChildSizes,
     fixedPx,
     isShownMinimized,
     minimizeChild,
@@ -234,5 +235,36 @@ describe("minimized blocks", () => {
         const noFrac = [leaf("a", 50), { ...leaf("b", 50), minimized: true }];
         restoreChild(newLayoutNode(FlexDirection.Row, 100, noFrac), noFrac[1]);
         expect(noFrac[1].size).toBeCloseTo(50);
+    });
+});
+
+describe("keeping the total of the children's sizes", () => {
+    const total = (kids: LayoutNode[]) => kids.reduce((a, c) => a + c.size, 0);
+
+    it("restoring a block keeps the total, however many times it is minimized and restored", () => {
+        const kids = [leaf("a", 10), leaf("b", 10), leaf("c", 10)];
+        const parent = newLayoutNode(FlexDirection.Row, 100, kids);
+        for (let i = 0; i < 10; i++) {
+            minimizeChild(parent, kids[0]);
+            applyPinnedSizes(kids, 1500, 40, true);
+            restoreChild(parent, kids[0]);
+        }
+        expect(total(kids)).toBeCloseTo(30);
+        expect(kids[0].size).toBeCloseTo(10);
+    });
+
+    it("scales sizes that add up to more than 100 down, keeping their proportions", () => {
+        const kids = [leaf("a", 150), leaf("b", 100), leaf("c", 50)];
+        expect(capChildSizes(kids)).toBe(true);
+        expect(total(kids)).toBeCloseTo(100);
+        expect(kids.map((c) => Math.round(c.size))).toEqual([50, 33, 17]);
+    });
+
+    it("leaves sizes alone that are already within 100", () => {
+        const kids = [leaf("a", 60), leaf("b", 40)];
+        expect(capChildSizes(kids)).toBe(false);
+        expect(kids.map((c) => c.size)).toEqual([60, 40]);
+        expect(capChildSizes([])).toBe(false);
+        expect(capChildSizes(undefined)).toBe(false);
     });
 });

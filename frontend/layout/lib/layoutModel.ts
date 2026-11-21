@@ -14,6 +14,7 @@ import { getLayoutStateAtomFromTab } from "./layoutAtom";
 import { balanceNode, findNode, findParent, newLayoutNode, walkNodes } from "./layoutNode";
 import {
     applyPinnedSizes,
+    capChildSizes,
     fixedPx,
     isMinimized,
     isPinned,
@@ -842,6 +843,7 @@ export class LayoutModel {
         // pinned children keep their pixels; skipped while one of these children is being dragged
         const resizingHere = resizeAction?.resizeOperations.some((op) => node.children.some((c) => c.id === op.nodeId));
         if (!resizingHere) {
+            capChildSizes(node.children);
             applyPinnedSizes(node.children, nodePixels, MinNodeSizePx, nodeIsRow);
         }
         const totalChildrenSize = node.children.reduce((acc, child) => acc + getNodeSize(child), 0);
