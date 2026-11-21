@@ -955,6 +955,9 @@ func ConnectToClient(connCtx context.Context, opts *SSHOpts, currentClient *ssh.
 	if err != nil {
 		return client, debugInfo.JumpNum, ConnectionError{ConnectionDebugInfo: debugInfo, Err: err}
 	}
+	if debugInfo.JumpNum == 0 && setupAgentForwarding(client, sshKeywords) {
+		blocklogger.Infof(connCtx, "[conndebug] ForwardAgent: terminal sessions on this connection forward the local ssh agent\n")
+	}
 	return client, debugInfo.JumpNum, nil
 }
 
@@ -1048,6 +1051,12 @@ func findSshConfigKeywords(hostPattern string) (connKeywords *wconfig.ConnKeywor
 	}
 	sshKeywords.SshAddKeysToAgent = utilfn.Ptr(strings.ToLower(trimquotes.TryTrimQuotes(addKeysToAgentRaw)) == "yes")
 
+	// Only "yes" turns forwarding on. OpenSSH also accepts a socket path or $VAR here, which Wave does not support;
+	// the strict getter would reject those values and break connections that work today, so use the lenient one
+	// (it returns "" for a value it cannot parse, which leaves forwarding off).
+	forwardAgentRaw := WaveSshConfigUserSettings().Get(hostPattern, "ForwardAgent")
+	sshKeywords.SshForwardAgent = utilfn.Ptr(strings.ToLower(trimquotes.TryTrimQuotes(forwardAgentRaw)) == "yes")
+
 	identitiesOnly, err := WaveSshConfigUserSettings().GetStrict(hostPattern, "IdentitiesOnly")
 	if err != nil {
 		return nil, err
@@ -1125,6 +1134,7 @@ func findSshDefaults(hostPattern string) (connKeywords *wconfig.ConnKeywords, ou
 	sshKeywords.SshKbdInteractiveAuthentication = utilfn.Ptr(true)
 	sshKeywords.SshPreferredAuthentications = strings.Split(ssh_config.Default("PreferredAuthentications"), ",")
 	sshKeywords.SshAddKeysToAgent = utilfn.Ptr(false)
+	sshKeywords.SshForwardAgent = utilfn.Ptr(false)
 	sshKeywords.SshIdentitiesOnly = utilfn.Ptr(false)
 	sshKeywords.SshIdentityAgent = utilfn.Ptr(ssh_config.Default("IdentityAgent"))
 	sshKeywords.SshProxyJump = []string{}
@@ -1190,6 +1200,9 @@ func mergeKeywords(oldKeywords *wconfig.ConnKeywords, newKeywords *wconfig.ConnK
 	}
 	if newKeywords.SshIdentityAgent != nil {
 		outKeywords.SshIdentityAgent = newKeywords.SshIdentityAgent
+	}
+	if newKeywords.SshForwardAgent != nil {
+		outKeywords.SshForwardAgent = newKeywords.SshForwardAgent
 	}
 	if newKeywords.SshIdentitiesOnly != nil {
 		outKeywords.SshIdentitiesOnly = newKeywords.SshIdentitiesOnly

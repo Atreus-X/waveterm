@@ -102,6 +102,7 @@ At the moment, we are capable of parsing any SSH config file that does not conta
 |PreferredAuthentications| (partial) Specifies the order the client should attempt to authenticate in. It is partially implemented as it does not support `gssapi-with-mic` or `hostbased` authentication. The default is `publickey,keyboard-interactive,password`|
 |AddKeysToAgent| (partial) This option will automatically add keys and their corresponding passphrase to your running ssh agent if it is enabled. It is partially supported as it can only accept `yes` and `no` as valid inputs. Other inputs such as `confirm` or a time interval will behave the same as `no`. The default value is `no`.|
 |IdentityAgent| Specifies the Unix Domain Socket used to communicate with the SSH Agent. This is used to overwrite the SSH_AUTH_SOCK identity agent.|
+|ForwardAgent| (partial) Forwards your local ssh agent into terminal sessions on the host, so tools on the host (for example `git`, or `sudo` with `pam_ssh_agent_auth`) can use your keys without the keys leaving your machine. It is partially supported as it only accepts `yes` or `no` (a socket path or `$VAR` is read as `no`). See [Agent Forwarding](#agent-forwarding). The default is `no`.|
 |IdentitiesOnly| Specifies that only the specified authentication identity files should be used. This is either the default files or the ones specified with the IdentityFile keyword. It can accept `yes` or `no`. The default value is `no`.|
 |ProxyJump| Specifies one or more jump proxies in a comma separated list. Each will be visited sequentially using TCP forwarding before connecting to the desired connection (also using TCP forwarding). It can be set to `none` to disable the feature.|
 |UserKnownHostsFile| Provides the location of one or more user host key database files for recording trusted remote connections. The filenames are entered in the same string and separated by whitespace. The default value is `"~/.ssh/known_hosts ~/.ssh/known_hosts2"`.|
@@ -160,6 +161,7 @@ In addition to the regular ssh config file, wave also has its own config file to
 | ssh:kbdinteractiveauthentication | A boolean indicating if keyboard interactive authentication is enabled. Can be used to override the value in `~/.ssh/config` or to set it if the ssh config is being ignored. |
 | ssh:preferredauthentications | A list of strings indicating an ordering of different types of authentications. Each authentication type will be tried in order. This supports `"publickey"`, `"keyboard-interactive"`, and `"password"` as valid types. Other types of authentication are not handled and will be skipped. Can be used to override the value in `~/.ssh/config` or to set it if the ssh config is being ignored.|
 | ssh:addkeystoagent | A boolean indicating if the keys used for a connection should be added to the ssh agent. Can be used to override the value in `~/.ssh/config` or to set it if the ssh config is being ignored.|
+| ssh:forwardagent | A boolean indicating if the local ssh agent should be forwarded into terminal sessions on this connection. Can be used to override the value in `~/.ssh/config` or to set it if the ssh config is being ignored. See [Agent Forwarding](#agent-forwarding).|
 | ssh:identityagent | A string giving the path to the unix domain socket of the identity agent. Can be used to overwrite the value in `~/.ssh/config` or to set it if the ssh config is being ignored.|
 | ssh:proxyjump | A list of strings specifying the names of hosts that must be successively visited with tcp forwarding to establish a connection. Can be used to overwrite the value in `~/.ssh/config` or to set it if the ssh config is being ignored.|
 | ssh:userknownhostsfile | A list containing the paths of any user host key database files used to keep track of authorized connections. Can be used to overwrite the value in `~/.ssh/config` or to set it if the ssh config is being ignored.|
@@ -172,6 +174,25 @@ Wave resolves the identity agent path in this order:
 - If `ssh:identityagent` (or `IdentityAgent` in SSH config) is set for the connection, that socket or pipe is used.
 - If not set on Windows, Wave falls back to the built-in OpenSSH agent pipe `\\.\pipe\openssh-ssh-agent`. Ensure the **OpenSSH Authentication Agent** service is running.
 - If not set on macOS/Linux, Wave queries your shell environment for `SSH_AUTH_SOCK` to detect the agent path automatically.
+
+### Agent Forwarding
+
+With `ForwardAgent yes` (or `ssh:forwardagent`), Wave asks the host to forward your local ssh agent into each terminal you open on it. Every request from the host is answered by a new connection to the same agent Wave uses for authentication (see [SSH Agent Detection](#ssh-agent-detection)), so the agent's own rules apply, including any confirmation prompt it is set up to show. Your private keys are never copied to the host.
+
+```
+Host example-host
+    HostName example.com
+    User admin
+    ForwardAgent yes
+```
+
+- Enable it only for hosts you trust: anyone with root on the host can use your agent while you are connected. Do not set it for `Host *`.
+- It works with `IdentitiesOnly`, which only limits the keys Wave offers for logging in.
+- It applies to every terminal that runs in an ssh session: plain SSH (no wsh) and wsh connections, including `term:tmux` terminals, which attach through a normal session. tmux gives new windows the forwarded agent from the latest attach; windows that were already open keep the socket they started with.
+- Durable shells (shells run by a remote job manager) outlive the connection, so they cannot hold a forwarded agent.
+- Only the last host of a `ProxyJump` chain gets forwarding. Jump hosts never do.
+- If the host refuses forwarding (`AllowAgentForwarding no` in its sshd_config), or no local agent can be found, the terminal still opens; the reason is written to the log.
+- To check it worked, run `ssh-add -L` in the terminal: it should list your keys.
 
 ### Example Internal Configurations
 

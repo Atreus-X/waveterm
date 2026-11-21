@@ -23,6 +23,7 @@ import (
 	"github.com/wavetermdev/waveterm/pkg/blocklogger"
 	"github.com/wavetermdev/waveterm/pkg/jobcontroller"
 	"github.com/wavetermdev/waveterm/pkg/panichandler"
+	"github.com/wavetermdev/waveterm/pkg/remote"
 	"github.com/wavetermdev/waveterm/pkg/remote/conncontroller"
 	"github.com/wavetermdev/waveterm/pkg/util/pamparse"
 	"github.com/wavetermdev/waveterm/pkg/util/shellutil"
@@ -335,6 +336,7 @@ func StartRemoteShellProcNoWsh(ctx context.Context, termSize waveobj.TermSize, c
 		session.Setenv(name, value)
 	}
 	session.RequestPty("xterm-256color", termSize.Rows, termSize.Cols, nil)
+	remote.RequestAgentForwardingIfEnabled(client, session)
 	sessionWrap := MakeSessionWrap(session, "", pipePty)
 	if sessionCmd != "" {
 		err = session.Start(sessionCmd)
@@ -478,6 +480,7 @@ func StartRemoteShellProc(ctx context.Context, logCtx context.Context, termSize 
 	}
 	shellutil.AddTokenSwapEntry(cmdOpts.SwapToken)
 	session.RequestPty("xterm-256color", termSize.Rows, termSize.Cols, nil)
+	remote.RequestAgentForwardingIfEnabled(client, session)
 	sessionWrap := MakeSessionWrap(session, cmdCombined, pipePty)
 	err = sessionWrap.Start()
 	if err != nil {
