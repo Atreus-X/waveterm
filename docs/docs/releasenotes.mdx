@@ -6,6 +6,17 @@ sidebar_position: 200
 
 # Release Notes
 
+### v0.17.11 (Atreus fork) &mdash; Nov 24, 2026
+
+Minimize blocks, SSH agent forwarding, and a settings editor that now covers most settings.
+
+- **Minimize blocks** - The minimize button in a block's header, or Ctrl+Down on the block under the mouse pointer, takes the block out of the layout and puts a button for it in a bar along the bottom of the tab. Click the button, or press Ctrl+Up on the block, to restore it. Its neighbours take the space while it is minimized, and a terminal keeps running. Choose where the bar goes with **Minimized blocks** in Settings (bottom, top, left, right, or collapse in place), or `window:minimizedbarposition`.
+- **SSH agent forwarding** - `ForwardAgent yes` in your ssh config (or `ssh:forwardagent` in `connections.json`) now forwards your local ssh agent into terminals on that host, so `git`, `sudo` with an agent and hops to other hosts can use your keys. Keys are never copied to the host. It works on hosts with and without `wsh`.
+- **Most settings in the editor** - The Settings window now has about 90 settings, in terminal, window, file browser, connections, web, privacy and behavior sections, with a search box. It also has a scrollbar you can see.
+- **CPU speed and memory in the Host Inspector** - The System card shows current and maximum CPU speed, and memory used and total in GB.
+- **Settings saves on Windows** - Writing a config file retries for a moment when Windows reports it busy, instead of failing with "settings.json is being used by another process".
+- **Updated libraries** - Security overrides for `serialize-javascript`, `uuid`, `satori`, `katex` and `fflate` in the documentation tooling.
+
 ### v0.17.10 (Atreus fork) &mdash; Nov 7, 2026
 
 Pasting images and dropping files into SSH terminals, a file browser that refreshes itself, and a fix for copying folders.

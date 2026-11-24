@@ -2,9 +2,9 @@
 
 This is [Atreus-X/waveterm](https://github.com/Atreus-X/waveterm), an unofficial fork of [Wave Terminal](https://github.com/wavetermdev/waveterm). It is not endorsed by Command Line Inc. This page lists what the fork changes, fixes or adds compared with upstream. For the full per-release history see the [release notes](./docs/docs/releasenotes.mdx).
 
-Current as of v0.17.10 (2026-11-07).
+Current as of v0.17.11 (2026-11-24).
 
-**Base:** upstream v0.14.5 plus later upstream fixes. The fork is caught up with upstream `main` (`9f1c9670`) as of v0.17.10; upstream has not tagged a release since v0.14.5. Fork releases are tagged `atreus-vX.Y.Z`.
+**Base:** upstream v0.14.5 plus later upstream fixes. The fork is caught up with upstream `main` (`9f1c9670`) as of v0.17.11; upstream has not tagged a release since v0.14.5. Fork releases are tagged `atreus-vX.Y.Z`.
 
 **Direction:** use the SSH hosts in `~/.ssh/config` **without installing `wsh`** on them. Every remote-host feature works over plain SSH (SFTP, tmux, exec) and, where a host has it, over `wsh`. A host without `wsh` keeps working.
 
@@ -19,6 +19,7 @@ Each entry is tagged with the release it first appeared in, as _(vX.Y)_.
 - **`~/.ssh/config` sync** _(v0.15)_ - hosts from `~/.ssh/config`, including `Include`d files, are added to `connections.json` automatically (`conn:syncsshconfig`); existing entries are never modified
 - **`cmd` blocks and the agent usage meter** work on hosts without `wsh` _(v0.17)_
 - **Paste images and drop files into SSH terminals** _(v0.17.10)_ - pasting an image, or dropping files or folders, uploads them to `/tmp` on the host and types the host path, so Claude Code there can read them. Over SFTP, or `wsh` where the host has it
+- **SSH agent forwarding** _(v0.17.11)_ - `ForwardAgent yes` in `~/.ssh/config` (or `ssh:forwardagent` in `connections.json`) forwards your local ssh agent into terminals on that host, so `git`, `sudo` with an agent and hops to other hosts can use your keys. Keys are never copied to the host, and the agent's own prompts still apply. Works on plain SSH and `wsh` hosts; durable shells can't hold a forwarded agent
 - **Fixes** _(v0.15.1)_ - connections without `wsh` no longer stick on "Connection Degraded", no longer start durable sessions that could never start, and now appear in the file browser's connection picker
 
 ## Host Inspector, Fleet and monitoring
@@ -30,6 +31,7 @@ All of it read-only and agentless: one script over the connection's own SSH clie
 - **Layout** _(v0.17)_ - collapsible icon-only sidebar with a resizable divider; tables shrink to the block's width _(v0.17.1)_; a compact Overview that summarizes the other tabs and fits the block _(v0.17.5)_
 - **Alerts** _(v0.17.4)_ - a bell for full disks and memory, high load, failed services and unhealthy containers; also on connection chips and Fleet rows; dismiss an alert or ignore it permanently; desktop notifications for new critical alerts (`conn:notifyalerts`)
 - **Sortable tables** _(v0.17.4)_ - click a column header in the Network, Ports, Processes, Services and Docker tabs
+- **CPU speed and memory in the System card** _(v0.17.11)_ - current and maximum CPU speed, and memory used and total in GB, on Linux and Windows hosts
 
 ## Library: snippets and notes
 
@@ -54,12 +56,15 @@ All of it read-only and agentless: one script over the connection's own SSH clie
 - **Disconnect on sleep and lock** _(v0.15.5)_ - SSH connections close cleanly (`conn:disconnectonsleep`, `conn:disconnectonlock`), with a **Reconnect all** bar on return
 - **Safer tab closing** _(v0.16)_ - closing a tab with running terminals asks first (`tab:confirmcloserunning`)
 - **Pin block size** _(v0.16)_, **block header icons wrap** instead of clipping _(v0.17.3)_, the app version in the tab bar _(v0.17.3)_
+- **Minimize blocks** _(v0.17.11)_ - the minimize button, or Ctrl+Down on the block under the mouse, takes a block out of the layout and puts a button for it in a bar along the bottom of the tab (`window:minimizedbarposition`: `bottom`, `top`, `left`, `right`, or `inplace` to collapse where it is). Click the button or press Ctrl+Up to restore. A terminal keeps running while minimized and keeps its size, and a restored block stays hidden until it has grown back so tmux and editors see one resize
 
 ## Settings and appearance
 
 - **Visual settings editor** _(v0.15.4)_ - Settings opens on a tab of dropdowns and toggles with a tooltip per setting; the raw editor is "Advanced Options (JSON)". Update channel and check interval are in it _(v0.17.2)_ and apply without a restart
 - **App-wide theme** _(v0.15.4)_ - `app:theme` themes the whole app from a terminal theme
 - **Scrollbars** _(v0.16, v0.17)_ - visible scrollbars in the fork's blocks and terminals, `app:scrollbarsize`
+- **Most settings are in the editor** _(v0.17.11)_ - about 90 settings across terminal, window, file browser, connections, web, privacy and behavior sections, with a search box. A new setting must come with an editor field
+- **Visible scrollbar in Settings** _(v0.17.11)_ - the settings editor and secrets list have a scrollbar you can see and grab
 - Settings that need a restart say so _(v0.17.2)_
 
 ## Privacy, identity and updates
@@ -76,6 +81,7 @@ All of it read-only and agentless: one script over the connection's own SSH clie
 - Enter in the file browser could open the wrong entry when the ".." row wasn't first _(v0.15.3)_
 - A CSV with an empty header cell no longer crashes the block _(v0.17.3)_
 - Remote files edited externally upload on save more reliably, and reopening shows the latest remote content _(v0.17.3)_
+- Config writes on Windows retry for a moment when the file is busy, instead of failing with "settings.json is being used by another process" _(v0.17.11)_
 - A beta install can switch to the `latest` update channel without restarting _(v0.17.1)_
 - The agent usage meter no longer starts a second scan while one is still running on a slow remote host, and when a refresh fails it keeps showing the last result with a warning instead of replacing the meter with an error _(v0.17.8)_
 
@@ -85,7 +91,7 @@ All of it read-only and agentless: one script over the connection's own SSH clie
 - **Local builds only:** releases are built on the maintainer's machine with `scripts/atreus-release-local.sh`, gated by `scripts/atreus-check.sh`. The only GitHub Action is CodeQL
 - **Upstream gate:** a release stops when upstream has commits the fork lacks, until they have been reviewed (`scripts/upstream-review.sh`)
 - **Runtime:** Electron 42 _(v0.17.8)_. Building from source needs `npx install-electron --no` after `npm install` (see [BUILD.md](./BUILD.md))
-- **Dependencies:** kept current with Dependabot. Security overrides force patched versions of `dompurify`, `sharp`, `tinypool` and `postcss-selector-parser` _(v0.17.6)_
+- **Dependencies:** kept current with Dependabot. Security overrides force patched versions of `dompurify`, `sharp`, `tinypool` and `postcss-selector-parser` _(v0.17.6)_, and `serialize-javascript`, `uuid`, `satori`, `katex` and `fflate` in the docs tooling _(v0.17.11)_
 
 ## Keeping this page current
 
