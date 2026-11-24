@@ -7,11 +7,15 @@ import {
     adjustInsertForPinned,
     applyPinnedSizes,
     capChildSizes,
+    collectDocked,
     fixedPx,
+    hiddenChildren,
+    isDockPosition,
     isShownMinimized,
     minimizeChild,
     MinimizedBarPx,
     MinimizedStripPx,
+    normalizeMinimizedBarPosition,
     restoreChild,
 } from "../lib/layoutPin";
 import { insertNode, insertNodeAtIndex } from "../lib/layoutTree";
@@ -235,6 +239,77 @@ describe("minimized blocks", () => {
         const noFrac = [leaf("a", 50), { ...leaf("b", 50), minimized: true }];
         restoreChild(newLayoutNode(FlexDirection.Row, 100, noFrac), noFrac[1]);
         expect(noFrac[1].size).toBeCloseTo(50);
+    });
+});
+
+describe("docked minimized blocks", () => {
+    function minimizedLeaf(id: string, size: number): LayoutNode {
+        return { id, size, flexDirection: FlexDirection.Row, minimized: true };
+    }
+
+    it("reads the position setting, falling back to the bottom for anything unknown", () => {
+        expect(["bottom", "top", "left", "right", "inplace"].map(normalizeMinimizedBarPosition)).toEqual([
+            "bottom",
+            "top",
+            "left",
+            "right",
+            "inplace",
+        ]);
+        expect(normalizeMinimizedBarPosition("")).toBe("bottom");
+        expect(normalizeMinimizedBarPosition(undefined)).toBe("bottom");
+        expect(normalizeMinimizedBarPosition("diagonal")).toBe("bottom");
+        expect(isDockPosition("inplace")).toBe(false);
+        expect(isDockPosition("left")).toBe(true);
+    });
+
+    it("takes no room for a docked block and gives all of it to the others", () => {
+        const kids = [minimizedLeaf("a", 50), leaf("b", 25), leaf("c", 25)];
+        applyPinnedSizes(kids, 800, 40, false, true);
+        expect(kids[0].size).toBe(0);
+        expect(pixels(kids, 800)).toEqual([0, 400, 400]);
+        expect(kids.reduce((a, c) => a + c.size, 0)).toBeCloseTo(100);
+    });
+
+    it("docks in a row the same way", () => {
+        const kids = [leaf("a", 50), minimizedLeaf("b", 50)];
+        applyPinnedSizes(kids, 1000, 40, true, true);
+        expect(pixels(kids, 1000)).toEqual([1000, 0]);
+    });
+
+    it("still honors a pinned sibling", () => {
+        const kids = [minimizedLeaf("a", 40), leaf("b", 30, 300), leaf("c", 30)];
+        applyPinnedSizes(kids, 900, 40, true, true);
+        expect(pixels(kids, 900)).toEqual([0, 300, 600]);
+    });
+
+    it("keeps docked blocks in the layout when every other block is minimized or pinned", () => {
+        const kids = [minimizedLeaf("a", 50), minimizedLeaf("b", 50)];
+        expect(hiddenChildren(kids, true)).toEqual([]);
+        const withPinned = [minimizedLeaf("a", 50), leaf("b", 50, 300)];
+        expect(hiddenChildren(withPinned, true)).toEqual([]);
+    });
+
+    it("hides nothing when minimized blocks stay in place", () => {
+        const kids = [minimizedLeaf("a", 50), leaf("b", 50)];
+        expect(hiddenChildren(kids, false)).toEqual([]);
+        applyPinnedSizes(kids, 800, 40, false, false);
+        expect(pixels(kids, 800)).toEqual([MinimizedBarPx, 800 - MinimizedBarPx]);
+    });
+
+    it("sizes a block back from nothing when it is restored", () => {
+        const kids = [{ ...minimizedLeaf("a", 50), minimizedFrac: 0.5 }, leaf("b", 25), leaf("c", 25)];
+        applyPinnedSizes(kids, 800, 40, false, true);
+        const parent = newLayoutNode(FlexDirection.Column, 100, kids);
+        restoreChild(parent, kids[0]);
+        expect(kids[0].minimized).toBeUndefined();
+        expect(kids[0].size).toBeCloseTo(kids[1].size + kids[2].size);
+    });
+
+    it("lists docked leaves across the tree, in order", () => {
+        const inner = newLayoutNode(FlexDirection.Column, 50, [minimizedLeaf("d", 50), leaf("e", 50)]);
+        const root = newLayoutNode(FlexDirection.Row, undefined, [minimizedLeaf("a", 30), leaf("b", 20), inner]);
+        expect(collectDocked(root, true).map((n) => n.id)).toEqual(["a", "d"]);
+        expect(collectDocked(root, false)).toEqual([]);
     });
 });
 

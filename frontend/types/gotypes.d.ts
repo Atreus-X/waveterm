@@ -1781,6 +1781,7 @@ declare global {
         "window:maxtabcachesize"?: number;
         "window:magnifiedblockopacity"?: number;
         "window:magnifiedblocksize"?: number;
+        "window:minimizedbarposition"?: string;
         "window:magnifiedblockblurprimarypx"?: number;
         "window:magnifiedblockblursecondarypx"?: number;
         "window:confirmclose"?: boolean;

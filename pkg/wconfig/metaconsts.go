@@ -127,6 +127,7 @@ const (
 	ConfigKey_WindowMaxTabCacheSize          = "window:maxtabcachesize"
 	ConfigKey_WindowMagnifiedBlockOpacity    = "window:magnifiedblockopacity"
 	ConfigKey_WindowMagnifiedBlockSize       = "window:magnifiedblocksize"
+	ConfigKey_WindowMinimizedBarPosition     = "window:minimizedbarposition"
 	ConfigKey_WindowMagnifiedBlockBlurPrimaryPx = "window:magnifiedblockblurprimarypx"
 	ConfigKey_WindowMagnifiedBlockBlurSecondaryPx = "window:magnifiedblockblursecondarypx"
 	ConfigKey_WindowConfirmClose             = "window:confirmclose"

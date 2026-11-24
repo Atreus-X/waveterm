@@ -38,6 +38,7 @@ export function makeMockNodeModel(opts: MockNodeModelOpts): NodeModel {
         },
         isMinimized: isMinimizedAtom,
         minimizedAsStrip: atom(false),
+        minimizedDocked: atom(false),
         canMinimize: atom((opts.numLeafs ?? 1) > 1),
         toggleMinimize: () => {
             globalStore.set(isMinimizedAtom, !globalStore.get(isMinimizedAtom));

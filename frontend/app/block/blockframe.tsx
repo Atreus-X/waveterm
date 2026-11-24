@@ -96,7 +96,7 @@ const BlockMask = React.memo(({ nodeModel }: { nodeModel: NodeModel }) => {
 
 // A block minimized in a row collapses to this narrow strip; its view stays mounted (hidden by CSS) so
 // a terminal keeps running. Click anywhere on it to restore.
-const MinimizedStrip = React.memo(({ nodeModel, viewModel }: { nodeModel: NodeModel; viewModel: ViewModel }) => {
+function useMinimizedBlockInfo(nodeModel: NodeModel, viewModel: ViewModel) {
     const waveEnv = useWaveEnv<BlockEnv>();
     const metaView = jotai.useAtomValue(waveEnv.getBlockMetaKeyAtom(nodeModel.blockId, "view"));
     const metaFrameTitle = jotai.useAtomValue(waveEnv.getBlockMetaKeyAtom(nodeModel.blockId, "frame:title"));
@@ -104,6 +104,11 @@ const MinimizedStrip = React.memo(({ nodeModel, viewModel }: { nodeModel: NodeMo
     const viewIconUnion = util.useAtomValueSafe(viewModel?.viewIcon) ?? blockViewToIcon(metaView);
     const viewModelName = util.useAtomValueSafe(viewModel?.viewName);
     const viewName = metaFrameTitle ?? viewModelName ?? blockViewToName(metaView);
+    return { viewIconUnion, iconColor, viewName };
+}
+
+const MinimizedStrip = React.memo(({ nodeModel, viewModel }: { nodeModel: NodeModel; viewModel: ViewModel }) => {
+    const { viewIconUnion, iconColor, viewName } = useMinimizedBlockInfo(nodeModel, viewModel);
     return (
         <div
             className="block-minimized-strip"
@@ -139,6 +144,34 @@ const MinimizedStrip = React.memo(({ nodeModel, viewModel }: { nodeModel: NodeMo
 });
 MinimizedStrip.displayName = "MinimizedStrip";
 
+// A minimized block in the dock bar: the block leaves the layout and this button stands in for it.
+export const MinimizedDockItem = React.memo(({ nodeModel }: { nodeModel: NodeModel }) => {
+    const viewModel = getBlockComponentModel(nodeModel.blockId)?.viewModel;
+    const { viewIconUnion, iconColor, viewName } = useMinimizedBlockInfo(nodeModel, viewModel);
+    return (
+        <div
+            className="flex items-center gap-1.5 min-w-0 shrink-0 max-w-[200px] px-2 rounded bg-white/5 hover:bg-white/10 text-primary text-sm transition-colors cursor-pointer"
+            title={`${viewName} (click to restore)`}
+            onClick={() => nodeModel.toggleMinimize()}
+        >
+            <div className="shrink-0">{getViewIconElem(viewIconUnion, iconColor)}</div>
+            <div className="truncate min-w-0 flex-1">{viewName}</div>
+            <IconButton
+                decl={{
+                    elemtype: "iconbutton",
+                    icon: "xmark-large",
+                    title: "Close",
+                    click: (e) => {
+                        e.stopPropagation();
+                        uxCloseBlock(nodeModel.blockId);
+                    },
+                }}
+            />
+        </div>
+    );
+});
+MinimizedDockItem.displayName = "MinimizedDockItem";
+
 const BlockFrame_Default_Component = (props: BlockFrameProps) => {
     const waveEnv = useWaveEnv<BlockEnv>();
     const { nodeModel, viewModel, blockModel, preview, numBlocksInTab, children } = props;
@@ -155,6 +188,7 @@ const BlockFrame_Default_Component = (props: BlockFrameProps) => {
     const isMagnified = jotai.useAtomValue(nodeModel.isMagnified);
     const isMinimized = jotai.useAtomValue(nodeModel.isMinimized);
     const minimizedAsStrip = jotai.useAtomValue(nodeModel.minimizedAsStrip);
+    const minimizedDocked = jotai.useAtomValue(nodeModel.minimizedDocked);
     const animationTimeS = jotai.useAtomValue(nodeModel.animationTimeS);
     const bodyHidden = useMinimizedBodyHidden(isMinimized, restoreSettleMs(animationTimeS, isMagnified));
     const isEphemeral = jotai.useAtomValue(nodeModel.isEphemeral);
@@ -230,6 +264,7 @@ const BlockFrame_Default_Component = (props: BlockFrameProps) => {
                 ephemeral: isEphemeral,
                 magnified: isMagnified,
                 minimized: bodyHidden,
+                "minimized-docked": minimizedDocked,
                 "minimized-strip": isMinimized && minimizedAsStrip,
             })}
             data-blockid={nodeModel.blockId}

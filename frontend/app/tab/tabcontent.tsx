@@ -2,8 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { Block } from "@/app/block/block";
+import { MinimizedDockItem } from "@/app/block/blockframe";
 import { CenteredDiv } from "@/element/quickelems";
-import { ContentRenderer, NodeModel, PreviewRenderer, TileLayout } from "@/layout/index";
+import { ContentRenderer, DockItemRenderer, NodeModel, PreviewRenderer, TileLayout } from "@/layout/index";
 import { TileLayoutContents } from "@/layout/lib/types";
 import { atoms, getApi } from "@/store/global";
 import * as services from "@/store/services";
@@ -34,6 +35,10 @@ const TabContent = React.memo(({ tabId, noTopPadding }: { tabId: string; noTopPa
             return <Block key={nodeModel.blockId} nodeModel={nodeModel} preview={true} />;
         };
 
+        const renderDockItem: DockItemRenderer = (nodeModel: NodeModel) => {
+            return <MinimizedDockItem key={nodeModel.blockId} nodeModel={nodeModel} />;
+        };
+
         function onNodeDelete(data: TabLayoutData) {
             return services.ObjectService.DeleteBlock(data.blockId);
         }
@@ -41,6 +46,7 @@ const TabContent = React.memo(({ tabId, noTopPadding }: { tabId: string; noTopPa
         return {
             renderContent,
             renderPreview,
+            renderDockItem,
             tabId,
             onNodeDelete,
             gapSizePx: tileGapSize,

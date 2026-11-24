@@ -184,6 +184,7 @@ type SettingsType struct {
 	WindowMaxTabCacheSize               int      `json:"window:maxtabcachesize,omitempty"`
 	WindowMagnifiedBlockOpacity         *float64 `json:"window:magnifiedblockopacity,omitempty"`
 	WindowMagnifiedBlockSize            *float64 `json:"window:magnifiedblocksize,omitempty"`
+	WindowMinimizedBarPosition          string   `json:"window:minimizedbarposition,omitempty" jsonschema:"enum=bottom,enum=top,enum=left,enum=right,enum=inplace"`
 	WindowMagnifiedBlockBlurPrimaryPx   *int64   `json:"window:magnifiedblockblurprimarypx,omitempty"`
 	WindowMagnifiedBlockBlurSecondaryPx *int64   `json:"window:magnifiedblockblursecondarypx,omitempty"`
 	WindowConfirmClose                  bool     `json:"window:confirmclose,omitempty"`
