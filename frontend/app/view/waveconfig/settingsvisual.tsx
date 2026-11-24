@@ -1153,7 +1153,7 @@ export const SettingsVisualContent = memo(({ model }: { model: WaveConfigViewMod
     const visibleSections = useMemo(() => filterSections(SettingSections, query), [query]);
 
     return (
-        <div className="h-full overflow-y-auto">
+        <div className="h-full overflow-y-auto visible-scrollbar">
             <div className="sticky top-0 z-10 border-b border-border/50 bg-background">
                 <div className="mx-auto max-w-2xl px-6 py-3">
                     <div className="relative">
