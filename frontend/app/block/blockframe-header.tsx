@@ -42,6 +42,8 @@ function handleHeaderContextMenu(
     e.stopPropagation();
     const magnified = globalStore.get(nodeModel.isMagnified);
     const pinned = globalStore.get(nodeModel.isPinned);
+    const minimized = globalStore.get(nodeModel.isMinimized);
+    const canMinimize = globalStore.get(nodeModel.canMinimize);
     const menu: ContextMenuItem[] = [
         {
             label: magnified ? "Un-Magnify Block" : "Magnify Block",
@@ -55,6 +57,12 @@ function handleHeaderContextMenu(
         menu.push({
             label: pinned ? "Unpin Size" : "Pin Size (keep it as the window resizes)",
             click: () => nodeModel.togglePin(),
+        });
+    }
+    if (minimized || canMinimize) {
+        menu.push({
+            label: minimized ? "Restore Block (Ctrl+Up)" : "Minimize Block (Ctrl+Down)",
+            click: () => nodeModel.toggleMinimize(),
         });
     }
     menu.push(
@@ -135,6 +143,8 @@ const HeaderEndIcons = React.memo(({ viewModel, nodeModel, blockId }: HeaderEndI
     const ephemeral = jotai.useAtomValue(nodeModel.isEphemeral);
     const numLeafs = jotai.useAtomValue(nodeModel.numLeafs);
     const pinned = jotai.useAtomValue(nodeModel.isPinned);
+    const minimized = jotai.useAtomValue(nodeModel.isMinimized);
+    const canMinimize = jotai.useAtomValue(nodeModel.canMinimize);
     const magnifyDisabled = numLeafs <= 1;
     const showSplitButtons = jotai.useAtomValue(blockEnv.getSettingsKeyAtom("term:showsplitbuttons"));
 
@@ -206,6 +216,22 @@ const HeaderEndIcons = React.memo(({ viewModel, nodeModel, blockId }: HeaderEndI
         };
         endIconsElem.push(<IconButton key="add-to-layout" decl={addToLayoutDecl} />);
     } else {
+        if (minimized || canMinimize) {
+            endIconsElem.push(
+                <IconButton
+                    key="minimize"
+                    decl={{
+                        elemtype: "iconbutton",
+                        icon: minimized ? "window-restore" : "window-minimize",
+                        title: minimized ? "Restore (Ctrl+Up)" : "Minimize (Ctrl+Down)",
+                        click: (e) => {
+                            e.stopPropagation();
+                            nodeModel.toggleMinimize();
+                        },
+                    }}
+                />
+            );
+        }
         endIconsElem.push(
             <OptMagnifyButton
                 key="unmagnify"

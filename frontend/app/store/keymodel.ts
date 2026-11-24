@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { WaveAIModel } from "@/app/aipanel/waveai-model";
+import { BlockModel } from "@/app/block/block-model";
 import { openSnippetPicker } from "@/app/modals/snippetpicker";
 import { closeTabWithConfirm, confirmBlockClose } from "@/app/store/closetab";
 import { FocusManager } from "@/app/store/focusManager";
@@ -71,6 +72,16 @@ function getFocusedBlockInStaticTab(): string {
     const layoutModel = getLayoutModelForStaticTab();
     const focusedNode = globalStore.get(layoutModel.focusedNode);
     return focusedNode.data?.blockId;
+}
+
+function setPointerBlockMinimized(minimized: boolean): boolean {
+    const blockId = BlockModel.getInstance().hoveredBlockId;
+    if (blockId == null) {
+        return false;
+    }
+    const layoutModel = getLayoutModelForStaticTab();
+    const node = layoutModel.getNodeByBlockId(blockId);
+    return node != null && layoutModel.setNodeMinimized(node.id, minimized);
 }
 
 function getSimpleControlShiftAtom() {
@@ -560,6 +571,11 @@ function registerGlobalKeys() {
         }
         return true;
     });
+    // Ctrl+Down minimizes and Ctrl+Up restores the block under the mouse pointer (not the focused block).
+    // The key is only consumed when that changed something, so Ctrl+Up/Down still reach a terminal program
+    // or the editor when the pointer isn't over a block or there is nothing to minimize or restore.
+    globalKeyMap.set("Ctrl:ArrowDown", () => setPointerBlockMinimized(true));
+    globalKeyMap.set("Ctrl:ArrowUp", () => setPointerBlockMinimized(false));
     globalKeyMap.set("Ctrl:Shift:ArrowUp", () => {
         const disableCtrlShiftArrows = globalStore.get(getSettingsKeyAtom("app:disablectrlshiftarrows"));
         if (disableCtrlShiftArrows) {
