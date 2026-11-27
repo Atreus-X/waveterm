@@ -24,6 +24,7 @@ import * as jotai from "jotai";
 import * as React from "react";
 import { BlockEnv } from "./blockenv";
 import { restoreSettleMs, useMinimizedBodyHidden } from "./minimizedbody";
+import { headerTextParts, minimizedDetail, minimizedLabel } from "./minimizedlabel";
 import { BlockFrameProps } from "./blocktypes";
 
 const BlockMask = React.memo(({ nodeModel }: { nodeModel: NodeModel }) => {
@@ -94,8 +95,6 @@ const BlockMask = React.memo(({ nodeModel }: { nodeModel: NodeModel }) => {
     );
 });
 
-// A block minimized in a row collapses to this narrow strip; its view stays mounted (hidden by CSS) so
-// a terminal keeps running. Click anywhere on it to restore.
 function useMinimizedBlockInfo(nodeModel: NodeModel, viewModel: ViewModel) {
     const waveEnv = useWaveEnv<BlockEnv>();
     const metaView = jotai.useAtomValue(waveEnv.getBlockMetaKeyAtom(nodeModel.blockId, "view"));
@@ -104,19 +103,34 @@ function useMinimizedBlockInfo(nodeModel: NodeModel, viewModel: ViewModel) {
     const viewIconUnion = util.useAtomValueSafe(viewModel?.viewIcon) ?? blockViewToIcon(metaView);
     const viewModelName = util.useAtomValueSafe(viewModel?.viewName);
     const viewName = metaFrameTitle ?? viewModelName ?? blockViewToName(metaView);
-    return { viewIconUnion, iconColor, viewName };
+    const connection = jotai.useAtomValue(waveEnv.getBlockMetaKeyAtom(nodeModel.blockId, "connection"));
+    const frameText = jotai.useAtomValue(waveEnv.getBlockMetaKeyAtom(nodeModel.blockId, "frame:text"));
+    const viewText = util.useAtomValueSafe(viewModel?.viewText);
+    const cwd = jotai.useAtomValue(waveEnv.getBlockMetaKeyAtom(nodeModel.blockId, "cmd:cwd"));
+    const labelInput = {
+        viewName,
+        connection,
+        cwd: metaView === "term" ? cwd : null,
+        headerText: headerTextParts(frameText ?? viewText),
+    };
+    const detail = minimizedDetail(labelInput);
+    const label = minimizedLabel(labelInput);
+    return { viewIconUnion, iconColor, viewName, detail, label };
 }
 
+// A block minimized in a row collapses to this narrow strip; its view stays mounted (hidden by CSS) so
+// a terminal keeps running. Click anywhere on it to restore.
+
 const MinimizedStrip = React.memo(({ nodeModel, viewModel }: { nodeModel: NodeModel; viewModel: ViewModel }) => {
-    const { viewIconUnion, iconColor, viewName } = useMinimizedBlockInfo(nodeModel, viewModel);
+    const { viewIconUnion, iconColor, label } = useMinimizedBlockInfo(nodeModel, viewModel);
     return (
         <div
             className="block-minimized-strip"
-            title={`${viewName} (click to restore)`}
+            title={`${label} (click to restore)`}
             onClick={() => nodeModel.toggleMinimize()}
         >
             <div className="block-minimized-strip-icon">{getViewIconElem(viewIconUnion, iconColor)}</div>
-            <div className="block-minimized-strip-title">{viewName}</div>
+            <div className="block-minimized-strip-title">{label}</div>
             <IconButton
                 decl={{
                     elemtype: "iconbutton",
@@ -147,15 +161,18 @@ MinimizedStrip.displayName = "MinimizedStrip";
 // A minimized block in the dock bar: the block leaves the layout and this button stands in for it.
 export const MinimizedDockItem = React.memo(({ nodeModel }: { nodeModel: NodeModel }) => {
     const viewModel = getBlockComponentModel(nodeModel.blockId)?.viewModel;
-    const { viewIconUnion, iconColor, viewName } = useMinimizedBlockInfo(nodeModel, viewModel);
+    const { viewIconUnion, iconColor, viewName, detail, label } = useMinimizedBlockInfo(nodeModel, viewModel);
     return (
         <div
-            className="flex items-center gap-1.5 min-w-0 shrink-0 max-w-[200px] px-2 rounded bg-white/5 hover:bg-white/10 text-primary text-sm transition-colors cursor-pointer"
-            title={`${viewName} (click to restore)`}
+            className="flex items-center gap-1.5 min-w-0 shrink-0 max-w-[280px] px-2 rounded bg-white/5 hover:bg-white/10 text-primary text-sm transition-colors cursor-pointer"
+            title={`${label} (click to restore)`}
             onClick={() => nodeModel.toggleMinimize()}
         >
             <div className="shrink-0">{getViewIconElem(viewIconUnion, iconColor)}</div>
-            <div className="truncate min-w-0 flex-1">{viewName}</div>
+            <div className="truncate min-w-0 flex-1">
+                <span>{viewName}</span>
+                {detail.length > 0 && <span className="text-secondary"> &middot; {detail.join(" \u00b7 ")}</span>}
+            </div>
             <IconButton
                 decl={{
                     elemtype: "iconbutton",
